@@ -1,0 +1,26 @@
+{
+  "name": "fouair-toolbox",
+  "version": "1.0.0",
+  "description": "FourAir社区撸毛工具箱桌面版",
+  "main": "main.js",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "cross-env NODE_ENV=development electron .",
+    "build": "echo \"Build script not implemented yet.\"",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^35.2.0"
+  },
+  "keywords": [
+    "electron",
+    "crypto",
+    "toolbox"
+  ],
+  "author": "YourNameOrTeam",
+  "license": "MIT"
+}

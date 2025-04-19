@@ -1,23 +1,23 @@
 import { setupFilteringAndSearch } from '../components/tableHelper.js';
-import { showModal } from '../components/modal.js'; // Needed for Run/Config modals
-import { addLogEntry } from '../utils/index.js'; // Needed for modal log
+import { showModal } from '../components/modal.js'; // 用于运行/配置模态框
+import { addLogEntry } from '../utils/index.js'; // 用于模态框日志
 
 /**
- * Initializes the Script Plugins page.
- * Loads plugins, sets up filtering, and handles plugin card actions (run, config).
- * @param {HTMLElement} contentArea - The main content area to work within.
+ * 初始化脚本插件页面。
+ * 加载插件，设置筛选，并处理插件卡片操作（运行、配置）。
+ * @param {HTMLElement} contentArea - 要操作的主要内容区域。
  */
 export function initScriptPluginPage(contentArea) {
-    console.log("Initializing Script Plugins Page...");
+    console.log("Initializing Script Plugins Page..."); // 保留英文日志
 
-    // 1. Load/Render Plugin Cards (Placeholder)
+    // 1. 加载/渲染插件卡片（占位符）
     loadAndRenderPlugins(contentArea);
 
-    // 2. Setup Filtering
-    // Item selector is '.plugin-card' (assuming cards are direct children of #plugin-list-container)
+    // 2. 设置筛选
+    // 项目选择器是 '.plugin-card'（假设卡片是 #plugin-list-container 的直接子元素）
     setupFilteringAndSearch(contentArea, '.filters-bar', '#plugin-list-container .plugin-card', filterPluginCard);
 
-    // 3. Add listeners for header buttons
+    // 3. 为头部按钮添加监听器
     const addBtn = contentArea.querySelector('.header-actions .btn-primary');
     const manageBtn = contentArea.querySelector('.header-actions .btn-secondary');
 
@@ -28,7 +28,7 @@ export function initScriptPluginPage(contentArea) {
         manageBtn.addEventListener('click', () => alert('管理本地脚本 (未实现)'));
     }
 
-    // 4. Setup event delegation for plugin card actions
+    // 4. 为插件卡片操作设置事件委托
     const pluginContainer = contentArea.querySelector('#plugin-list-container');
     if (pluginContainer) {
         pluginContainer.addEventListener('click', handlePluginCardAction);
@@ -36,15 +36,15 @@ export function initScriptPluginPage(contentArea) {
 }
 
 /**
- * Placeholder function to load and render plugin cards.
- * In a real app, this would fetch plugin data and generate HTML.
+ * 加载和渲染插件卡片的占位符函数。
+ * 在实际应用中，这将获取插件数据并生成 HTML。
  * @param {HTMLElement} contentArea
  */
 function loadAndRenderPlugins(contentArea) {
     const container = contentArea.querySelector('#plugin-list-container');
     if (!container) return;
 
-    // Example Plugin Data (replace with actual data loading)
+    // 示例插件数据（用实际数据加载替换）
     const plugins = [
         { id: 'p1', name: '批量跨链 (LayerZero)', type: 'official', functions: ['bridge'], description: '使用 Stargate/Merkly 等进行跨链交互。', author: '官方', version: '1.1.0' },
         { id: 'p2', name: '批量Swap (zkSync)', type: 'official', functions: ['swap', 'defi'], description: '在 SyncSwap/Mute 等 DEX 上执行兑换。', author: '官方', version: '1.0.5' },
@@ -77,14 +77,14 @@ function loadAndRenderPlugins(contentArea) {
 }
 
 /**
- * Filter function for plugin cards.
- * @param {HTMLElement} cardElement - The plugin card element.
- * @param {object} filterValues - Object containing filter values.
- *                                e.g., { search: '...', 'plugin-type-filter': 'official', ... }
- * @returns {boolean} - True if the card should be shown.
+ * 插件卡片的筛选函数。
+ * @param {HTMLElement} cardElement - 插件卡片元素。
+ * @param {object} filterValues - 包含筛选值的对象。
+ *                                例如，{ search: '...', 'plugin-type-filter': 'official', ... }
+ * @returns {boolean} - 如果卡片应显示，则返回 true。
  */
 function filterPluginCard(cardElement, filterValues) {
-    // Extract data from card
+    // 从卡片提取数据
     const type = cardElement.dataset.pluginType?.toLowerCase() || '';
     const functions = (cardElement.dataset.pluginFunctions?.toLowerCase() || '').split(',');
     const name = cardElement.querySelector('.plugin-title h5')?.textContent.toLowerCase() || '';
@@ -92,14 +92,14 @@ function filterPluginCard(cardElement, filterValues) {
     const author = cardElement.querySelector('.plugin-meta')?.textContent.toLowerCase() || '';
     const searchContent = `${type} ${functions.join(' ')} ${name} ${description} ${author}`;
 
-    // Get filter values
+    // 获取筛选值
     const typeFilter = filterValues['plugin-type-filter'] || '';
     const functionFilter = filterValues['plugin-function-filter'] || '';
     const searchTerm = filterValues.search || '';
 
-    // Apply filters
+    // 应用筛选器
     const typeMatch = !typeFilter || type === typeFilter;
-    // Check if *any* function in the card matches the function filter
+    // 检查卡片中的 *任何* 功能是否匹配功能筛选器
     const functionMatch = !functionFilter || functions.some(fn => fn.trim() === functionFilter);
     const searchMatch = !searchTerm || searchContent.includes(searchTerm);
 
@@ -107,9 +107,9 @@ function filterPluginCard(cardElement, filterValues) {
 }
 
 /**
- * Handles click events delegated from the plugin container.
- * Identifies clicks on Run or Configure buttons.
- * @param {Event} e - The click event object.
+ * 处理从插件容器委托的点击事件。
+ * 识别对运行或配置按钮的点击。
+ * @param {Event} e - 点击事件对象。
  */
 function handlePluginCardAction(e) {
     const target = e.target;
@@ -124,36 +124,36 @@ function handlePluginCardAction(e) {
 
     if (runButton) {
         e.stopPropagation();
-        console.log(`Run button clicked for plugin: ${pluginName} (${pluginId})`);
+        console.log(`Run button clicked for plugin: ${pluginName} (${pluginId})`); // 保留英文日志结构
         openRunPluginModal(pluginName, pluginId);
     } else if (configButton) {
         e.stopPropagation();
-        console.log(`Config button clicked for plugin: ${pluginName} (${pluginId})`);
+        console.log(`Config button clicked for plugin: ${pluginName} (${pluginId})`); // 保留英文日志结构
         openConfigPluginModal(pluginName, pluginId);
     }
 }
 
 /**
- * Opens the 'Run Plugin' modal.
- * @param {string} pluginName - Name of the plugin.
- * @param {string} pluginId - ID of the plugin.
+ * 打开“运行插件”模态框。
+ * @param {string} pluginName - 插件名称。
+ * @param {string} pluginId - 插件 ID。
  */
 function openRunPluginModal(pluginName, pluginId) {
     showModal('tpl-modal-run-plugin', (modalElement) => {
-        console.log("Setting up Run Plugin modal...");
+        console.log("Setting up Run Plugin modal..."); // 保留英文日志
         modalElement.querySelector('#run-plugin-name').textContent = pluginName;
         const startBtn = modalElement.querySelector('#modal-start-execution-btn');
         const logContainer = modalElement.querySelector('.modal-log-container');
         const walletCountSpan = modalElement.querySelector('#modal-selected-wallet-count');
 
-        // Placeholder: Update wallet count on checkbox change
+        // 占位符：在复选框更改时更新钱包计数
         const walletCheckboxes = modalElement.querySelectorAll('.wallet-checkboxes-compact-modal input[type="checkbox"]');
         const updateTotal = () => {
             const count = modalElement.querySelectorAll('.wallet-checkboxes-compact-modal input[type="checkbox"]:checked').length;
             walletCountSpan.textContent = count;
         };
         walletCheckboxes.forEach(cb => cb.addEventListener('change', updateTotal));
-        updateTotal(); // Initial count
+        updateTotal(); // 初始计数
 
 
         startBtn.onclick = () => {
@@ -163,39 +163,39 @@ function openRunPluginModal(pluginName, pluginId) {
                  return;
              }
             addLogEntry('info', '系统', `开始执行插件 "${pluginName}"，作用于 ${selectedWallets.length} 个钱包...`, logContainer);
-             // Disable button while running?
+             // 运行时禁用按钮？
              startBtn.disabled = true;
              startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
-             // Simulate execution
+             // 模拟执行
              setTimeout(() => {
                  addLogEntry('success', '系统', '插件执行完成 (模拟)。', logContainer);
                  startBtn.disabled = false;
                  startBtn.innerHTML = '<i class="fa fa-play"></i> 重新执行';
              }, 3000);
-            // TODO: Implement actual plugin execution logic
+            // TODO: 实现实际的插件执行逻辑
         };
     });
 }
 
 /**
- * Opens the 'Configure Plugin' modal.
- * @param {string} pluginName - Name of the plugin.
- * @param {string} pluginId - ID of the plugin.
+ * 打开“配置插件”模态框。
+ * @param {string} pluginName - 插件名称。
+ * @param {string} pluginId - 插件 ID。
  */
 function openConfigPluginModal(pluginName, pluginId) {
     showModal('tpl-modal-config-plugin', (modalElement) => {
-        console.log("Setting up Config Plugin modal...");
+        console.log("Setting up Config Plugin modal..."); // 保留英文日志
         modalElement.querySelector('#config-plugin-name').textContent = pluginName;
         const saveBtn = modalElement.querySelector('#modal-save-config-btn');
         const configArea = modalElement.querySelector('#config-options-area');
 
-        // TODO: Load actual config options based on pluginId
-        // For now, just use the placeholder HTML
+        // TODO: 根据 pluginId 加载实际配置选项
+        // 目前，仅使用占位符 HTML
 
         saveBtn.onclick = () => {
             alert(`保存插件 "${pluginName}" 的配置 (未实现)`);
-            // TODO: Implement logic to save configuration
-            // Maybe close modal on save: hideModal();
+            // TODO: 实现保存配置的逻辑
+            // 可以在保存时关闭模态框：hideModal();
         };
     });
-} 
+}
