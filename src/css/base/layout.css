@@ -1,0 +1,285 @@
+/* ================= Layout Containers ================= */
+.main-container {
+    display: flex;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+/* ================= Navbar ================= */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    padding: 0 25px;
+    background-color: #ffffff; /* White navbar */
+    color: #4a4a4a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid #e9ecef;
+    z-index: 100;
+}
+
+.logo {
+    font-size: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    color: #343a40;
+}
+
+.logo i {
+    margin-right: 10px;
+    color: #6c5ce7; /* New primary color */
+    font-size: 20px;
+}
+
+.logo strong { /* Keep this if used elsewhere, otherwise remove */
+    color: #6c5ce7;
+    font-weight: 700;
+    margin-left: 5px;
+}
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.navbar-actions .action-item {
+    color: #6c757d;
+    text-decoration: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.navbar-actions .action-item:hover {
+    background-color: #f1f3f5;
+    color: #6c5ce7;
+}
+
+.navbar-actions .action-item i {
+    font-size: 18px;
+}
+
+/* ================= Sidebar ================= */
+.sidebar {
+    width: 250px;
+    background-color: #ffffff; /* White sidebar */
+    color: #495057;
+    overflow-y: auto;
+    transition: width 0.3s ease;
+    border-right: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar nav {
+    flex-grow: 1;
+    padding-top: 15px;
+}
+
+.sidebar h6 {
+    padding: 15px 20px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #adb5bd; /* Lighter heading */
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar h6 i {
+    margin-right: 8px;
+    font-size: 13px;
+    color: #ced4da;
+}
+
+.sidebar nav ul {
+    list-style: none;
+}
+
+.sidebar nav ul li a {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    margin: 2px 10px;
+    color: #495057;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease, border-radius 0.2s ease;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.sidebar nav ul li a:hover {
+    background-color: #f8f9fa;
+    color: #6c5ce7;
+}
+
+.sidebar nav ul li.active > a {
+    background-color: #e6e3ff; /* Lighter active bg */
+    color: #6c5ce7;
+    font-weight: 600;
+}
+
+.sidebar nav ul li a i {
+    width: 20px;
+    margin-right: 12px;
+    font-size: 16px;
+    text-align: center;
+    color: #adb5bd; /* Icon color */
+    transition: color 0.2s ease;
+}
+
+.sidebar nav ul li a:hover i,
+.sidebar nav ul li.active > a i {
+    color: #6c5ce7;
+}
+
+.sidebar nav ul li ul.sub-categories {
+    margin-left: 25px;
+    padding-left: 15px;
+    border-left: 1px solid #e9ecef;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+.sidebar nav ul li ul.sub-categories li a {
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 400;
+    margin: 1px 0;
+}
+
+.sidebar-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e9ecef;
+    font-size: 12px;
+    color: #adb5bd;
+    text-align: center;
+    margin-top: auto;
+}
+
+/* ================= Content Area ================= */
+.content-area {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+    background-color: #f8f9fc;
+}
+
+/* Page Header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.page-header h2 {
+    color: #343a40;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Filters Bar */
+.filters-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fff;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    border: 1px solid #e9ecef;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+}
+
+.filter-group label i {
+    margin-right: 5px;
+}
+
+/* View Options (often near filters) */
+.view-options {
+     display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.view-options label {
+     font-size: 13px;
+    font-weight: 500;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    margin-right: 5px;
+}
+
+/* Basic Card Container Style (can be overridden by pages) */
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+/* Basic Table Container Style */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    background-color: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    margin-bottom: 20px; /* Add default bottom margin */
+}
+
+/* Pagination placeholder */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-top: 25px;
+}
+
+.pagination button {
+    padding: 5px 10px;
+    border: 1px solid #dfe4ea;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.pagination button.active,
+.pagination button:hover {
+    background-color: #6c5ce7;
+    color: #fff;
+    border-color: #6c5ce7;
+} 

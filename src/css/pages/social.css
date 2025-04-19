@@ -1,0 +1,53 @@
+/* ================= Social Account Page Styles ================= */
+
+/* Table adjustments are in components/tables.css */
+/* Status adjustments are in components/tags.css */
+
+/* Enhancements for Platform Filter Buttons */
+.platform-filter-group {
+    /* Override default gap if needed */
+    gap: 5px;
+}
+
+.platform-filter-group .filter-icon {
+    /* Style filter icon if needed */
+}
+
+.platform-buttons {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f8f9fa; /* Use var(--bg-color-lighter) */
+    border-radius: 6px;
+    padding: 4px;
+}
+
+.platform-filter-btn {
+    padding: 5px 12px;
+    border: none;
+    background-color: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6c757d; /* Use var(--text-color-light) */
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.platform-filter-btn i {
+    font-size: 1.1em; /* Make icon slightly larger */
+}
+
+.platform-filter-btn:hover {
+    background-color: #e9ecef; /* Use var(--border-color-light) */
+    color: #495057; /* Use var(--text-color) */
+}
+
+.platform-filter-btn.active {
+    background-color: #fff;
+    color: #6c5ce7; /* Use var(--color-primary) */
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+} 

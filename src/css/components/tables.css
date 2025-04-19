@@ -1,0 +1,59 @@
+/* ================= Table Styles ================= */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 1px solid #f1f3f5;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.data-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    font-size: 13px;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.data-table td {
+    font-size: 14px;
+    color: #495057;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fc;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.actions-cell {
+    text-align: right !important;
+}
+
+.actions-cell .btn-icon {
+    margin: 0 3px;
+}
+
+/* Specific table cell adjustments */
+.wallet-address-cell {
+    display: flex;
+    align-items: center;
+}
+.wallet-address-cell span {
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.social-table th, .social-table td {
+    /* Adjust padding or alignment if needed for social table columns */
+    vertical-align: middle;
+} 

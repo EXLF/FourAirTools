@@ -1,0 +1,161 @@
+/* ================= Status, Tags, Icons ================= */
+
+.status,
+.risk,
+.risk-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    line-height: 1.2;
+    border: 1px solid transparent;
+}
+
+/* General Statuses */
+.status.active, /* Used in network */
+.status.success, /* Used in wallets */
+.status.status-connection-connected, /* Used in social */
+.risk.low,
+.risk-tag.low {
+    background-color: #e7f5ec;
+    color: #20c997;
+    border-color: #a6e9d5;
+}
+
+.status.inactive, /* Used in network */
+.status.na, /* Used in wallets */
+.status.status-connection-disconnected,
+.status.status-connection-na,
+.risk.na {
+    background-color: #f1f3f5;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+.status.pending, /* Used in wallets */
+.status.status-connection-auth_required,
+.risk.medium,
+.risk-tag.medium {
+    background-color: #fff8e1;
+    color: #fab005;
+    border-color: #ffec99;
+}
+
+.status.banned, /* Used in wallets */
+.status.status-connection-error,
+.risk.high,
+.risk-tag.high {
+    background-color: #ffe3e3;
+    color: #e63946;
+    border-color: #ffc9c9;
+}
+
+/* Specific Statuses (Social - Cultivation, Connection already covered above) */
+.status.status-cultivation-active { color: #20c997; }
+.status.status-cultivation-warming { color: #fab005; }
+.status.status-cultivation-new { color: #1890ff; /* Example info color */ }
+.status.status-cultivation-banned { color: #e63946; }
+
+/* Activity List Statuses (Projects) */
+.activity-list .status-new { color: #6c5ce7; /* Use primary color */ }
+.activity-list .status-pending { color: #fab005; }
+.activity-list .status-done { color: #20c997; }
+.activity-list .status-ignored { color: #adb5bd; }
+
+/* General Tags (Projects, Plugins) */
+.tag {
+    display: inline-block;
+    background-color: #f1f3f5;
+    color: #6c757d;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+/* Activity List Specific Tag Colors */
+.activity-list .tag-blue { background-color: #e7f3ff; color: #007bff; }
+.activity-list .tag-green { background-color: #e7fff3; color: #28a745; }
+.activity-list .tag-purple { background-color: #f3e7ff; color: #6f42c1; }
+.activity-list .tag-yellow { background-color: #fff8e7; color: #ffc107; }
+.activity-list .tag-orange { background-color: #fff0e7; color: #fd7e14; }
+.activity-list .tag-red { background-color: #ffe7e7; color: #dc3545; }
+.activity-list .tag-grey { background-color: #f8f9fa; color: #6c757d; }
+
+/* Plugin Type Tags */
+.plugin-type {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.plugin-type.type-official {
+    background-color: #e6f7ff; /* Light blue */
+    color: #1890ff;
+}
+
+.plugin-type.type-community {
+    background-color: #fffbe6; /* Light yellow */
+    color: #faad14;
+}
+
+.plugin-type.type-local {
+    background-color: #f6ffed; /* Light green */
+    color: #52c41a;
+}
+
+/* Badge (Navbar) */
+.badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background-color: #e63946;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Chain/Platform/Exchange Icons */
+.chain-icon, .platform-icon, .exchange-icon {
+    font-size: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    text-align: center;
+    line-height: 18px !important;
+    border-radius: 4px;
+}
+
+.chain-icon.eth { color: #627eea; }
+.chain-icon.sol { color: #dc1fff; }
+.chain-icon.arb { color: #28a0f0; }
+.chain-icon.bsc { color: #f3ba2f; }
+.chain-icon.btc { color: #f7931a; } /* Placeholder */
+
+.platform-icon.twitter { color: #1DA1F2; }
+.platform-icon.discord { color: #7289DA; }
+.platform-icon.telegram { color: #0088cc; }
+
+.exchange-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: contain;
+} 

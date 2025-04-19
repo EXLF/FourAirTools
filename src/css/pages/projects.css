@@ -1,0 +1,149 @@
+/* ================= Project Tracking Page Styles ================= */
+
+.project-container {
+    /* Basic grid is in layout.css, specific overrides if needed */
+    padding-top: 20px; /* Add some space above cards */
+}
+.project-container.card-view {
+    /* Grid setup is in layout.css or cards.css? Check consistency. Assuming base in layout.css */
+     /* Base: Responsive grid allowing 1 or more columns based on width */
+     display: grid; /* Ensure grid display is set */
+     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+     gap: 20px;
+}
+/* Force exactly two columns on wider screens */
+@media (min-width: 992px) { /* Adjust breakpoint as needed */
+    .project-container.card-view {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+/* Add list-view styles later if needed */
+
+/* Project card base style is in components/cards.css */
+
+/* Project Card Specific Content Styles */
+.project-summary {
+    font-size: 0.85em;
+    color: #6c757d; /* Use var(--text-color-light) */
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #f1f3f5; /* Use var(--border-color) */
+    display: flex;
+    gap: 15px;
+}
+
+.project-summary span {
+    display: inline-block;
+}
+
+.project-activities h6 {
+    margin: 0 0 10px 0;
+    font-size: 0.95em;
+    font-weight: 500;
+    color: #495057; /* Use var(--text-color) */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.activity-list-scroll-container {
+    max-height: 180px; /* Limit height */
+    overflow-y: auto; /* Enable scrollbar when needed */
+    margin-right: -10px; /* Compensate for scrollbar width */
+    padding-right: 10px; /* Add padding for scrollbar */
+    padding-left: 5px; /* Indent list slightly */
+}
+
+/* Customize scrollbar for activity list */
+.activity-list-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-list-scroll-container::-webkit-scrollbar-track {
+    background: #f8f9fa; /* Use var(--bg-color-light) */
+    border-radius: 3px;
+}
+
+.activity-list-scroll-container::-webkit-scrollbar-thumb {
+    background-color: #ced4da; /* Use var(--border-color-dark) */
+    border-radius: 3px;
+}
+
+.activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.activity-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 0.9em;
+    border-bottom: 1px solid #f8f9fa; /* Use var(--border-color-light) */
+}
+
+.activity-list li:last-child {
+    border-bottom: none;
+}
+
+.activity-list .activity-desc {
+    flex-grow: 1;
+    color: #495057; /* Use var(--text-color) */
+}
+
+/* Tag base style is in components/tags.css */
+/* Tag colors are in components/tags.css */
+
+/* Status base style is in components/tags.css */
+/* Status colors are in components/tags.css */
+
+.activity-list .date {
+    font-size: 0.85em;
+    color: #6c757d; /* Use var(--text-color-light) */
+    white-space: nowrap;
+}
+
+.activity-list .actions {
+    display: flex;
+    gap: 5px;
+}
+
+.activity-list .actions .btn-icon {
+    padding: 3px;
+    font-size: 0.9em;
+    color: #adb5bd; /* Use var(--text-color-light) */
+}
+.activity-list .actions .btn-icon:hover {
+     color: #6c5ce7; /* Use var(--color-primary) */
+}
+
+/* Project Card Footer Specifics */
+.activity-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    color: #6c757d; /* Use var(--text-color-light) */
+}
+
+.activity-progress .progress-bar {
+    width: 80px;
+    height: 6px;
+    background-color: #e9ecef; /* Use var(--border-color-dark) */
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.activity-progress .progress {
+    height: 100%;
+    background-color: #6c5ce7; /* Use var(--color-primary) */
+    border-radius: 3px;
+}
+
+.project-card .card-footer .btn-small {
+    /* Style defined in buttons.css, add specifics if needed */
+    padding: 5px 10px;
+    font-size: 0.85em;
+} 

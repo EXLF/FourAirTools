@@ -1,0 +1,121 @@
+<div class="page-header">
+    <h2>钱包管理</h2>
+    <div class="header-actions">
+        <button class="btn btn-primary"><i class="fa fa-plus"></i> 添加钱包</button>
+        <button class="btn btn-secondary"><i class="fa fa-upload"></i> 导入钱包</button>
+        <button class="btn btn-secondary"><i class="fa fa-download"></i> 导出选中</button>
+        <button class="btn btn-secondary"><i class="fa fa-object-group"></i> 管理分组</button>
+    </div>
+</div>
+<div class="filters-bar">
+     <div class="filter-group">
+        <label><i class="fa fa-filter"></i> 筛选:</label>
+        <select id="wallet-chain-filter" class="select-filter">
+            <option value="">所有链</option>
+            <option value="eth">Ethereum</option>
+            <option value="arb">Arbitrum</option>
+            <option value="sol">Solana</option>
+            <option value="bsc">BSC</option>
+            <!-- 更多链 -->
+        </select>
+        <select id="wallet-type-filter" class="select-filter">
+            <option value="">所有类型</option>
+            <option value="onchain">链上钱包</option>
+            <option value="exchange">交易所子账户</option>
+        </select>
+        <select id="wallet-group-filter" class="select-filter">
+            <option value="">所有分组</option>
+            <option value="main">主账户组</option>
+            <option value="l0">LayerZero组</option>
+        </select>
+         <input type="search" placeholder="搜索地址/备注/分组..." class="table-search-input">
+     </div>
+</div>
+<div class="table-container">
+    <table class="data-table wallet-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" title="全选"></th>
+                <th>钱包地址/标识</th>
+                <th>链</th>
+                <th>类型</th>
+                <th>备注</th>
+                <th>分组</th>
+                <th>余额(估)</th>
+                <th>Tx数</th>
+                <th>备份</th>
+                <th>风险</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><input type="checkbox"></td>
+                <td class="wallet-address-cell">
+                    <i class="fa fa-ethereum chain-icon eth"></i>
+                    <span>0x1234...5678</span>
+                </td>
+                <td>Ethereum</td>
+                <td>链上钱包</td>
+                <td>主力交互</td>
+                <td>LayerZero组</td>
+                <td>2.5 ETH</td>
+                <td>128</td>
+                <td><span class="status success">已备份</span></td>
+                <td><span class="risk low">低</span></td>
+                <td class="actions-cell">
+                    <button class="btn-icon" title="查看详情"><i class="fa fa-eye"></i></button>
+                    <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
+                    <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                </td>
+            </tr>
+            <tr>
+                <td><input type="checkbox"></td>
+                 <td class="wallet-address-cell">
+                     <img src="https://via.placeholder.com/16/FFA500/000000?text=O" alt="OKX" class="exchange-icon">
+                    <span>SubAcc_L0_01</span>
+                </td>
+                <td>OKX</td>
+                <td>交易所子账户</td>
+                <td>L0资金归集</td>
+                <td>LayerZero组</td>
+                <td>500 USDT</td>
+                <td>N/A</td>
+                <td><span class="status na">N/A</span></td>
+                <td><span class="risk na">N/A</span></td>
+                <td class="actions-cell">
+                    <button class="btn-icon" title="查看详情"><i class="fa fa-eye"></i></button>
+                    <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
+                    <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                </td>
+            </tr>
+            <tr>
+                <td><input type="checkbox"></td>
+                 <td class="wallet-address-cell">
+                    <i class="fa fa-btc chain-icon sol"></i>
+                    <span>SoLWallet...dEaD</span>
+                </td>
+                <td>Solana</td>
+                <td>链上钱包</td>
+                <td>Solana生态</td>
+                <td>Solana组</td>
+                <td>15 SOL</td>
+                <td>35</td>
+                <td><span class="status pending">待备份</span></td>
+                <td><span class="risk medium">中</span></td>
+                <td class="actions-cell">
+                    <button class="btn-icon" title="查看详情"><i class="fa fa-eye"></i></button>
+                    <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
+                    <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+ <div class="pagination">
+    <button>&laquo;</button>
+    <button class="active">1</button>
+    <button>2</button>
+    <button>3</button>
+    <button>&raquo;</button>
+</div> 

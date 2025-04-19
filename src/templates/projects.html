@@ -1,0 +1,277 @@
+<div class="page-header">
+    <h1>项目跟踪</h1>
+    <div class="header-actions">
+        <button class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新数据</button>
+        <button class="btn btn-primary"><i class="fas fa-plus"></i> 添加项目/活动</button>
+    </div>
+</div>
+
+<div class="filters-bar">
+    <div class="filter-group">
+        <i class="fas fa-filter filter-icon"></i>
+        <span class="filter-label">筛选:</span>
+        <select id="project-chain-filter" class="select-filter">
+            <option value="">所有链</option>
+            <option value="LayerZero">LayerZero</option>
+            <option value="zkSync">zkSync Era</option>
+            <option value="StarkNet">StarkNet</option>
+            <option value="Base">Base</option>
+            <option value="Linea">Linea</option>
+        </select>
+        <select id="project-type-filter" class="select-filter">
+            <option value="">所有项目类型</option>
+            <option value="Infrastructure">基础设施</option>
+            <option value="L2">Layer 2</option>
+            <option value="DeFi">DeFi</option>
+            <option value="NFT">NFT</option>
+        </select>
+        <select id="activity-status-filter" class="select-filter">
+            <option value="">所有活动状态</option>
+            <option value="new">新活动 <i class="fas fa-star"></i></option>
+            <option value="pending">待办 <i class="far fa-clock"></i></option>
+            <option value="done">已完成 <i class="far fa-check-circle"></i></option>
+             <option value="ignored">已忽略 <i class="fas fa-eye-slash"></i></option>
+        </select>
+    </div>
+    <div class="search-box table-search-box">
+         <i class="fas fa-search search-icon"></i>
+        <input type="text" class="table-search-input" placeholder="搜索项目或活动...">
+    </div>
+</div>
+
+<div class="project-container card-view">
+    <!-- Project Card 1: LayerZero -->
+    <div class="project-card" data-chain="LayerZero" data-type="Infrastructure" data-total-tasks="5" data-pending-tasks="1">
+        <div class="card-header">
+            <img src="https://via.placeholder.com/30/8888FF/FFFFFF?text=L0" alt="LayerZero" class="project-icon">
+            <div class="project-title">
+                <h5>LayerZero</h5>
+                <span><i class="fas fa-cogs"></i> 基础设施 / <i class="fas fa-link"></i> 跨链</span>
+            </div>
+        </div>
+        <div class="card-body project-activities">
+             <div class="project-summary">
+                <span>总活动: 5</span>
+                <span>待办: 1</span>
+                <span>上次交互: 8天前</span>
+            </div>
+            <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
+            <div class="activity-list-scroll-container">
+                <ul class="activity-list">
+                    <li data-status="new">
+                        <span class="activity-desc">Stargate 新增 Aptos 跨链支持</span>
+                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
+                        <span class="status status-new"><i class="fas fa-star"></i> 新活动</span>
+                        <span class="date">07-28</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="标记为待办"><i class="far fa-clock"></i></button>
+                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
+                            <button class="btn-icon" title="忽略"><i class="fas fa-eye-slash"></i></button>
+                        </div>
+                    </li>
+                    <li data-status="done">
+                        <span class="activity-desc">完成 Merkly 上的 L0 NFT Mint 和跨链</span>
+                        <span class="tag tag-green"><i class="fas fa-palette"></i> Mint</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">07-20</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                    <li data-status="done">
+                        <span class="activity-desc">Testnet 活动参与</span>
+                        <span class="tag tag-grey"><i class="fas fa-flask"></i> Testnet</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">06-15</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                    <li data-status="done">
+                        <span class="activity-desc">早期交互 - Stargate ETH 跨链</span>
+                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">05-01</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                    <li data-status="done">
+                        <span class="activity-desc">持有 STG 代币快照</span>
+                        <span class="tag tag-yellow"><i class="fas fa-coins"></i> Snapshot</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">04-10</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="card-footer">
+             <div class="activity-progress">
+                 <span>活动完成度:</span>
+                 <div class="progress-bar"><div class="progress" style="width: 50%;"></div></div>
+                 <span>50%</span>
+             </div>
+            <button class="btn btn-primary btn-small" onclick="loadPageAndSetInteraction('script-plugins', 'Bridge')"><i class="fa fa-play"></i> 开始交互 (L0)</button>
+        </div>
+    </div>
+
+     <!-- Project Card 2: zkSync Era -->
+    <div class="project-card" data-chain="zkSync" data-type="L2" data-total-tasks="6" data-pending-tasks="2">
+        <div class="card-header">
+            <img src="https://via.placeholder.com/30/44AAFF/FFFFFF?text=ZK" alt="zkSync Era" class="project-icon">
+            <div class="project-title">
+                <h5>zkSync Era</h5>
+                <span><i class="fas fa-layer-group"></i> Layer 2 / ZK Rollup</span>
+            </div>
+        </div>
+         <div class="card-body project-activities">
+             <div class="project-summary">
+                <span>总活动: 6</span>
+                <span>待办: 2</span>
+                <span>上次交互: 3天前</span>
+            </div>
+            <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
+            <div class="activity-list-scroll-container">
+                <ul class="activity-list">
+                     <li data-status="pending">
+                         <span class="activity-desc">在 SyncSwap 完成一笔 10U 以上的 Swap</span>
+                        <span class="tag tag-purple"><i class="fas fa-sync-alt"></i> Swap</span>
+                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
+                         <span class="date">07-25</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
+                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
+                         </div>
+                    </li>
+                     <li data-status="pending">
+                         <span class="activity-desc">在 Mute.io 添加流动性 (可选)</span>
+                        <span class="tag tag-yellow"><i class="fas fa-water"></i> DeFi</span>
+                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
+                         <span class="date">07-22</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
+                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
+                         </div>
+                    </li>
+                     <li data-status="done">
+                         <span class="activity-desc">Mint ZK Domain Name</span>
+                         <span class="tag tag-green"><i class="fas fa-id-card"></i> Domain</span>
+                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">07-10</span>
+                         <div class="actions">
+                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                         </div>
+                     </li>
+                     <li data-status="done">
+                         <span class="activity-desc">官方桥 首次跨链</span>
+                         <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
+                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">07-01</span>
+                         <div class="actions">
+                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                         </div>
+                     </li>
+                      <li data-status="ignored">
+                         <span class="activity-desc">参与 IDO (已错过)</span>
+                         <span class="tag tag-red"><i class="fas fa-rocket"></i> IDO</span>
+                         <span class="status status-ignored"><i class="fas fa-eye-slash"></i> 已忽略</span>
+                         <span class="date">06-20</span>
+                         <div class="actions">
+                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                         </div>
+                     </li>
+                     <li data-status="done">
+                         <span class="activity-desc">完成 zkSync Lite 任务</span>
+                         <span class="tag tag-grey"><i class="fas fa-tasks"></i> Task</span>
+                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">05-15</span>
+                         <div class="actions">
+                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                         </div>
+                     </li>
+                </ul>
+            </div>
+        </div>
+         <div class="card-footer">
+             <div class="activity-progress">
+                 <span>活动完成度:</span>
+                 <div class="progress-bar"><div class="progress" style="width: 60%;"></div></div>
+                 <span>60%</span>
+             </div>
+             <button class="btn btn-primary btn-small" onclick="loadPageAndSetInteraction('script-plugins', 'Swap')"><i class="fa fa-play"></i> 开始交互 (zkSync)</button>
+        </div>
+    </div>
+
+    <!-- Project Card 3: Base -->
+     <div class="project-card" data-chain="Base" data-type="L2" data-total-tasks="4" data-pending-tasks="1">
+        <div class="card-header">
+            <img src="https://via.placeholder.com/30/0052FF/FFFFFF?text=B" alt="Base" class="project-icon">
+            <div class="project-title">
+                <h5>Base</h5>
+                <span><i class="fas fa-layer-group"></i> Layer 2</span>
+            </div>
+        </div>
+        <div class="card-body project-activities">
+            <div class="project-summary">
+                <span>总活动: 4</span>
+                <span>待办: 1</span>
+                <span>上次交互: 13天前</span>
+            </div>
+             <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
+            <div class="activity-list-scroll-container">
+                <ul class="activity-list">
+                     <li data-status="pending">
+                        <span class="activity-desc">关注 Base 官方 Twitter 并转发指定推文</span>
+                        <span class="tag tag-orange"><i class="fab fa-twitter"></i> 社交</span>
+                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
+                        <span class="date">07-29</span>
+                        <div class="actions">
+                             <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
+                             <button class="btn-icon" title="跳转任务"><i class="fas fa-external-link-alt"></i></button>
+                         </div>
+                    </li>
+                    <li data-status="done">
+                         <span class="activity-desc">在 Base 链上 Mint 一个免费 NFT</span>
+                         <span class="tag tag-green"><i class="fas fa-palette"></i> Mint</span>
+                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                         <span class="date">07-15</span>
+                         <div class="actions">
+                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                         </div>
+                     </li>
+                     <li data-status="done">
+                        <span class="activity-desc">体验 BaseSwap</span>
+                        <span class="tag tag-purple"><i class="fas fa-sync-alt"></i> Swap</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                        <span class="date">07-10</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                    <li data-status="done">
+                        <span class="activity-desc">跨链 ETH 到 Base (官方桥)</span>
+                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
+                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
+                        <span class="date">07-05</span>
+                        <div class="actions">
+                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+         <div class="card-footer">
+             <div class="activity-progress">
+                 <span>活动完成度:</span>
+                 <div class="progress-bar"><div class="progress" style="width: 33%;"></div></div>
+                 <span>33%</span>
+             </div>
+            <button class="btn btn-primary btn-small"><i class="fa fa-play"></i> 开始交互 (Base)</button>
+        </div>
+    </div>
+
+    <!-- Add more project cards -->
+</div> 

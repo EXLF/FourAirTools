@@ -1,0 +1,146 @@
+/* ================= Dashboard Page Styles ================= */
+
+.dashboard-header {
+    margin-bottom: 30px;
+}
+.dashboard-header h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 5px;
+}
+.dashboard-header p {
+    font-size: 15px;
+    color: #6c757d;
+}
+
+.dashboard-widgets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+/* Widget styles are in components/cards.css */
+
+/* Quick Stats Widget Specifics */
+.quick-stats .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+.quick-stats .stat-item {
+    text-align: center;
+}
+.quick-stats .stat-item span {
+    display: block;
+    font-size: 13px;
+    color: #868e96;
+    margin-bottom: 5px;
+}
+.quick-stats .stat-item strong {
+    font-size: 24px;
+    font-weight: 700;
+    color: #343a40;
+}
+
+/* Upcoming Tasks Widget Specifics */
+.upcoming-tasks ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+}
+.upcoming-tasks li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #f1f3f5;
+    font-size: 13px;
+}
+.upcoming-tasks li:last-child {
+    border-bottom: none;
+}
+.upcoming-tasks li span:first-child {
+    color: #868e96;
+    margin-right: 10px;
+}
+.upcoming-tasks .deadline {
+    font-weight: 600;
+    color: #6c757d;
+}
+.upcoming-tasks .deadline.urgent {
+    color: #e63946;
+}
+
+/* Gas Tracker Preview Specifics */
+.gas-tracker-preview .gas-preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.gas-tracker-preview .gas-preview-list div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+}
+.gas-tracker-preview .gas-preview-list span {
+    color: #6c757d;
+}
+.gas-tracker-preview .gas-preview-list strong {
+    font-weight: 600;
+}
+.gas-tracker-preview .gas-low { color: #20c997; }
+.gas-tracker-preview .gas-medium { color: #fab005; }
+.gas-tracker-preview .gas-high { color: #e63946; }
+
+/* Widget Link (used in tasks, gas) */
+.widget-link {
+    display: block;
+    text-align: right;
+    font-size: 13px;
+    color: #6c5ce7;
+    text-decoration: none;
+    font-weight: 500;
+}
+.widget-link:hover {
+    text-decoration: underline;
+}
+.widget-link i {
+    margin-left: 3px;
+}
+
+/* Quick Actions Panel Specifics */
+.quick-actions-panel .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+.quick-actions-panel button {
+    background-color: #f8f9fc;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    display: flex;
+    align-items: center;
+}
+.quick-actions-panel button i {
+    margin-right: 10px;
+    color: #6c5ce7;
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+.quick-actions-panel button:hover {
+    background-color: #e6e3ff;
+    color: #6c5ce7;
+    border-color: #c0b9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+} 

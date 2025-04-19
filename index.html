@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FourAir社区撸毛工具箱</title>
+    <!-- <link rel="stylesheet" href="styles.css"> -->
+    <link rel="stylesheet" href="src/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <!-- 可选: 引入图表库 -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <i class="fa fa-space-shuttle"></i>
+            <span>FourAir社区撸毛工具箱</span>
+        </div>
+        <div class="navbar-actions">
+             <!-- 可添加全局搜索 -->
+             <input type="search" placeholder="全局搜索..." class="global-search">
+             <a href="#" class="action-item" title="通知">
+                 <i class="fa fa-bell"></i>
+                 <span class="badge">5</span>
+             </a>
+             <a href="#settings" class="action-item" title="设置" onclick="loadPage('settings')">
+                 <i class="fa fa-cog"></i>
+             </a>
+             <a href="#" class="action-item account-menu-trigger" title="我的账户">
+                <i class="fa fa-user-circle"></i>
+                <!-- <span>用户昵称</span> -->
+                <!-- 可添加下拉菜单 -->
+             </a>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <nav>
+                <!-- 导航结构重组 -->
+                <ul>
+                    <li class="active"><a href="#dashboard"><i class="fa fa-tachometer"></i> <span>仪表盘</span></a></li>
+                </ul>
+                 <h6><i class="fa fa-database"></i> 信息中心</h6>
+                 <ul>
+                    <li><a href="#projects"><i class="fa fa-rocket"></i> <span>项目跟踪</span></a></li>
+                 </ul>
+                 <h6><i class="fa fa-briefcase"></i> 资产 & 账户</h6>
+                 <ul>
+                    <li><a href="#wallets"><i class="fa fa-google-wallet"></i> <span>钱包管理</span></a></li>
+                    <li><a href="#social"><i class="fa fa-users"></i> <span>社交账户</span></a></li>
+                 </ul>
+                 <h6><i class="fa fa-cogs"></i> 自动化工具</h6>
+                 <ul>
+                    <li><a href="#script-plugins"><i class="fa fa-plug"></i> <span>脚本插件</span></a></li>
+                 </ul>
+                 <h6><i class="fa fa-shield"></i> 安全 & 网络</h6>
+                 <ul>
+                    <li><a href="#tool-network"><i class="fa fa-wifi"></i> <span>IP代理</span></a></li>
+                 </ul>
+                 <h6><i class="fa fa-graduation-cap"></i> 学习 & 社区</h6>
+                 <ul>
+                    <li><a href="#tutorials"><i class="fa fa-book"></i> <span>教程中心</span></a></li>
+                    <li><a href="#community"><i class="fa fa-comments"></i> <span>社区交流</span></a></li>
+                 </ul>
+                 <h6><i class="fa fa-sliders"></i> 配置</h6>
+                 <ul>
+                    <li><a href="#settings"><i class="fa fa-gear"></i> <span>软件设置</span></a></li>
+                 </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <span id="app-version">版本: 1.0.0-beta</span>
+            </div>
+        </aside>
+
+        <main class="content-area">
+            <!-- 内容区域将通过JavaScript动态加载 -->
+        </main>
+    </div>
+
+    <!-- ========================== -->
+    <!-- 其他旧模板 (保留或移除) -->
+    <!-- ========================== -->
+
+    <template id="tpl-tool-bridge"><h2>跨链聚合工具</h2><p>此功能已整合至批量交互工具中。</p></template>
+    <template id="tpl-tool-gas"><h2>Gas 追踪</h2><p>Gas追踪工具详细内容待添加。</p></template>
+
+    <!-- ========================== -->
+    <!-- Modals -->
+    <!-- ========================== -->
+
+    <!-- Run Plugin Modal Template -->
+    <template id="tpl-modal-run-plugin">
+        <div class="modal-overlay">
+            <div class="modal-box run-modal">
+                <button class="modal-close-btn">&times;</button>
+                <h3 class="modal-title">运行插件: <span id="run-plugin-name">Plugin Name</span></h3>
+                <div class="modal-content">
+                    <div class="run-config-section">
+                        <h4>选择钱包</h4>
+                        <div class="wallet-selection-compact-modal">
+                             <div class="selection-actions">
+                                <button class="btn-link">全选</button>
+                                <button class="btn-link">反选</button>
+                                <input type="search" placeholder="搜索钱包..." class="compact-search">
+                            </div>
+                            <div class="wallet-checkboxes-compact-modal">
+                                <!-- Wallet checkboxes will be loaded here -->
+                                <div class="wallet-cb-item"><input type="checkbox" id="m-cw1"><label for="m-cw1">0x1234...5678 (L0组)</label></div>
+                                <div class="wallet-cb-item"><input type="checkbox" id="m-cw2"><label for="m-cw2">SubAcc_L0_01 (L0组)</label></div>
+                                <div class="wallet-cb-item"><input type="checkbox" id="m-cw3"><label for="m-cw3">0xabcd...efgh (zkSync组)</label></div>
+                                <div class="wallet-cb-item"><input type="checkbox" id="m-cw4"><label for="m-cw4">0xaaaa...bbbb</label></div>
+                            </div>
+                             <p>已选: <span id="modal-selected-wallet-count">0</span> 个钱包</p>
+                        </div>
+                    </div>
+                     <div class="run-config-section">
+                         <h4>执行设置</h4>
+                         <div class="option-group inline">
+                             <label>任务间隔(秒):</label>
+                             <input type="number" value="30" min="1"> - <input type="number" value="60" min="1">
+                             <input type="checkbox" id="modal-random-interval" checked><label for="modal-random-interval">随机</label>
+                         </div>
+                          <div class="option-group inline">
+                             <label>Gas 策略:</label> <select><option>自动(推荐)</option><option>快速</option><option>省钱</option></select>
+                         </div>
+                    </div>
+                    <div class="run-log-section">
+                        <h4>执行日志</h4>
+                        <div class="log-container modal-log-container">
+                            <!-- Log entries will appear here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                    <button class="btn btn-success" id="modal-start-execution-btn"><i class="fa fa-play"></i> 开始执行</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Config Plugin Modal Template -->
+     <template id="tpl-modal-config-plugin">
+        <div class="modal-overlay">
+            <div class="modal-box config-modal">
+                <button class="modal-close-btn">&times;</button>
+                <h3 class="modal-title">配置插件: <span id="config-plugin-name">Plugin Name</span></h3>
+                <div class="modal-content" id="config-options-area">
+                    <!-- Configuration options will be loaded here based on plugin type -->
+                    <p><em>(插件配置项加载区 - 待实现)</em></p>
+                    <div class="option-group">
+                        <label>示例配置项 A:</label>
+                        <input type="text" placeholder="输入值...">
+                    </div>
+                     <div class="option-group">
+                        <label>示例配置项 B:</label>
+                        <select><option>选项1</option><option>选项2</option></select>
+                    </div>
+                     <div class="option-group">
+                        <label>示例配置项 C:</label>
+                        <input type="checkbox"> 启用此功能
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                    <button class="btn btn-primary" id="modal-save-config-btn"><i class="fa fa-save"></i> 保存配置</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- <script src="main.js"></script> -->
+    <script type="module" src="src/js/core/app.js"></script>
+</body>
+</html> 

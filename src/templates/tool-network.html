@@ -1,0 +1,67 @@
+<div class="page-header">
+    <h2>IP代理管理</h2>
+    <div class="header-actions">
+         <button class="btn btn-primary"><i class="fa fa-plus"></i> 添加代理配置</button>
+         <button class="btn btn-secondary"><i class="fa fa-check-circle"></i> 测试连通性</button>
+    </div>
+</div>
+ <div class="filters-bar">
+     <div class="filter-group">
+        <label><i class="fa fa-filter"></i> 筛选:</label>
+        <select class="select-filter"><option>所有类型</option><option>HTTP</option><option>SOCKS5</option><option>VPN</option></select>
+        <select class="select-filter"><option>所有分组</option><option>分组A</option></select>
+        <input type="search" placeholder="搜索名称/IP/端口..." class="table-search-input">
+     </div>
+</div>
+ <div class="table-container">
+     <table class="data-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox"></th>
+                <th>名称/标识</th>
+                <th>类型</th>
+                <th>地址/服务器</th>
+                <th>端口</th>
+                <th>用户名</th>
+                <th>状态</th>
+                <th>分组</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+         <tbody>
+            <tr>
+                <td><input type="checkbox"></td>
+                <td>家庭宽带1</td>
+                <td>本地IP</td>
+                <td>192.168.1.100</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td><span class="status active">活跃</span></td>
+                <td>默认</td>
+                <td class="actions-cell">
+                     <button class="btn-icon" title="测试"><i class="fa fa-plug"></i></button>
+                     <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
+                     <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                </td>
+            </tr>
+             <tr>
+                <td><input type="checkbox"></td>
+                <td>代理IP_US_01</td>
+                <td>SOCKS5</td>
+                <td>us.proxy.com</td>
+                <td>1080</td>
+                <td>user1</td>
+                 <td><span class="status active">可用</span></td>
+                <td>分组A</td>
+                <td class="actions-cell">
+                     <button class="btn-icon" title="测试"><i class="fa fa-plug"></i></button>
+                     <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
+                     <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                </td>
+            </tr>
+         </tbody>
+     </table>
+ </div>
+  <div class="pagination">
+     <!-- 分页 -->
+ </div> 

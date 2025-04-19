@@ -1,0 +1,21 @@
+/* src/css/pages/plugins.css */
+
+.plugin-container.card-view {
+    display: grid; /* Ensure grid display is set */
+    /* Base: Responsive grid allowing 1 or more columns */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Adjust min-width */
+    gap: 20px;
+    padding-top: 20px; /* Consistent padding */
+}
+
+/* Force 4 columns on wider screens */
+@media (min-width: 1200px) { /* Adjust breakpoint as needed */
+    .plugin-container.card-view {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Add any other plugin-card specific styles if needed */
+.plugin-card .card-footer .plugin-actions {
+    margin-left: auto; /* Push actions to the right */
+} 

@@ -1,0 +1,204 @@
+/* ================= Card Styles ================= */
+
+/* Base Card Style (used in settings, community, etc.) */
+.card {
+    background-color: #fff;
+    border-radius: 12px; /* More rounded */
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+}
+
+.card h4 {
+    font-size: 16px;
+    margin-bottom: 15px;
+    color: #343a40;
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+}
+
+.card h4 i {
+    margin-right: 10px;
+    color: #6c5ce7;
+    font-size: 18px;
+    width: 20px;
+    text-align: center;
+}
+
+/* Widget Style (Dashboard) */
+.widget {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
+}
+
+.widget h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #495057;
+    display: flex;
+    align-items: center;
+}
+.widget h4 i {
+    margin-right: 10px;
+    color: #6c5ce7;
+}
+
+/* Project Card Style */
+.project-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.3s ease;
+    border: 1px solid #e9ecef; /* Use var(--border-color) if defined */
+}
+
+.project-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #ced4da; /* Use var(--border-color-dark) if defined */
+}
+
+.project-card .card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f1f3f5; /* Use var(--border-color) */
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.project-card .project-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.project-card .project-title h5 {
+    margin: 0 0 2px 0;
+    font-size: 1.1em; /* Consider using px or rem */
+    color: #343a40; /* Use var(--text-color-dark) */
+}
+
+.project-card .project-title span {
+    font-size: 0.85em; /* Consider using px or rem */
+    color: #6c757d; /* Use var(--text-color-light) */
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Gap between icons and text */
+}
+.project-card .project-title span i {
+    font-size: 0.9em;
+}
+
+.project-card .card-body {
+    padding: 15px 20px;
+    flex-grow: 1; /* Allow body to grow */
+}
+
+.project-card .card-footer {
+    padding: 10px 20px;
+    border-top: 1px solid #f1f3f5; /* Use var(--border-color) */
+    background-color: #f8f9fa; /* Use var(--bg-color-lighter) */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Plugin Card Style */
+.plugin-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.plugin-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+.plugin-card .card-header {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.plugin-card .plugin-icon {
+    font-size: 24px;
+    color: #6c5ce7; /* Primary color */
+    margin-right: 15px;
+    width: 30px;
+    text-align: center;
+}
+
+.plugin-card .plugin-title h5 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #343a40;
+    margin-bottom: 2px;
+}
+
+.plugin-card .plugin-title span {
+    font-size: 12px;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.plugin-card .card-body {
+    padding: 15px 20px;
+    flex-grow: 1;
+}
+
+.plugin-description {
+    font-size: 13px;
+    color: #495057;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.plugin-card .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #fcfdff;
+    border-top: 1px solid #f1f3f5;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.plugin-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plugin-actions .btn-small {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.plugin-actions .btn-icon {
+    padding: 5px;
+    font-size: 14px;
+    width: 26px;
+    height: 26px;
+} 

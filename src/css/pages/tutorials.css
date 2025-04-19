@@ -1,0 +1,101 @@
+/* ================= Tutorials Layout ================= */
+.tutorials-layout {
+    display: flex;
+    gap: 25px;
+}
+.tutorial-categories {
+    flex: 0 0 250px;
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e9ecef;
+    align-self: flex-start;
+}
+.tutorial-categories h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f3f5;
+}
+.tutorial-categories ul {
+    list-style: none;
+}
+.tutorial-categories ul li a {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    margin-bottom: 3px;
+    border-radius: 6px;
+    color: #495057;
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+.tutorial-categories ul li a i {
+    margin-right: 10px;
+    color: #adb5bd;
+    width: 18px;
+    text-align: center;
+}
+.tutorial-categories ul li.active > a,
+.tutorial-categories ul li a:hover {
+    background-color: #e6e3ff;
+    color: #6c5ce7;
+}
+.tutorial-categories ul li.active > a i,
+.tutorial-categories ul li a:hover i {
+    color: #6c5ce7;
+}
+.tutorial-categories ul li ul.sub-categories {
+     margin-left: 15px;
+     padding-left: 10px;
+     border-left: 1px solid #e9ecef;
+     margin-top: 5px;
+     margin-bottom: 10px;
+}
+.tutorial-categories ul li ul.sub-categories li a {
+    font-size: 13px;
+    padding: 5px 8px;
+}
+
+.tutorial-content {
+    flex-grow: 1;
+}
+
+.tutorial-item {
+    background-color: #fff;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    gap: 20px;
+}
+.tutorial-item .item-icon {
+    font-size: 24px;
+    color: #6c5ce7;
+    flex-shrink: 0;
+}
+.tutorial-item .item-details {
+    flex-grow: 1;
+}
+.tutorial-item .item-details h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 5px;
+}
+.tutorial-item .item-details p {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+.tutorial-item .item-meta {
+    font-size: 12px;
+    color: #adb5bd;
+}
+.tutorial-item .item-meta span {
+    margin-right: 10px;
+} 
