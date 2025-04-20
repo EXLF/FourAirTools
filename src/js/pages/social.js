@@ -236,10 +236,37 @@ export async function initSocialPage(contentArea) {
     // 设置平台筛选监听器
     setupPlatformFilterListeners();
 
+    // 设置全选功能
+    setupCheckAll(contentAreaCache, '.social-table'); // 添加调用
+
+    // --- 添加：点击行内空白区域切换复选框 (借鉴 wallets.js) ---
+    if (tableBody) {
+        tableBody.addEventListener('click', (event) => {
+            const target = event.target;
+            const row = target.closest('tr');
+            if (!row || !row.dataset.accountId) return; // 点击的不是包含账户ID的表格行内
+
+            // 检查是否点击在操作按钮、按钮图标、链接或复选框本身
+            if (target.tagName === 'BUTTON' || 
+                target.closest('button') || 
+                target.tagName === 'A' || 
+                target.tagName === 'INPUT' && target.type === 'checkbox') {
+                return; // 如果是这些元素，则不触发切换
+            }
+            
+            // 找到行内的复选框 (假设类名为 row-checkbox)
+            const checkbox = row.querySelector('.row-checkbox');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                // 手动触发 change 事件，以更新 setupCheckAll 的状态
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+    // --- -------------------------------------------------- ---
+
     // TODO: 设置表格操作 (setupTableActions) - 改为直接在 create 中添加监听
-    // TODO: 设置全选 (setupCheckAll)
-    // TODO: 设置筛选器监听 (平台、分组、搜索)
-    // TODO: 加载分组数据到筛选器和模态框
+    // TODO: 设置筛选器监听 (分组、搜索)
 }
 
 /**
