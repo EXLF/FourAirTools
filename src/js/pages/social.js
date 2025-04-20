@@ -11,6 +11,7 @@ let paginationControls = null; // 添加分页控件缓存
 let currentPage = 1; // 当前页码
 let itemsPerPage = 10; // 每页项目数
 let totalItems = 0; // 总项目数
+let currentFilters = {}; // 新增：存储当前筛选条件
 // ... 其他元素待添加 (filters, pagination, etc.)
 
 // ================= 分页逻辑 (从 wallets.js 借鉴和修改) =================
@@ -157,6 +158,34 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
 // ========================================================================
 
 /**
+ * 新增：设置平台筛选按钮的监听器
+ */
+function setupPlatformFilterListeners() {
+    const platformButtons = contentAreaCache?.querySelectorAll('.platform-filter-btn');
+    if (!platformButtons) return;
+
+    platformButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+            const platform = button.dataset.platform;
+            
+            // 如果点击的已经是当前激活的，则不处理 (或根据需求决定是否取消筛选)
+            // if (button.classList.contains('active')) return;
+
+            // 更新筛选状态
+            currentFilters.platform = platform || null; // 如果 platform 是空字符串，则设为 null 以便后端忽略
+            currentPage = 1; // 重置到第一页
+
+            // 更新按钮激活状态
+            platformButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+
+            // 重新加载数据
+            await loadAndRenderSocialAccounts();
+        });
+    });
+}
+
+/**
  * 初始化社交账户页面。
  * 设置筛选、全选和头部按钮。
  * @param {HTMLElement} contentArea - 要操作的主要内容区域。
@@ -203,6 +232,9 @@ export async function initSocialPage(contentArea) {
     
     // 然后创建页面大小选择器
     createPageSizeSelector();
+
+    // 设置平台筛选监听器
+    setupPlatformFilterListeners();
 
     // TODO: 设置表格操作 (setupTableActions) - 改为直接在 create 中添加监听
     // TODO: 设置全选 (setupCheckAll)
@@ -355,10 +387,10 @@ async function openSocialAccountModal(accountId = null) {
  * 加载并渲染社交账户数据到表格。
  * @param {number} page - 要加载的页码 (默认为当前页)。
  * @param {number} limit - 每页的项目数 (默认为当前设置)。
- * @param {object} options - 包含筛选和排序选项的对象 (待实现)。
+ * @param {object} filters - 包含筛选和排序选项的对象 (待实现)。
  */
-async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerPage, options = {}) {
-    console.log(`加载社交账户数据: 页码 ${page}, 每页 ${limit}, 选项:`, options);
+async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerPage, filters = currentFilters) {
+    console.log(`加载社交账户数据: 页码 ${page}, 每页 ${limit}, 筛选:`, filters);
     if (!tableBody || !window.dbAPI) {
         console.error("表格体或 dbAPI 未准备好。");
         return;
@@ -371,7 +403,7 @@ async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerP
         const queryOptions = {
             page: page,
             limit: limit,
-            ...options // 合并外部传入的筛选/排序选项
+            ...filters // 直接使用传入的 filters 对象
             // filter: { ... }, // 例如：{ platform: 'twitter', groupId: 5, search: 'test' }
             // sort: { field: 'createdAt', order: 'DESC' }
         };

@@ -554,7 +554,7 @@ function getSocialAccounts(options = {}) {
         const countParams = [];
 
         if (options.platform) {
-            whereClauses.push('sa.platform = ?');
+            whereClauses.push('LOWER(sa.platform) = LOWER(?)');
             params.push(options.platform);
             countParams.push(options.platform);
         }
