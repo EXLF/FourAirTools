@@ -22,6 +22,18 @@
     text-transform: uppercase;
 }
 
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    text-align: center;
+    width: 50px;
+}
+
+.data-table th.actions-header,
+.data-table td.actions-cell {
+    text-align: center !important;
+    width: 120px;
+}
+
 .data-table td {
     font-size: 14px;
     color: #495057;
@@ -35,25 +47,16 @@
     border-bottom: none;
 }
 
-.actions-cell {
-    text-align: right !important;
-}
-
 .actions-cell .btn-icon {
     margin: 0 3px;
 }
 
-/* Specific table cell adjustments */
-.wallet-address-cell {
-    display: flex;
-    align-items: center;
-}
-.wallet-address-cell span {
+.wallet-address-cell span,
+.wallet-address-cell small {
     font-family: monospace;
     font-size: 13px;
 }
 
 .social-table th, .social-table td {
-    /* Adjust padding or alignment if needed for social table columns */
     vertical-align: middle;
 } 

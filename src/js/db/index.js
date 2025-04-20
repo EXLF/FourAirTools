@@ -37,7 +37,8 @@ function initializeDatabase() {
                 console.log('Groups table is ready.');
                 // 使用 INSERT OR IGNORE 插入分组
                 const groupsStmt = db.prepare('INSERT OR IGNORE INTO groups (name) VALUES (?)');
-                const groupsToInsert = ['默认分组', 'LayerZero交互', 'zkSync交互', '交易所'];
+                // 只保留 '默认分组'
+                const groupsToInsert = ['默认分组']; 
                 groupsToInsert.forEach(name => groupsStmt.run(name, (errInsert) => {
                     if (errInsert) console.error(`Error inserting group ${name}:`, errInsert.message);
                 }));
@@ -60,12 +61,11 @@ function createWalletsTableAndTestData() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             address TEXT NOT NULL UNIQUE,
             name TEXT,
-            chain TEXT NOT NULL,
-            type TEXT NOT NULL,
             notes TEXT,
             groupId INTEGER,
-            isBackedUp INTEGER DEFAULT 0, -- 0 for false, 1 for true
-            encryptedPrivateKey TEXT, -- 存储加密后的私钥，必须在应用层加密！
+            encryptedPrivateKey TEXT, -- 现在临时存储明文私钥
+            mnemonic TEXT,            -- 新增：助记词
+            derivationPath TEXT,      -- 新增：派生路径
             createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL -- 稍后创建 groups 表
@@ -92,113 +92,7 @@ function createWalletsTableAndTestData() {
                     console.error('Error creating updatedAt trigger for wallets:', errTrigger.message);
                 } else {
                     console.log('UpdatedAt trigger for wallets is ready.');
-
-                    // --- 插入测试钱包数据 ---
-                    // 获取分组 ID (更健壮的方式是在 JS 中查询 ID 而不是硬编码)
-                    db.all('SELECT id, name FROM groups', [], (errGroups, groups) => {
-                        if (errGroups) {
-                            console.error("Error getting group IDs for test data:", errGroups.message);
-                            return;
-                        }
-
-                        const groupMap = groups.reduce((acc, group) => {
-                            acc[group.name] = group.id;
-                            return acc;
-                        }, {});
-                        const lzGroupId = groupMap['LayerZero交互'];
-                        const zkGroupId = groupMap['zkSync交互'];
-                        const exchangeGroupId = groupMap['交易所'];
-
-                        const walletsStmt = db.prepare(`INSERT OR IGNORE INTO wallets
-                            (address, name, chain, type, notes, groupId, isBackedUp, encryptedPrivateKey)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-
-                        const walletsToInsert = [
-                            {
-                                address: '0x1234567890abcdef1234567890abcdef12345678',
-                                name: 'ETH主钱包',
-                                chain: 'ETH',
-                                type: 'onchain',
-                                notes: '主力交互钱包',
-                                groupId: lzGroupId,
-                                isBackedUp: 1,
-                                encryptedPrivateKey: null
-                            },
-                            {
-                                address: '0xabcdef1234567890abcdef1234567890abcdef12',
-                                name: 'L0小号01',
-                                chain: 'Arbitrum',
-                                type: 'onchain',
-                                notes: '专门刷L0',
-                                groupId: lzGroupId,
-                                isBackedUp: 0,
-                                encryptedPrivateKey: '加密数据示例1...'
-                            }, // 假设已加密
-                            {
-                                address: 'zkSyncWallet01',
-                                name: 'zk交互钱包',
-                                chain: 'zkSync Era',
-                                type: 'onchain',
-                                notes: null,
-                                groupId: zkGroupId,
-                                isBackedUp: 1,
-                                encryptedPrivateKey: null
-                            },
-                            {
-                                address: 'OKX-SubAccount-001',
-                                name: 'OKX L0提币',
-                                chain: 'OKX',
-                                type: 'exchange',
-                                notes: '用于L0项目资金归集和提币',
-                                groupId: exchangeGroupId,
-                                isBackedUp: null,
-                                encryptedPrivateKey: null
-                            }, // 交易所类型 isBackedUp 无意义
-                            {
-                                address: '0x9876543210fedcba9876543210fedcba98765432',
-                                name: 'SOL钱包',
-                                chain: 'Solana',
-                                type: 'onchain',
-                                notes: 'Solana生态专用',
-                                groupId: null,
-                                isBackedUp: 0,
-                                encryptedPrivateKey: null
-                            },
-                            {
-                                address: 'Binance-Main',
-                                name: '币安主账户',
-                                chain: 'Binance',
-                                type: 'exchange',
-                                notes: '大资金存放',
-                                groupId: exchangeGroupId,
-                                isBackedUp: null,
-                                encryptedPrivateKey: null
-                            },
-                        ];
-
-                        walletsToInsert.forEach(w => {
-                            // 查找 groupId，如果分组名不存在则设为 null
-                            const finalGroupId = w.groupId || null;
-                            walletsStmt.run(
-                                w.address,
-                                w.name,
-                                w.chain,
-                                w.type,
-                                w.notes,
-                                finalGroupId,
-                                w.isBackedUp === 1 ? 1 : 0, // 确保是 0 或 1
-                                w.encryptedPrivateKey,
-                                (errInsert) => {
-                                    if (errInsert) console.error(`Error inserting wallet ${w.address}:`, errInsert.message);
-                                }
-                            );
-                        });
-
-                        walletsStmt.finalize((errFinalize) => {
-                            if (errFinalize) console.error('Error finalizing wallets insert statement:', errFinalize.message);
-                            else console.log('Initial wallets inserted (or ignored if exist).');
-                        });
-                    });
+                    console.log('Skipping insertion of initial test wallets.'); 
                 }
             });
         }
@@ -304,23 +198,22 @@ function deleteGroup(id) {
 /**
  * 添加一个新钱包。
  * @param {object} walletData - 包含钱包信息的对象。
- *   { address, name?, chain, type, notes?, groupId?, isBackedUp?, encryptedPrivateKey? }
+ *   { address, name?, notes?, groupId?, isBackedUp?, encryptedPrivateKey? }
  * @returns {Promise<number>} - 返回新钱包的 ID。
  */
 function addWallet(walletData) {
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO wallets
-                     (address, name, chain, type, notes, groupId, isBackedUp, encryptedPrivateKey)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                     (address, name, notes, groupId, encryptedPrivateKey, mnemonic, derivationPath)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`;
         const params = [
             walletData.address,
-            walletData.name || null, // 可选字段
-            walletData.chain,
-            walletData.type,
+            walletData.name || null,
             walletData.notes || null,
-            walletData.groupId || null, // 如果未提供，则为 null
-            walletData.isBackedUp ? 1 : 0,
-            walletData.encryptedPrivateKey || null // 存储加密后的数据
+            walletData.groupId || null,
+            walletData.encryptedPrivateKey || null,
+            walletData.mnemonic || null,
+            walletData.derivationPath || null
         ];
         db.run(sql, params, function(err) {
             if (err) {
@@ -336,9 +229,7 @@ function addWallet(walletData) {
 /**
  * 获取钱包列表，支持筛选和排序。
  * @param {object} [options={}] - 筛选和分页选项。
- * @param {string} [options.chain] - 按链筛选。
- * @param {string} [options.type] - 按类型筛选。
- * @param {number} [options.groupId] - 按分组 ID 筛选。
+ * @param {string} [options.groupId] - 按分组 ID 筛选。
  * @param {string} [options.search] - 搜索地址、名称、备注。
  * @param {string} [options.sortBy='createdAt'] - 排序字段。
  * @param {'ASC'|'DESC'} [options.sortOrder='DESC'] - 排序顺序。
@@ -348,25 +239,14 @@ function addWallet(walletData) {
  */
 function getWallets(options = {}) {
     return new Promise((resolve, reject) => {
-        let baseSql = `SELECT w.*, g.name as groupName
+        let baseSql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                        FROM wallets w
                        LEFT JOIN groups g ON w.groupId = g.id`;
-        const countSql = `SELECT COUNT(*) as count FROM wallets w LEFT JOIN groups g ON w.groupId = g.id`; // Count也要Join才能筛选groupName
+        const countSql = `SELECT COUNT(*) as count FROM wallets w LEFT JOIN groups g ON w.groupId = g.id`;
         const whereClauses = [];
         const params = [];
-        const countParams = []; // 单独为 COUNT 查询准备参数
+        const countParams = [];
 
-        // 构建筛选条件
-        if (options.chain) {
-            whereClauses.push('w.chain = ?');
-            params.push(options.chain);
-            countParams.push(options.chain);
-        }
-        if (options.type) {
-            whereClauses.push('w.type = ?');
-            params.push(options.type);
-            countParams.push(options.type);
-        }
         if (options.groupId) {
             whereClauses.push('w.groupId = ?');
             params.push(options.groupId);
@@ -374,28 +254,22 @@ function getWallets(options = {}) {
         }
          if (options.search) {
             const searchTerm = `%${options.search}%`;
-             // 增加对 groupName 的搜索
             whereClauses.push('(w.address LIKE ? OR w.name LIKE ? OR w.notes LIKE ? OR g.name LIKE ?)');
             params.push(searchTerm, searchTerm, searchTerm, searchTerm);
             countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
-        // 组合 WHERE 子句
         let whereSql = '';
         if (whereClauses.length > 0) {
             whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
         }
 
-        // 排序
         const sortBy = options.sortBy || 'createdAt';
-        // 确保 sortBy 是允许的列名，防止 SQL 注入
-        const allowedSortColumns = ['id', 'address', 'name', 'chain', 'type', 'createdAt', 'updatedAt', 'groupName'];
-        // 需要处理 groupName 这种别名
+        const allowedSortColumns = ['id', 'address', 'name', 'createdAt', 'updatedAt', 'groupName', 'mnemonic', 'derivationPath'];
         const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `w.${sortBy}`) : 'w.createdAt';
         const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
-        const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`; // g.name for groupName
+        const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
 
-        // 分页
         let limitSql = '';
         if (options.limit !== undefined && options.offset !== undefined) {
             limitSql = ' LIMIT ? OFFSET ?';
@@ -403,12 +277,10 @@ function getWallets(options = {}) {
         }
 
         const finalSql = baseSql + whereSql + orderBySql + limitSql;
-        const finalCountSql = countSql + whereSql; // Count SQL 不需要 ORDER BY 或 LIMIT
+        const finalCountSql = countSql + whereSql;
 
-        // 执行查询
         db.serialize(() => {
             let results = {};
-            // 先获取总数
             db.get(finalCountSql, countParams, (errCount, rowCount) => {
                  if (errCount) {
                     console.error('Error counting wallets:', errCount.message);
@@ -416,7 +288,6 @@ function getWallets(options = {}) {
                 }
                 results.totalCount = rowCount ? rowCount.count : 0;
 
-                 // 再获取分页/筛选后的数据
                 db.all(finalSql, params, (err, rows) => {
                     if (err) {
                         console.error('Error getting wallets:', err.message);
@@ -438,7 +309,7 @@ function getWallets(options = {}) {
  */
 function getWalletById(id) {
     return new Promise((resolve, reject) => {
-        const sql = `SELECT w.*, g.name as groupName
+        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                        FROM wallets w
                        LEFT JOIN groups g ON w.groupId = g.id
                        WHERE w.id = ?`;
@@ -463,9 +334,8 @@ function getWalletsByIds(ids) {
         if (!ids || ids.length === 0) {
             return resolve([]); // 如果没有 ID，返回空数组
         }
-        // 使用 SQL 的 IN 操作符和占位符 '?'
         const placeholders = ids.map(() => '?').join(',');
-        const sql = `SELECT w.*, g.name as groupName
+        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                        FROM wallets w
                        LEFT JOIN groups g ON w.groupId = g.id
                        WHERE w.id IN (${placeholders})`;
@@ -485,21 +355,18 @@ function getWalletsByIds(ids) {
  * 更新一个钱包信息。
  * @param {number} id - 要更新的钱包 ID。
  * @param {object} walletData - 包含要更新字段的对象。允许部分更新。
- *   { address?, name?, chain?, type?, notes?, groupId?, isBackedUp?, encryptedPrivateKey? }
+ *   { address?, name?, notes?, groupId?, isBackedUp?, encryptedPrivateKey? }
  * @returns {Promise<number>} - 返回受影响的行数。
  */
 function updateWallet(id, walletData) {
     return new Promise((resolve, reject) => {
         const fields = [];
         const params = [];
-        // 动态构建 SET 子句
+        const allowedKeys = ['address', 'name', 'notes', 'groupId', 'encryptedPrivateKey', 'mnemonic', 'derivationPath'];
         for (const key in walletData) {
-            if (Object.hasOwnProperty.call(walletData, key) && key !== 'id') {
-                 // 注意 isBackedUp 需要转换
-                const value = (key === 'isBackedUp') ? (walletData[key] ? 1 : 0) : walletData[key];
-                // 允许将 groupId 或 notes 设为 null
+            if (allowedKeys.includes(key) && Object.hasOwnProperty.call(walletData, key) && key !== 'id') {
+                 const value = walletData[key];
                  if (value !== undefined) {
-                     // 处理将 groupId 设为 null 的情况
                      if (key === 'groupId' && (value === null || value === '' || value === 0)) {
                          fields.push(`groupId = ?`);
                          params.push(null);
@@ -548,6 +415,37 @@ function deleteWallet(id) {
     });
 }
 
+/**
+ * 批量删除钱包。
+ * @param {Array<number>} ids - 要删除的钱包 ID 数组。
+ * @returns {Promise<number>} - 返回成功删除的钱包数量。
+ */
+function deleteWalletsByIds(ids) {
+    console.log(`[${Date.now()}] [DB Module] deleteWalletsByIds: Start for ${ids.length} IDs`);
+    return new Promise((resolve, reject) => {
+        if (!Array.isArray(ids) || ids.length === 0) {
+            console.warn(`[${Date.now()}] [DB Module] deleteWalletsByIds: Invalid input`);
+            return reject(new Error("Invalid input: IDs array cannot be empty."));
+        }
+
+        // 构建占位符 (?, ?, ?...)
+        const placeholders = ids.map(() => '?').join(',');
+        const sql = `DELETE FROM wallets WHERE id IN (${placeholders})`;
+        console.log(`[${Date.now()}] [DB Module] deleteWalletsByIds: Executing SQL: ${sql} with IDs:`, ids);
+        const startTime = Date.now();
+        db.run(sql, ids, function(err) {
+            const duration = Date.now() - startTime;
+            if (err) {
+                console.error(`[${Date.now()}] [DB Module] deleteWalletsByIds: SQL Error after ${duration}ms: ${err.message}`, err);
+                reject(err);
+            } else {
+                console.log(`[${Date.now()}] [DB Module] deleteWalletsByIds: SQL Success after ${duration}ms. Deleted ${this.changes} rows.`);
+                resolve(this.changes);
+            }
+        });
+    });
+}
+
 // 导出所有函数
 module.exports = {
     db,
@@ -563,5 +461,6 @@ module.exports = {
     getWalletById,
     getWalletsByIds,
     updateWallet,
-    deleteWallet
+    deleteWallet,
+    deleteWalletsByIds
 }; 

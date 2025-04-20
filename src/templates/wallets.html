@@ -1,34 +1,22 @@
 <div class="page-header">
     <h2>钱包管理</h2>
     <div class="header-actions">
-        <button class="btn btn-primary"><i class="fa fa-plus"></i> 批量生成钱包</button>
-        <button class="btn btn-secondary"><i class="fa fa-upload"></i> 导入钱包</button>
-        <button class="btn btn-secondary"><i class="fa fa-download"></i> 导出选中</button>
-        <button class="btn btn-secondary"><i class="fa fa-object-group"></i> 管理分组</button>
+        <button class="btn btn-primary" id="bulk-generate-wallets-btn"><i class="fa fa-plus"></i> 批量生成钱包</button>
+        <button class="btn btn-danger" id="bulk-delete-btn"><i class="fa fa-trash"></i> 批量删除</button>
+        <button class="btn btn-secondary" id="import-wallets-btn"><i class="fa fa-download"></i> 导入钱包</button>
+        <button class="btn btn-secondary" id="export-wallets-btn"><i class="fa fa-upload"></i> 导出选中</button>
+        <button class="btn btn-outline" id="manage-groups-btn"><i class="fa fa-tags"></i> 管理分组</button>
     </div>
 </div>
 <div class="filters-bar">
      <div class="filter-group">
         <label><i class="fa fa-filter"></i> 筛选:</label>
-        <select id="wallet-chain-filter" class="select-filter">
-            <option value="">所有链</option>
-            <option value="eth">Ethereum</option>
-            <option value="arb">Arbitrum</option>
-            <option value="sol">Solana</option>
-            <option value="bsc">BSC</option>
-            <!-- 更多链 -->
-        </select>
-        <select id="wallet-type-filter" class="select-filter">
-            <option value="">所有类型</option>
-            <option value="onchain">链上钱包</option>
-            <option value="exchange">交易所子账户</option>
-        </select>
         <select id="wallet-group-filter" class="select-filter">
             <option value="">所有分组</option>
             <option value="main">主账户组</option>
             <option value="l0">LayerZero组</option>
         </select>
-         <input type="search" placeholder="搜索地址/备注/分组..." class="table-search-input">
+         <input type="search" placeholder="搜索地址/名称/备注/分组..." class="table-search-input">
      </div>
 </div>
 <div class="table-container">
@@ -36,16 +24,13 @@
         <thead>
             <tr>
                 <th><input type="checkbox" title="全选"></th>
-                <th>钱包地址/标识</th>
-                <th>链</th>
-                <th>类型</th>
+                <th>#</th>
+                <th>钱包地址</th>
+                <th>私钥</th>
+                <th>助记词</th>
                 <th>备注</th>
-                <th>分组</th>
-                <th>余额(估)</th>
-                <th>Tx数</th>
-                <th>备份</th>
-                <th>风险</th>
-                <th>操作</th>
+                <th class="group-header">分组</th>
+                <th class="actions-header">操作</th>
             </tr>
         </thead>
         <tbody>

@@ -175,6 +175,9 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/settings.js';
             initFunctionName = 'initSettingsPage';
             break;
+        case 'tools':
+            console.log("正在加载常用工具页面 (静态内容，无特定 JS 初始化)");
+            return; // 无需加载模块
         // 处理其他情况，例如 tool-gas, tool-bridge (如果它们有 JS)
         case 'tool-gas':
             console.log("正在初始化 Gas 追踪页面 (占位符 - 尚无专用 JS 模块)");

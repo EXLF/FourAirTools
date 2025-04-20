@@ -64,35 +64,17 @@ export function showModal(templateId, setupFunction) {
  * 隐藏并移除当前打开的模态框，并处理过渡效果。
  */
 export function hideModal() {
+    console.log(`[${Date.now()}] hideModal: Start`); 
     if (!currentOpenModal) return;
 
     const modalToRemove = currentOpenModal; // 保留引用以进行异步移除
     currentOpenModal = null; // 立即标记为没有模态框打开
 
-    modalToRemove.classList.remove('visible');
-
-    // 定义移除逻辑
-    const removeElement = () => {
-        if (modalToRemove && modalToRemove.parentNode === document.body) {
-            document.body.removeChild(modalToRemove);
-        }
-    };
-
-    // 使用 transitionend 实现平滑移除
-    let transitionEnded = false;
-    modalToRemove.addEventListener('transitionend', (e) => {
-        // 确保我们响应的是遮罩层的过渡，而不是子元素的
-        if (e.target === modalToRemove && e.propertyName === 'opacity') {
-            transitionEnded = true;
-            removeElement();
-        }
-    }, { once: true });
-
-     // 如果 transitionend 未触发，则执行后备移除逻辑
-     setTimeout(() => {
-         if (!transitionEnded) {
-             console.warn("模态框 transitionend 后备逻辑已触发。");
-             removeElement();
-         }
-     }, 350); // 比过渡持续时间稍长
+    // --- 直接移除，不使用过渡 ---
+    console.log(`[${Date.now()}] hideModal: Removing element directly`); 
+    if (modalToRemove && modalToRemove.parentNode === document.body) {
+        document.body.removeChild(modalToRemove);
+        console.log(`[${Date.now()}] hideModal: Element removed directly from DOM`); 
+    }
+    // --- ---------------------- ---
 } 

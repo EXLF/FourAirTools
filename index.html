@@ -66,6 +66,10 @@
                     <li><a href="#tutorials"><i class="fa fa-book"></i> <span>教程中心</span></a></li>
                     <li><a href="#community"><i class="fa fa-comments"></i> <span>社区交流</span></a></li>
                  </ul>
+                 <h6><i class="fa fa-wrench"></i> 常用工具</h6>
+                 <ul>
+                     <li><a href="#tools"><i class="fa fa-wrench"></i> <span>工具链接</span></a></li>
+                 </ul>
                  <h6><i class="fa fa-sliders"></i> 配置</h6>
                  <ul>
                     <li><a href="#settings"><i class="fa fa-gear"></i> <span>软件设置</span></a></li>
@@ -181,38 +185,10 @@
                 <h3 class="modal-title">钱包表单</h3>
                 <div class="modal-content">
                     <form id="wallet-form-actual">
-                        <input type="hidden" name="wallet-id" value=""> <!-- 用于存储编辑时的 ID -->
+                        <input type="hidden" name="wallet-id" value=""> 
 
-                        <div class="option-group">
-                            <label for="wallet-address">钱包地址 <span class="required">*</span></label>
-                            <input type="text" id="wallet-address" name="wallet-address" required placeholder="0x...">
-                        </div>
-                        <div class="option-group">
-                            <label for="wallet-name">名称/标签</label>
-                            <input type="text" id="wallet-name" name="wallet-name" placeholder="例如 主力钱包">
-                        </div>
-                         <div class="option-group inline">
-                             <div>
-                                 <label for="wallet-chain">链 <span class="required">*</span></label>
-                                <input type="text" id="wallet-chain" name="wallet-chain" required placeholder="例如 ETH, SOL, OKX">
-                                 <!-- 或者使用下拉列表 -->
-                                 <!-- <select id="wallet-chain" name="wallet-chain" required>
-                                     <option value="">选择链</option>
-                                     <option value="ETH">Ethereum</option>
-                                     <option value="SOL">Solana</option>
-                                     <option value="OKX">OKX (或其他交易所)</option>
-                                 </select> -->
-                             </div>
-                             <div>
-                                 <label for="wallet-type">类型 <span class="required">*</span></label>
-                                 <select id="wallet-type" name="wallet-type" required>
-                                     <option value="">选择类型</option>
-                                     <option value="onchain">链上钱包</option>
-                                     <option value="exchange">交易所子账户</option>
-                                 </select>
-                             </div>
-                        </div>
-                        <div class="option-group">
+                        <!-- 只保留分组和备注 -->
+                         <div class="option-group">
                             <label for="wallet-group">分组</label>
                             <select id="wallet-group" name="wallet-group">
                                 <option value="">无分组</option>
@@ -221,22 +197,15 @@
                         </div>
                          <div class="option-group">
                             <label for="wallet-notes">备注</label>
-                            <textarea id="wallet-notes" name="wallet-notes" rows="2" placeholder="关于此钱包的说明..."></textarea>
+                            <input type="text" id="wallet-notes" name="wallet-notes" placeholder="关于此钱包的说明...">
                         </div>
-                         <div class="option-group">
-                            <label for="wallet-encrypted-key">加密私钥/助记词 (可选)</label>
-                             <input type="password" id="wallet-encrypted-key" name="wallet-encrypted-key" placeholder="存储加密后的数据 (谨慎操作!)">
-                            <small>注意：此处应存储强加密后的数据，而非明文。留空则不存储。</small>
-                        </div>
-                         <div class="option-group inline">
-                             <input type="checkbox" id="wallet-backup-status" name="wallet-backup-status">
-                             <label for="wallet-backup-status">我已备份此链上钱包的私钥/助记词</label>
-                        </div>
+
+                        <!-- 移除地址、名称、助记词、派生路径、私钥字段 -->
+
                     </form>
                 </div>
                 <div class="modal-actions">
                     <button class="btn btn-secondary modal-cancel-btn">取消</button>
-                    <!-- 保存按钮的 type="submit" 会触发表单的 submit 事件 -->
                     <button type="submit" form="wallet-form-actual" class="btn btn-primary modal-save-btn">保存</button>
                 </div>
             </div>
@@ -253,7 +222,6 @@
                      <h4>现有分组</h4>
                      <ul class="group-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
                          <!-- 分组列表将由 JS 动态填充 -->
-                         <li>加载中...</li>
                      </ul>
                       <h4>添加新分组</h4>
                       <div class="group-add-form" style="display: flex; gap: 10px;">
@@ -268,7 +236,93 @@
         </div>
     </template>
 
+    <!-- ========= NEW: Generate Wallets Modal Template ========== -->
+    <template id="tpl-generate-wallets">
+        <div class="modal-overlay">
+            <div class="modal-box generate-wallets-modal">
+                 <button class="modal-close-btn" title="关闭">&times;</button>
+                 <h3 class="modal-title">批量生成钱包</h3>
+                 <div class="modal-content">
+                     <form id="generate-wallet-form">
+                         <div class="option-group">
+                             <label for="generate-count">生成数量 <span class="required">*</span></label>
+                             <input type="number" id="generate-count" name="generate-count" required min="1" max="1000" value="10"> <!-- 添加最大值限制 -->
+                         </div>
+                         <div class="option-group">
+                            <label for="generate-group">添加到分组 (可选)</label>
+                            <select id="generate-group" name="generate-group">
+                                <option value="">不指定分组</option>
+                                <!-- 分组选项将由 JS 动态填充 -->
+                            </select>
+                        </div>
+                        <div class="notice info">
+                            <i class="fa fa-info-circle"></i> 将生成新的助记词和钱包。
+                        </div>
+                        <div id="generate-progress" style="margin-top: 15px; display: none;">
+                             <progress value="0" max="100"></progress>
+                             <span id="generate-progress-text"></span>
+                         </div>
+                     </form>
+                 </div>
+                 <div class="modal-actions">
+                     <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                     <button type="submit" form="generate-wallet-form" class="btn btn-success modal-generate-btn"><i class="fa fa-cogs"></i> 开始生成</button>
+                 </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ========= View Wallet Details Modal Template ========== -->
+    <template id="tpl-view-wallet-details">
+        <div class="modal-overlay">
+            <div class="modal-box view-details-modal">
+                 <button class="modal-close-btn" title="关闭">&times;</button>
+                 <h3 class="modal-title">查看钱包详情</h3>
+                 <div class="modal-content">
+                     <div class="notice error" style="margin-bottom: 20px; padding: 12px; border-radius: 4px;">
+                         <i class="fa fa-warning"></i> <strong>安全警告:</strong> 切勿向任何人泄露您的私钥或助记词！泄露可能导致资产永久丢失！
+                     </div>
+                     <!-- 使用 DL 结构 -->
+                     <dl class="details-list">
+                         <!-- 新增：钱包地址 -->
+                         <dt>钱包地址:</dt>
+                         <dd>
+                             <div class="detail-value-container">
+                                 <code id="view-wallet-address-value" class="sensitive-data">加载中...</code>
+                                 <button class="btn-icon btn-icon-sm copy-btn" data-target="view-wallet-address-value" title="复制地址">
+                                     <i class="fa fa-copy"></i>
+                                 </button>
+                             </div>
+                         </dd>
+                         <dt>私钥:</dt>
+                         <dd>
+                             <div class="detail-value-container">
+                                 <code id="view-private-key" class="sensitive-data">加载中...</code>
+                                 <button class="btn-icon btn-icon-sm copy-btn" data-target="view-private-key" title="复制私钥">
+                                     <i class="fa fa-copy"></i>
+                                 </button>
+                             </div>
+                         </dd>
+                         <dt>助记词:</dt>
+                         <dd>
+                             <div class="detail-value-container">
+                                 <code id="view-mnemonic" class="sensitive-data">加载中...</code>
+                                 <button class="btn-icon btn-icon-sm copy-btn" data-target="view-mnemonic" title="复制助记词">
+                                     <i class="fa fa-copy"></i>
+                                 </button>
+                             </div>
+                         </dd>
+                     </dl>
+                 </div>
+                 <div class="modal-actions">
+                     <button class="btn btn-secondary modal-close-btn-footer">关闭</button>
+                 </div>
+            </div>
+        </div>
+    </template>
+
     <!-- <script src="main.js"></script> -->
     <script type="module" src="src/js/core/app.js"></script>
+    <div id="toast-container"></div> <!-- Toast container -->
 </body>
 </html> 

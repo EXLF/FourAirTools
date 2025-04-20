@@ -17,8 +17,23 @@ contextBridge.exposeInMainWorld('dbAPI', {
     getWalletsByIds: (ids) => ipcRenderer.invoke('db:getWalletsByIds', ids),
     updateWallet: (id, walletData) => ipcRenderer.invoke('db:updateWallet', id, walletData),
     deleteWallet: (id) => ipcRenderer.invoke('db:deleteWallet', id),
+    deleteWalletsByIds: (ids) => ipcRenderer.invoke('db:deleteWalletsByIds', ids),
+
+    // --- 新增：应用级功能 ---
+    generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options), // { count, groupId? }
+    // 新增：保存文件功能 (用于导出)
+    saveFile: (options) => ipcRenderer.invoke('app:saveFile', options), // { defaultPath, content }
 
     // 你可以在这里暴露其他需要的 IPC 功能
     // 例如：文件操作、打开外部链接等
     // openExternalLink: (url) => ipcRenderer.send('open-external-link', url) // send 用于单向通信
+}); 
+
+// 如果你需要暴露 electron 对象给渲染进程 (例如 handleBulkDelete 中使用了)
+// 注意安全性风险，仅暴露必要的功能
+contextBridge.exposeInMainWorld('electron', {
+  ipcRenderer: {
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    // 如果还需要其他方法，如 send, on, removeListener, 也可在此暴露
+  }
 }); 

@@ -1,9 +1,17 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const db = require('./src/js/db/index.js');
+// const walletGenerator = require('./src/js/core/walletGenerator.js'); // No longer needed here
 
-// 导入数据库模块，因为主进程需要访问它（如果使用 IPC）
-// 即使现在渲染进程直接访问，主进程预加载它也没坏处
-const db = require('./src/js/db'); // 确保路径正确
+// --- 导入新的 Handler 设置函数 ---
+const { setupDatabaseIpcHandlers } = require('./src/main/ipcHandlers/dbHandlers.js');
+const { setupApplicationIpcHandlers } = require('./src/main/ipcHandlers/appHandlers.js');
+// --- ----------------------- ---
+
+// --- 移除旧依赖 ---
+// const bip39 = require('bip39');
+// const { hdkey } = require('ethereumjs-wallet');
+// --- -------- ---
 
 function createWindow () {
   // 创建浏览器窗口。
@@ -19,6 +27,10 @@ function createWindow () {
     }
   });
 
+  // 在加载文件前设置 IPC Handlers 并传入 mainWindow
+  setupDatabaseIpcHandlers(); // DB Handlers 不需要 mainWindow
+  setupApplicationIpcHandlers(mainWindow); // 传入 mainWindow 给 App Handlers
+
   // 加载 index.html
   mainWindow.loadFile('index.html');
 
@@ -31,18 +43,15 @@ function createWindow () {
 
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用
 app.whenReady().then(() => {
-  // --- 设置 IPC Handlers --- 
-  setupDbHandlers();
-  // --- ---------------- --- 
-
+  // 不再在这里调用 setupApplicationIpcHandlers
   createWindow();
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建一个窗口。
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
-        });
-    });
+  });
+});
 
 // 当所有窗口都关闭时退出应用程序，除 macOS 外。
 // 在 macOS 上，应用程序及其菜单栏通常保持活动状态，
@@ -60,56 +69,10 @@ app.on('will-quit', () => {
   db.closeDatabase();
 });
 
+// ================== 移除旧的 setupDbHandlers 函数 ==================
+// function setupDbHandlers() { ... } // REMOVED
+// ==================================================================
+
 // ================== IPC Handlers for DB Operations ==================
-
-function setupDbHandlers() {
-    console.log('Setting up DB IPC handlers...');
-
-    // --- Groups --- 
-    ipcMain.handle('db:addGroup', async (event, name) => {
-        console.log('IPC received: db:addGroup', name);
-        return await db.addGroup(name);
-    });
-    ipcMain.handle('db:getGroups', async () => {
-        console.log('IPC received: db:getGroups');
-        return await db.getGroups();
-    });
-    ipcMain.handle('db:updateGroup', async (event, id, newName) => {
-        console.log('IPC received: db:updateGroup', id, newName);
-        return await db.updateGroup(id, newName);
-    });
-    ipcMain.handle('db:deleteGroup', async (event, id) => {
-        console.log('IPC received: db:deleteGroup', id);
-        return await db.deleteGroup(id);
-    });
-
-    // --- Wallets --- 
-    ipcMain.handle('db:addWallet', async (event, walletData) => {
-        console.log('IPC received: db:addWallet', walletData);
-        return await db.addWallet(walletData);
-    });
-    ipcMain.handle('db:getWallets', async (event, options) => {
-        console.log('IPC received: db:getWallets', options);
-        return await db.getWallets(options);
-    });
-     ipcMain.handle('db:getWalletById', async (event, id) => {
-        console.log('IPC received: db:getWalletById', id);
-        return await db.getWalletById(id);
-    });
-    ipcMain.handle('db:getWalletsByIds', async (event, ids) => {
-        console.log('IPC received: db:getWalletsByIds', ids);
-        return await db.getWalletsByIds(ids);
-    });
-    ipcMain.handle('db:updateWallet', async (event, id, walletData) => {
-        console.log('IPC received: db:updateWallet', id, walletData);
-        return await db.updateWallet(id, walletData);
-    });
-    ipcMain.handle('db:deleteWallet', async (event, id) => {
-        console.log('IPC received: db:deleteWallet', id);
-        return await db.deleteWallet(id);
-    });
-
-    console.log('DB IPC handlers ready.');
-}
 
 // ==================================================================== 
