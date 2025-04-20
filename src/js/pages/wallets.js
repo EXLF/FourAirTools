@@ -334,9 +334,9 @@ function createWalletRowElement(wallet, index, offset) {
         <td>${wallet.notes || ''}</td>
         <td class="group-cell">${wallet.groupName || ''}</td>
         <td class="actions-cell">
-            <button class="btn-icon" title="查看详情"><i class="fa fa-eye"></i></button>
-            <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
-            <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+            <button class="btn-icon" title="查看详情"><i class="fas fa-eye"></i></button>
+            <button class="btn-icon" title="编辑"><i class="fas fa-pencil-alt"></i></button>
+            <button class="btn-icon" title="删除"><i class="fas fa-trash-alt"></i></button>
         </td>
     `;
     return tr;

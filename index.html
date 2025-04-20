@@ -6,7 +6,7 @@
     <title>FourAir社区撸毛工具箱</title>
     <!-- <link rel="stylesheet" href="styles.css"> -->
     <link rel="stylesheet" href="src/css/main.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- 可选: 引入图表库 -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,37 +42,37 @@
             <nav>
                 <!-- 导航结构重组 -->
                 <ul>
-                    <li class="active"><a href="#dashboard"><i class="fa fa-tachometer"></i> <span>仪表盘</span></a></li>
+                    <li class="active"><a href="#dashboard"><i class="fas fa-tachometer-alt"></i> <span>仪表盘</span></a></li>
                 </ul>
-                 <h6><i class="fa fa-database"></i> 信息中心</h6>
+                 <h6><i class="fas fa-database"></i> 信息中心</h6>
                  <ul>
-                    <li><a href="#projects"><i class="fa fa-rocket"></i> <span>项目跟踪</span></a></li>
+                    <li><a href="#projects"><i class="fas fa-rocket"></i> <span>项目跟踪</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-briefcase"></i> 资产 & 账户</h6>
+                 <h6><i class="fas fa-briefcase"></i> 资产 & 账户</h6>
                  <ul>
-                    <li><a href="#wallets"><i class="fa fa-google-wallet"></i> <span>钱包管理</span></a></li>
-                    <li><a href="#social"><i class="fa fa-users"></i> <span>社交账户</span></a></li>
+                    <li><a href="#wallets"><i class="fab fa-google-wallet"></i> <span>钱包管理</span></a></li>
+                    <li><a href="#social"><i class="fas fa-users"></i> <span>社交账户</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-cogs"></i> 自动化工具</h6>
+                 <h6><i class="fas fa-cogs"></i> 自动化工具</h6>
                  <ul>
-                    <li><a href="#script-plugins"><i class="fa fa-plug"></i> <span>脚本插件</span></a></li>
+                    <li><a href="#script-plugins"><i class="fas fa-plug"></i> <span>脚本插件</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-shield"></i> 安全 & 网络</h6>
+                 <h6><i class="fas fa-shield-alt"></i> 安全 & 网络</h6>
                  <ul>
-                    <li><a href="#tool-network"><i class="fa fa-wifi"></i> <span>IP代理</span></a></li>
+                    <li><a href="#tool-network"><i class="fas fa-wifi"></i> <span>IP代理</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-graduation-cap"></i> 学习 & 社区</h6>
+                 <h6><i class="fas fa-graduation-cap"></i> 学习 & 社区</h6>
                  <ul>
-                    <li><a href="#tutorials"><i class="fa fa-book"></i> <span>教程中心</span></a></li>
-                    <li><a href="#community"><i class="fa fa-comments"></i> <span>社区交流</span></a></li>
+                    <li><a href="#tutorials"><i class="fas fa-book"></i> <span>教程中心</span></a></li>
+                    <li><a href="#community"><i class="fas fa-comments"></i> <span>社区交流</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-wrench"></i> 常用工具</h6>
+                 <h6><i class="fas fa-wrench"></i> 常用工具</h6>
                  <ul>
-                     <li><a href="#tools"><i class="fa fa-wrench"></i> <span>工具链接</span></a></li>
+                     <li><a href="#tools"><i class="fas fa-wrench"></i> <span>工具链接</span></a></li>
                  </ul>
-                 <h6><i class="fa fa-sliders"></i> 配置</h6>
+                 <h6><i class="fas fa-sliders-h"></i> 配置</h6>
                  <ul>
-                    <li><a href="#settings"><i class="fa fa-gear"></i> <span>软件设置</span></a></li>
+                    <li><a href="#settings"><i class="fas fa-cog"></i> <span>软件设置</span></a></li>
                  </ul>
             </nav>
             <div class="sidebar-footer">
@@ -317,6 +317,61 @@
                  <div class="modal-actions">
                      <button class="btn btn-secondary modal-close-btn-footer">关闭</button>
                  </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ========= Social Account Form Modal Template ========== -->
+    <template id="tpl-social-account-form">
+        <div class="modal-overlay">
+            <div class="modal-box social-account-form-modal">
+                <button class="modal-close-btn">&times;</button>
+                <h3 class="modal-title">添加社交账户</h3>
+                <div class="modal-content">
+                    <form id="social-account-form-actual">
+                        <input type="hidden" name="account-id" value=""> <!-- 用于编辑模式 -->
+
+                        <div class="option-group">
+                            <label for="social-platform">平台 <span class="required">*</span></label>
+                            <select id="social-platform" name="social-platform" required>
+                                <option value="" disabled selected>请选择平台</option>
+                                <option value="Twitter">Twitter</option>
+                                <option value="Discord">Discord</option>
+                                <option value="Telegram">Telegram</option>
+                                <option value="Email">Email</option>
+                                <!-- <option value="Other">其他</option> -->
+                            </select>
+                        </div>
+
+                        <div class="option-group">
+                            <label for="social-username">用户名/Handle <span class="required">*</span></label>
+                            <input type="text" id="social-username" name="social-username" placeholder="例如 @username 或 user#1234" required>
+                        </div>
+
+                         <div class="option-group">
+                            <label for="social-binding">绑定邮箱/手机</label>
+                            <input type="text" id="social-binding" name="social-binding" placeholder="例如 xxx@email.com 或 +1 **** 1234">
+                        </div>
+
+                         <div class="option-group">
+                            <label for="social-group">分组</label>
+                            <select id="social-group" name="social-group">
+                                <option value="">无分组</option>
+                                <!-- 分组选项将由 JS 动态填充 -->
+                            </select>
+                        </div>
+
+                         <div class="option-group">
+                            <label for="social-notes">备注</label>
+                            <input type="text" id="social-notes" name="social-notes" placeholder="关于此账户的说明...">
+                        </div>
+
+                    </form>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary modal-cancel-btn">取消</button>
+                    <button type="submit" form="social-account-form-actual" class="btn btn-primary modal-save-btn">保存</button>
+                </div>
             </div>
         </div>
     </template>

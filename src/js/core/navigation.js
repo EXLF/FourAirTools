@@ -151,10 +151,6 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/social.js';
             initFunctionName = 'initSocialPage';
             break;
-        case 'projects':
-            modulePath = '../pages/projects.js';
-            initFunctionName = 'initProjectsPage';
-            break;
         case 'script-plugins':
             modulePath = '../pages/scriptPlugins.js';
             initFunctionName = 'initScriptPluginPage';

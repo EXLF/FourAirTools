@@ -72,6 +72,43 @@ function setupDatabaseIpcHandlers() {
     });
     // --- ------------------ ---
 
+    // --- Social Accounts ---
+    ipcMain.handle('db:addSocialAccount', async (event, accountData) => {
+        console.log('[IPC] Received: db:addSocialAccount', accountData);
+        return await db.addSocialAccount(accountData);
+    });
+    ipcMain.handle('db:getSocialAccounts', async (event, options) => {
+        console.log('[IPC] Received: db:getSocialAccounts', options);
+        return await db.getSocialAccounts(options);
+    });
+    ipcMain.handle('db:getSocialAccountById', async (event, id) => {
+        console.log('[IPC] Received: db:getSocialAccountById', id);
+        return await db.getSocialAccountById(id);
+    });
+    ipcMain.handle('db:updateSocialAccount', async (event, id, accountData) => {
+        console.log('[IPC] Received: db:updateSocialAccount', id, accountData);
+        return await db.updateSocialAccount(id, accountData);
+    });
+    ipcMain.handle('db:deleteSocialAccount', async (event, id) => {
+        console.log('[IPC] Received: db:deleteSocialAccount', id);
+        return await db.deleteSocialAccount(id);
+    });
+    ipcMain.handle('db:deleteSocialAccountsByIds', async (event, ids) => {
+        console.log('[IPC] Received: db:deleteSocialAccountsByIds', ids);
+        if (!Array.isArray(ids) || ids.length === 0) {
+            console.warn('[IPC Main] db:deleteSocialAccountsByIds - Invalid input');
+            return { deletedCount: 0, errors: ['Invalid input: IDs array is required.'] };
+        }
+        try {
+            const deletedCount = await db.deleteSocialAccountsByIds(ids);
+            return { deletedCount: deletedCount, errors: [] };
+        } catch (error) {
+            console.error(`[IPC Main] db:deleteSocialAccountsByIds - Error: ${error.message}`, error);
+            return { deletedCount: 0, errors: [error.message || 'An unknown error occurred during bulk deletion.'] };
+        }
+    });
+    // --- ----------------- ---
+
     console.log('[IPC] Database IPC handlers ready.');
 }
 

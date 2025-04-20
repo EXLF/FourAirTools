@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld('dbAPI', {
     deleteWallet: (id) => ipcRenderer.invoke('db:deleteWallet', id),
     deleteWalletsByIds: (ids) => ipcRenderer.invoke('db:deleteWalletsByIds', ids),
 
+    // Social Accounts
+    addSocialAccount: (accountData) => ipcRenderer.invoke('db:addSocialAccount', accountData),
+    getSocialAccounts: (options) => ipcRenderer.invoke('db:getSocialAccounts', options),
+    getSocialAccountById: (id) => ipcRenderer.invoke('db:getSocialAccountById', id),
+    updateSocialAccount: (id, accountData) => ipcRenderer.invoke('db:updateSocialAccount', id, accountData),
+    deleteSocialAccount: (id) => ipcRenderer.invoke('db:deleteSocialAccount', id),
+    deleteSocialAccountsByIds: (ids) => ipcRenderer.invoke('db:deleteSocialAccountsByIds', ids),
+
     // --- 新增：应用级功能 ---
     generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options), // { count, groupId? }
     // 新增：保存文件功能 (用于导出)
@@ -36,4 +44,11 @@ contextBridge.exposeInMainWorld('electron', {
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
     // 如果还需要其他方法，如 send, on, removeListener, 也可在此暴露
   }
+}); 
+
+console.log('[Preload] Preload script executed successfully.');
+
+window.addEventListener('DOMContentLoaded', () => {
+    // 可以进行一些 DOMContentLoaded 相关的预加载操作
+    console.log('[Preload] DOMContentLoaded event fired.');
 }); 

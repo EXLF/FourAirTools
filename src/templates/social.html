@@ -1,22 +1,22 @@
 <div class="page-header">
     <h1>社交账户管理</h1>
     <div class="header-actions">
-        <button class="btn btn-secondary"><i class="fas fa-upload"></i> 批量导入</button>
-        <button class="btn btn-secondary"><i class="fas fa-download"></i> 导出选中</button>
-        <button class="btn btn-primary"><i class="fas fa-user-plus"></i> 添加账户</button>
+        <button class="btn btn-secondary"><i class="fa fa-download"></i> 批量导入</button>
+        <button class="btn btn-secondary"><i class="fa fa-upload"></i> 导出选中</button>
+        <button class="btn btn-primary"><i class="fa fa-user-plus"></i> 添加账户</button>
     </div>
 </div>
 
 <div class="filters-bar">
     <div class="filter-group platform-filter-group">
-         <i class="fas fa-filter filter-icon"></i>
+         <i class="fa fa-filter filter-icon"></i>
         <span class="filter-label">平台:</span>
         <div class="platform-buttons">
             <button class="platform-filter-btn active" data-platform="twitter"><i class="fab fa-twitter"></i> Twitter</button>
             <button class="platform-filter-btn" data-platform="discord"><i class="fab fa-discord"></i> Discord</button>
-            <button class="platform-filter-btn" data-platform="telegram"><i class="fab fa-telegram-plane"></i> Telegram</button>
-            <button class="platform-filter-btn" data-platform="email"><i class="fas fa-envelope"></i> Email</button>
-            <button class="platform-filter-btn" data-platform=""><i class="fas fa-globe"></i> 全部</button>
+            <button class="platform-filter-btn" data-platform="telegram"><i class="fab fa-telegram"></i> Telegram</button>
+            <button class="platform-filter-btn" data-platform="email"><i class="fab fa-google"></i> Email</button>
+            <button class="platform-filter-btn" data-platform=""><i class="fas fa-list"></i> 全部</button>
          </div>
     </div>
      <div class="filter-group">
@@ -30,7 +30,7 @@
         </select>
     </div>
     <div class="search-box table-search-box">
-         <i class="fas fa-search search-icon"></i>
+         <i class="fa fa-search search-icon"></i>
         <input type="text" class="table-search-input" placeholder="搜索用户名/邮箱/备注...">
     </div>
 </div>
@@ -45,47 +45,23 @@
                 <th style="width: 25%;">绑定邮箱/手机</th>
                 <th style="width: 17%;">备注</th>
                 <th style="width: 15%;">分组</th>
+                <th class="actions-header">操作</th>
             </tr>
         </thead>
         <tbody>
-            <!-- Placeholder Row 1 -->
-            <tr>
-                <td><input type="checkbox"></td>
-                <td><i class="fab fa-twitter" style="color: #1DA1F2;"></i> Twitter</td>
-                <td>@user_alpha</td>
-                <td>alpha***@outlook.com</td>
-                <td>主力推特</td>
-                <td>分组A (主力)</td>
-            </tr>
-            <!-- Placeholder Row 2 -->
-            <tr>
-                <td><input type="checkbox"></td>
-                <td><i class="fab fa-discord" style="color: #7289DA;"></i> Discord</td>
-                <td>useralpha#1234</td>
-                 <td>alpha***@outlook.com</td>
-                <td>主力DC</td>
-                <td>分组A (主力)</td>
-            </tr>
-            <!-- Placeholder Row 3 -->
-             <tr>
-                <td><input type="checkbox"></td>
-                <td><i class="fab fa-telegram-plane" style="color: #0088cc;"></i> Telegram</td>
-                <td>+1 **** 5678</td>
-                <td>beta***@163.com</td>
-                <td>TG小号1 (L0)</td>
-                <td>分组B (L0)</td>
-            </tr>
-            <!-- Placeholder Row 4 -->
-             <tr>
-                <td><input type="checkbox"></td>
-                <td><i class="fas fa-envelope" style="color: #c71610;"></i> Email</td>
-                <td>gamma***@gmail.com</td>
-                <td>-</td>
-                <td>zkSync专用邮箱</td>
-                <td>分组C (zk)</td>
-            </tr>
-             <!-- Add more rows -->
+            <!-- 表格行将由 JS 动态填充 -->
+            <!-- 移除占位符行 -->
         </tbody>
     </table>
 </div>
-<!-- Add pagination if needed --> 
+<div class="pagination-controls-wrapper" style="display: flex; justify-content: flex-end; align-items: baseline; margin-top: 15px;">
+    <div class="page-size-selector" style="display: inline-flex; align-items: center; margin-right: 15px;">
+        <span style="margin-right: 8px;">每页显示: </span>
+        <select class="page-size-select" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <!-- 选项将由 JS 填充 -->
+        </select>
+    </div>
+    <div class="pagination">
+        <!-- 分页按钮将由 JS 填充 -->
+    </div>
+</div> 
