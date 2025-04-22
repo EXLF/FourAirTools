@@ -224,8 +224,8 @@
                          <!-- 分组列表将由 JS 动态填充 -->
                      </ul>
                       <h4>添加新分组</h4>
-                      <div class="group-add-form" style="display: flex; gap: 10px;">
-                          <input type="text" id="new-group-name" class="input" placeholder="输入新分组名称" style="flex-grow: 1; border-radius: 4px; padding: 8px 12px; border: 1px solid #ccc;">
+                      <div class="group-add-form option-group" style="margin-top: 10px;">
+                          <input type="text" id="new-group-name" class="input" placeholder="输入新分组名称" style="flex: 1; min-width: 0;">
                           <button class="btn btn-success add-group-btn"><i class="fa fa-plus"></i> 添加</button>
                       </div>
                  </div>
@@ -355,12 +355,12 @@
 
                         <div class="option-group group-selection-group">
                             <label for="social-group">分组</label>
-                            <div class="group-controls" style="display: flex; align-items: center; gap: 10px;">
-                                <select id="social-group" name="social-group" style="flex-grow: 1;">
+                            <div class="group-controls" style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                                <select id="social-group" name="social-group" style="flex: 1; min-width: 0;">
                                     <option value="">无分组</option>
                                     <!-- Options will be loaded by JS -->
                                 </select>
-                                <input type="text" class="new-group-name-input" placeholder="输入新分组" title="输入新分组名称，然后按回车键创建">
+                                <input type="text" class="new-group-name-input" placeholder="输入新分组" title="输入新分组名称，然后按回车键创建" style="width: 150px; flex-shrink: 0;">
                             </div>
                         </div>
 

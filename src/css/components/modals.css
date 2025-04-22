@@ -47,6 +47,7 @@
 .modal-box select,
 .modal-box textarea,
 .modal-box .new-group-name-input {
+    box-sizing: border-box; /* 新增：确保宽度计算包含 padding 和 border */
     border-radius: 4px;
     padding: 8px 12px;
     border: 1px solid #ccc;
@@ -58,6 +59,19 @@
 .group-controls .new-group-name-input {
     width: 150px;
     flex-shrink: 0;
+}
+
+/* 修复社交账户模态框中分组选择的样式问题 */
+.social-account-form-modal .group-controls {
+    width: 100%;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.social-account-form-modal #social-group {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: block !important;
 }
 
 .modal-close-btn {
@@ -301,4 +315,18 @@
 
 .modal-actions .modal-close-btn-footer {
     /* Alias for cancel button in article modal footer if needed */
+}
+
+/* 管理分组模态框样式 */
+.manage-groups-modal .group-add-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.manage-groups-modal #new-group-name {
+    border-radius: 4px;
+    padding: 8px 12px;
+    flex: 1;
+    min-width: 0;
 } 
