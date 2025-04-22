@@ -744,6 +744,42 @@ function deleteSocialAccountsByIds(ids) {
     });
 }
 
+/**
+ * 获取钱包总数。
+ * @returns {Promise<number>} - 返回钱包总数。
+ */
+function countWallets() {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT COUNT(*) as count FROM wallets`;
+        db.get(sql, [], (err, row) => {
+            if (err) {
+                console.error('Error counting wallets:', err.message);
+                reject(err);
+            } else {
+                resolve(row ? row.count : 0);
+            }
+        });
+    });
+}
+
+/**
+ * 获取社交账户总数。
+ * @returns {Promise<number>} - 返回社交账户总数。
+ */
+function countSocialAccounts() {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT COUNT(*) as count FROM social_accounts`;
+        db.get(sql, [], (err, row) => {
+            if (err) {
+                console.error('Error counting social accounts:', err.message);
+                reject(err);
+            } else {
+                resolve(row ? row.count : 0);
+            }
+        });
+    });
+}
+
 // 导出所有函数 (包括新增的社交账户函数)
 module.exports = {
     db,
@@ -767,5 +803,7 @@ module.exports = {
     getSocialAccountById,
     updateSocialAccount,
     deleteSocialAccount,
-    deleteSocialAccountsByIds
+    deleteSocialAccountsByIds,
+    countWallets,
+    countSocialAccounts
 }; 

@@ -72,6 +72,17 @@ function setupDatabaseIpcHandlers() {
     });
     // --- ------------------ ---
 
+    // --- 新增：获取统计数据 ---
+    ipcMain.handle('db:countWallets', async () => {
+        console.log('[IPC] Received: db:countWallets');
+        return await db.countWallets();
+    });
+    ipcMain.handle('db:countSocialAccounts', async () => {
+        console.log('[IPC] Received: db:countSocialAccounts');
+        return await db.countSocialAccounts();
+    });
+    // --- ----------------- ---
+
     // --- Social Accounts ---
     ipcMain.handle('db:addSocialAccount', async (event, accountData) => {
         console.log('[IPC] Received: db:addSocialAccount', accountData);

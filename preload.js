@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('dbAPI', {
     updateWallet: (id, walletData) => ipcRenderer.invoke('db:updateWallet', id, walletData),
     deleteWallet: (id) => ipcRenderer.invoke('db:deleteWallet', id),
     deleteWalletsByIds: (ids) => ipcRenderer.invoke('db:deleteWalletsByIds', ids),
+    countWallets: () => ipcRenderer.invoke('db:countWallets'),
 
     // Social Accounts
     addSocialAccount: (accountData) => ipcRenderer.invoke('db:addSocialAccount', accountData),
@@ -26,6 +27,7 @@ contextBridge.exposeInMainWorld('dbAPI', {
     updateSocialAccount: (id, accountData) => ipcRenderer.invoke('db:updateSocialAccount', id, accountData),
     deleteSocialAccount: (id) => ipcRenderer.invoke('db:deleteSocialAccount', id),
     deleteSocialAccountsByIds: (ids) => ipcRenderer.invoke('db:deleteSocialAccountsByIds', ids),
+    countSocialAccounts: () => ipcRenderer.invoke('db:countSocialAccounts'),
 
     // --- 新增：应用级功能 ---
     generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options), // { count, groupId? }
