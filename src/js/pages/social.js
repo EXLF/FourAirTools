@@ -1,6 +1,7 @@
 import { setupFilteringAndSearch, setupCheckAll } from '../components/tableHelper.js';
 import { showModal, hideModal } from '../components/modal.js';
 import { showToast } from '../components/toast.js';
+import { debounce } from '../utils/index.js'; // 确保导入 debounce
 // 这个简单的显示表格暂时不需要表格操作
 
 // 缓存 DOM 元素 - 明确初始化为 null
@@ -12,6 +13,8 @@ let currentPage = 1; // 当前页码
 let itemsPerPage = 10; // 每页项目数
 let totalItems = 0; // 总项目数
 let currentFilters = {}; // 新增：存储当前筛选条件
+let groupFilterSelect = null; // 新增：缓存分组筛选器元素
+let searchInput = null; // 新增：缓存搜索输入框元素
 // ... 其他元素待添加 (filters, pagination, etc.)
 
 // ================= 分页逻辑 (从 wallets.js 借鉴和修改) =================
@@ -186,6 +189,65 @@ function setupPlatformFilterListeners() {
 }
 
 /**
+ * 新增：设置分组筛选下拉框的监听器
+ */
+function setupGroupFilterListener() {
+    groupFilterSelect = contentAreaCache?.querySelector('#social-group-filter');
+    if (!groupFilterSelect) return;
+
+    groupFilterSelect.addEventListener('change', async () => {
+        const selectedGroupId = groupFilterSelect.value;
+        // 如果值为空字符串 (选择了"所有分组"), 则 groupId 设为 null
+        currentFilters.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
+        currentPage = 1; // 重置到第一页
+        await loadAndRenderSocialAccounts(); // 重新加载数据
+    });
+}
+
+/**
+ * 新增：加载并填充分组筛选器下拉菜单
+ */
+async function loadGroupFiltersForSocial() {
+    const groupFilterSelect = contentAreaCache?.querySelector('#social-group-filter');
+    if (!groupFilterSelect) {
+        console.warn("未找到分组筛选器 (#social-group-filter)，无法加载分组。");
+        return;
+    }
+
+    try {
+        const groups = await window.dbAPI.getGroups();
+        groupFilterSelect.innerHTML = '<option value="">所有分组</option>'; // 保留"所有分组"选项
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id; // 使用分组 ID 作为值
+            option.textContent = group.name;
+            groupFilterSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error("加载分组筛选器失败:", error);
+        // 可以在下拉框中显示错误或使用 Toast 提示
+        groupFilterSelect.innerHTML = '<option value="">加载分组失败</option>';
+    }
+}
+
+/**
+ * 新增：设置搜索框的监听器
+ */
+function setupSearchListener() {
+    searchInput = contentAreaCache?.querySelector('.table-search-input');
+    if (!searchInput) return;
+
+    // 使用 debounce 包装实际的搜索逻辑
+    const debouncedSearch = debounce(async () => {
+        currentFilters.search = searchInput.value.trim();
+        currentPage = 1; // 重置到第一页
+        await loadAndRenderSocialAccounts(); // 重新加载数据
+    }, 300); // 延迟 300 毫秒
+
+    searchInput.addEventListener('input', debouncedSearch);
+}
+
+/**
  * 初始化社交账户页面。
  * 设置筛选、全选和头部按钮。
  * @param {HTMLElement} contentArea - 要操作的主要内容区域。
@@ -235,6 +297,15 @@ export async function initSocialPage(contentArea) {
 
     // 设置平台筛选监听器
     setupPlatformFilterListeners();
+
+    // 设置分组筛选监听器
+    setupGroupFilterListener();
+
+    // 设置搜索监听器
+    setupSearchListener();
+
+    // 加载分组过滤器选项
+    await loadGroupFiltersForSocial();
 
     // 设置全选功能
     setupCheckAll(contentAreaCache, '.social-table'); // 添加调用
@@ -298,10 +369,19 @@ async function openSocialAccountModal(accountId = null) {
         const saveBtn = modalElement.querySelector('.modal-save-btn');
         const title = modalElement.querySelector('.modal-title');
         const accountIdInput = form.elements['account-id']; // 获取隐藏的 ID 输入框
+        // 修改：只获取新的分组输入框
+        const newGroupNameInput = modalElement.querySelector('.new-group-name-input'); 
+        // 移除旧的按钮/控件引用
+        // const addGroupBtn = modalElement.querySelector('.btn-add-group');
+        // const newGroupControls = modalElement.querySelector('.new-group-controls');
+        // const confirmNewGroupBtn = modalElement.querySelector('.btn-confirm-new-group');
+        // const cancelNewGroupBtn = modalElement.querySelector('.btn-cancel-new-group');
 
-        if (!form || !groupSelect || !saveBtn || !title || !accountIdInput) {
+        // 调整检查，确保新的输入框存在
+        if (!form || !groupSelect || !saveBtn || !title || !accountIdInput || !newGroupNameInput) {
             console.error("添加/编辑社交账户模态框缺少必要的元素。.");
             hideModal();
+            showToast("加载分组选项失败", 'error');
             return;
         }
 
@@ -356,6 +436,64 @@ async function openSocialAccountModal(accountId = null) {
             console.error("加载分组失败:", error);
             showToast("加载分组选项失败", 'error');
         }
+
+        // --- 新增：处理新分组输入框的回车事件 ---
+        if (newGroupNameInput) {
+            newGroupNameInput.addEventListener('keydown', async (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // 阻止回车键触发表单提交
+                    
+                    const newGroupName = newGroupNameInput.value.trim();
+                    if (!newGroupName) {
+                        showToast('请输入新分组名称', 'warning');
+                        return;
+                    }
+
+                    // 检查分组名是否已存在
+                    const existingOptions = Array.from(groupSelect.options).map(opt => opt.textContent.toLowerCase());
+                    if (existingOptions.includes(newGroupName.toLowerCase())) {
+                        showToast(`分组 "${newGroupName}" 已存在，请直接在下拉框中选择`, 'warning');
+                        // 可选：自动选中已存在的分组
+                        const existingOption = Array.from(groupSelect.options).find(opt => opt.textContent.toLowerCase() === newGroupName.toLowerCase());
+                        if (existingOption) {
+                            groupSelect.value = existingOption.value;
+                            newGroupNameInput.value = ''; // 清空输入
+                        }
+                        return;
+                    }
+
+                    // 禁用输入框，防止重复提交
+                    newGroupNameInput.disabled = true;
+                    const originalPlaceholder = newGroupNameInput.placeholder;
+                    newGroupNameInput.placeholder = '正在添加...';
+
+                    try {
+                        const newGroupId = await window.dbAPI.addGroup(newGroupName);
+                        showToast(`分组 "${newGroupName}" 添加成功`, 'success');
+                        
+                        // 创建新选项并添加到下拉框
+                        const newOption = document.createElement('option');
+                        newOption.value = newGroupId;
+                        newOption.textContent = newGroupName;
+                        newOption.selected = true; // 自动选中新分组
+                        groupSelect.appendChild(newOption);
+                        
+                        newGroupNameInput.value = ''; // 清空输入框
+                        
+                        // 刷新页面顶部的分组筛选器
+                        await loadGroupFiltersForSocial(); 
+                    } catch (error) {
+                        console.error("添加新分组失败:", error);
+                        showToast(`添加分组失败: ${error.message}`, 'error');
+                    } finally {
+                        // 恢复输入框状态
+                        newGroupNameInput.disabled = false;
+                        newGroupNameInput.placeholder = originalPlaceholder;
+                    }
+                }
+            });
+        }
+        // --- ------------------------------ ---
 
         const handleSubmit = async (event) => {
             event.preventDefault();
