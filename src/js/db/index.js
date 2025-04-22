@@ -283,73 +283,87 @@ function addWallet(walletData) {
  * @param {number} [options.page] - 页码。
  * @returns {Promise<{wallets: Array<object>, totalCount: number}>} - 返回钱包列表和总记录数。
  */
-function getWallets(options = {}) {
-    return new Promise((resolve, reject) => {
-        let baseSql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
-                       FROM wallets w
-                       LEFT JOIN groups g ON w.groupId = g.id`;
-        const countSql = `SELECT COUNT(*) as count FROM wallets w LEFT JOIN groups g ON w.groupId = g.id`;
-        const whereClauses = [];
-        const params = [];
-        const countParams = [];
+async function getWallets(options = {}) {
+    let baseSql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
+                   FROM wallets w
+                   LEFT JOIN groups g ON w.groupId = g.id`;
+    const countSqlBase = `SELECT COUNT(*) as count FROM wallets w LEFT JOIN groups g ON w.groupId = g.id`;
+    const whereClauses = [];
+    const params = [];
+    const countParams = [];
 
-        if (options.groupId) {
-            whereClauses.push('w.groupId = ?');
-            params.push(options.groupId);
-            countParams.push(options.groupId);
-        }
-         if (options.search) {
-            const searchTerm = `%${options.search}%`;
-            whereClauses.push('(w.address LIKE ? OR w.name LIKE ? OR w.notes LIKE ? OR g.name LIKE ?)');
-            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
-            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
-        }
+    if (options.groupId) {
+        whereClauses.push('w.groupId = ?');
+        params.push(options.groupId);
+        countParams.push(options.groupId);
+    }
+     if (options.search) {
+        const searchTerm = `%${options.search}%`;
+        whereClauses.push('(w.address LIKE ? OR w.name LIKE ? OR w.notes LIKE ? OR g.name LIKE ?)');
+        params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+    }
 
-        let whereSql = '';
-        if (whereClauses.length > 0) {
-            whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
-        }
+    let whereSql = '';
+    if (whereClauses.length > 0) {
+        whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
+    }
 
-        const sortBy = options.sortBy || 'createdAt';
-        const allowedSortColumns = ['id', 'address', 'name', 'createdAt', 'updatedAt', 'groupName', 'mnemonic', 'derivationPath'];
-        const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `w.${sortBy}`) : 'w.createdAt';
-        const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
-        const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
+    const sortBy = options.sortBy || 'createdAt';
+    const allowedSortColumns = ['id', 'address', 'name', 'createdAt', 'updatedAt', 'groupName', 'mnemonic', 'derivationPath'];
+    const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `w.${sortBy}`) : 'w.createdAt';
+    const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
 
-        let limitSql = '';
-        if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
-            const offset = (options.page - 1) * options.limit;
-            limitSql = ' LIMIT ? OFFSET ?';
-            params.push(options.limit, offset);
-        } else if (options.limit !== undefined) {
-            limitSql = ' LIMIT ?';
-            params.push(options.limit);
-        }
+    let limitSql = '';
+    let offset = 0;
+    if (options.limit !== undefined && options.offset !== undefined) {
+        limitSql = ' LIMIT ? OFFSET ?';
+        offset = options.offset;
+    } else if (options.limit !== undefined) {
+        limitSql = ' LIMIT ?';
+    }
 
-        const finalSql = baseSql + whereSql + orderBySql + limitSql;
-        const finalCountSql = countSql + whereSql;
-
-        db.serialize(() => {
-            let results = {};
+    const finalCountSql = countSqlBase + whereSql;
+    const finalSql = baseSql + whereSql + orderBySql + limitSql;
+    
+    try {
+        const countResult = await new Promise((resolveCount, rejectCount) => {
             db.get(finalCountSql, countParams, (errCount, rowCount) => {
-                 if (errCount) {
+                if (errCount) {
                     console.error('Error counting wallets:', errCount.message);
-                    return reject(errCount);
+                    rejectCount(errCount);
+                } else {
+                    resolveCount(rowCount ? rowCount.count : 0);
                 }
-                results.totalCount = rowCount ? rowCount.count : 0;
-
-                db.all(finalSql, params, (err, rows) => {
-                    if (err) {
-                        console.error('Error getting wallets:', err.message);
-                        reject(err);
-                    } else {
-                        results.wallets = rows;
-                        resolve(results);
-                    }
-                });
             });
         });
-    });
+        const totalCount = countResult;
+
+        const finalParams = [...params];
+        if (limitSql === ' LIMIT ? OFFSET ?') {
+            finalParams.push(options.limit, offset);
+        } else if (limitSql === ' LIMIT ?') {
+            finalParams.push(options.limit);
+        }
+
+        const wallets = await new Promise((resolveWallets, rejectWallets) => {
+            db.all(finalSql, finalParams, (err, rows) => {
+                if (err) {
+                    console.error('Error getting wallets:', err.message);
+                    rejectWallets(err);
+                } else {
+                    resolveWallets(rows);
+                }
+            });
+        });
+        
+        return { wallets, totalCount };
+
+    } catch (error) {
+        console.error('Error in getWallets sequence:', error);
+        throw error;
+    }
 }
 
 /**

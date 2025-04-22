@@ -673,20 +673,45 @@ async function handleSocialAccountAction(action, accountId) {
         const platform = accountRow?.cells[1]?.textContent?.trim() || '未知平台';
         const username = accountRow?.cells[2]?.textContent?.trim() || `ID: ${accountId}`;
 
-        if (confirm(`确定删除 ${platform} 账户 "${username}" 吗？`)) {
-            try {
-                const changes = await window.dbAPI.deleteSocialAccount(accountId);
-                if (changes > 0) {
-                    showToast(`账户 "${username}" 已删除`, 'success');
-                    await loadAndRenderSocialAccounts(); // 重新加载数据
-                } else {
-                    showToast(`删除账户 "${username}" 操作未执行`, 'warning');
-                }
-            } catch (error) {
-                console.error(`删除账户 ID ${accountId} 失败:`, error);
-                showToast(`删除失败: ${error.message}`, 'error');
+        // 使用自定义模态框进行确认
+        showModal('tpl-confirm-dialog', (modalElement) => {
+            const messageElement = modalElement.querySelector('.confirm-message');
+            const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+            const cancelBtn = modalElement.querySelector('.modal-cancel-btn');
+
+            if (!messageElement || !confirmBtn || !cancelBtn) {
+                console.error("确认模态框缺少必要的元素。");
+                hideModal(); return;
             }
-        }
+
+            messageElement.innerHTML = `确定删除 ${platform} 账户 "<b>${username}</b>" 吗？`; // 加粗用户名
+
+            const handleConfirmDelete = async () => {
+                confirmBtn.removeEventListener('click', handleConfirmDelete);
+                
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 删除中...';
+
+                try {
+                    const changes = await window.dbAPI.deleteSocialAccount(accountId);
+                    if (changes > 0) {
+                        showToast(`账户 "${username}" 已删除`, 'success');
+                        hideModal();
+                        await loadAndRenderSocialAccounts(); // 重新加载数据
+                    } else {
+                        showToast(`删除账户 "${username}" 操作未执行`, 'warning');
+                        hideModal();
+                    }
+                } catch (error) {
+                    console.error(`删除账户 ID ${accountId} 失败:`, error);
+                    showToast(`删除失败: ${error.message}`, 'error');
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = '确认';
+                }
+            };
+            confirmBtn.addEventListener('click', handleConfirmDelete);
+        });
+
     } else if (action === 'edit') {
         // 调用模态框函数，并传入 ID 进入编辑模式
         openSocialAccountModal(accountId);

@@ -38,6 +38,28 @@
     transform: scale(1);
 }
 
+/* 添加全局模态框输入框样式 */
+.modal-box input[type="text"],
+.modal-box input[type="number"],
+.modal-box input[type="email"],
+.modal-box input[type="password"],
+.modal-box input[type="tel"],
+.modal-box select,
+.modal-box textarea,
+.modal-box .new-group-name-input {
+    border-radius: 4px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* 专门为新分组输入框设置样式 */
+.group-controls .new-group-name-input {
+    width: 150px;
+    flex-shrink: 0;
+}
+
 .modal-close-btn {
     position: absolute;
     top: 10px;

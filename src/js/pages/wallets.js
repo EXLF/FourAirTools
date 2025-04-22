@@ -359,22 +359,60 @@ async function handleWalletAction(action, rowElement, rowData) {
     console.log(`IPC: 钱包操作: "${action}" on Wallet ID: ${walletId} (${walletAddress})`);
 
     if (action === '删除') {
-        if (confirm(`确定删除钱包 ${walletAddress}?`)) {
-            try {
-                const changes = await window.dbAPI.deleteWallet(walletId);
-                if (changes > 0) {
-                    console.log(`IPC: 钱包 ${walletId} 已删除。`);
-                    showToast(`钱包 ${walletAddress} 已删除`, 'success');
-                    await loadAndRenderWallets();
-                } else {
-                     console.warn(`IPC: 删除钱包 ${walletId} 未报告更改。`);
-                     showToast(`删除钱包 ${walletAddress} 操作未执行`, 'warning');
-                }
-            } catch (error) {
-                console.error(`IPC: 删除钱包 ${walletId} 失败:`, error);
-                showToast(`删除钱包失败: ${error.message}`, 'error');
+        // 使用自定义模态框进行确认
+        showModal('tpl-confirm-dialog', (modalElement) => {
+            const messageElement = modalElement.querySelector('.confirm-message');
+            const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+            const cancelBtn = modalElement.querySelector('.modal-cancel-btn'); // modal.js 应该已处理关闭按钮
+
+            if (!messageElement || !confirmBtn || !cancelBtn) {
+                console.error("确认模态框缺少必要的元素。");
+                hideModal(); // 关闭可能有问题的模态框
+                return;
             }
-        }
+
+            // 设置确认信息
+            messageElement.textContent = `确定删除钱包 ${walletAddress} 吗？此操作不可撤销。`;
+
+            // 确认按钮事件监听 (只添加一次)
+            const handleConfirm = async () => {
+                // 移除监听器，避免重复执行
+                confirmBtn.removeEventListener('click', handleConfirm);
+                
+                // 添加加载状态 (可选)
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 删除中...';
+
+                try {
+                    const changes = await window.dbAPI.deleteWallet(walletId);
+                    if (changes > 0) {
+                        console.log(`IPC: 钱包 ${walletId} 已删除。`);
+                        showToast(`钱包 ${walletAddress} 已删除`, 'success');
+                        // 成功删除后，隐藏模态框并刷新列表
+                        hideModal(); 
+                        await loadAndRenderWallets(); 
+                    } else {
+                        console.warn(`IPC: 删除钱包 ${walletId} 未报告更改。`);
+                        showToast(`删除钱包 ${walletAddress} 操作未执行`, 'warning');
+                         hideModal(); // 也要关闭模态框
+                    }
+                } catch (error) {
+                    console.error(`IPC: 删除钱包 ${walletId} 失败:`, error);
+                    showToast(`删除钱包失败: ${error.message}`, 'error');
+                    // 即使失败也要恢复按钮状态并允许关闭模态框
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = '确认'; 
+                    // 可能不需要 hideModal()，让用户可以点取消
+                }
+                // 注意：finally 块不是必需的，因为成功时已经 hideModal
+            };
+
+            confirmBtn.addEventListener('click', handleConfirm);
+
+            // 取消按钮事件监听 (通常 modal.js 会处理关闭，但可以明确添加)
+            // cancelBtn.addEventListener('click', () => hideModal());
+        });
+        
     } else if (action === '编辑') {
         openWalletModal(walletId);
     } else if (action === '查看详情') {
@@ -690,23 +728,121 @@ async function openManageGroupsModal() {
                     editBtn.title = '重命名';
                     editBtn.className = 'btn-icon btn-icon-sm'; // 使用小尺寸图标按钮
                     editBtn.style.marginRight = '5px'; // 按钮间距
-                    editBtn.addEventListener('click', async () => {
-                        const newName = prompt(`输入分组 "${group.name}" 的新名称:`, group.name);
-                        if (newName && newName.trim() !== '' && newName !== group.name) {
-                            try {
-                                await window.dbAPI.updateGroup(group.id, newName.trim());
-                                showToast(`分组 "${group.name}" 已重命名为 "${newName.trim()}"`, 'success');
-                                await renderGroupList();
-                                await loadGroupFilters();
-                            } catch (error) {
-                                 if (error.message && error.message.includes('UNIQUE constraint failed: groups.name')) {
-                                     showToast(`重命名失败：分组名称 "${newName.trim()}" 已存在！`, 'error');
-                                 } else {
-                                     showToast(`重命名分组失败: ${error.message}`, 'error');
-                                 }
+                    
+                    // --- 修改：行内编辑逻辑 ---
+                    editBtn.addEventListener('click', () => {
+                        // 切换到编辑状态
+                        li.classList.add('editing'); // 添加编辑状态类，方便样式控制
+                        nameSpan.style.display = 'none'; // 隐藏原始名称
+                        actionsDiv.style.display = 'none'; // 隐藏编辑/删除按钮
+
+                        // 创建输入框
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = group.name;
+                        input.className = 'input input-sm group-edit-input'; // 使用通用样式和小尺寸
+                        input.style.flexGrow = '1';
+                        input.style.marginRight = '10px';
+                        // 改进输入框样式
+                        input.style.fontSize = '14px';
+                        input.style.padding = '8px 12px';
+                        input.style.height = 'auto';
+                        input.style.borderRadius = '4px';
+                        input.style.border = '1px solid #ddd';
+
+                        // 创建保存按钮
+                        const saveBtn = document.createElement('button');
+                        saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+                        saveBtn.title = '保存';
+                        saveBtn.className = 'btn-icon btn-icon-sm btn-success'; // 绿色勾
+                        saveBtn.style.marginRight = '5px';
+
+                        // 创建取消按钮
+                        const cancelBtn = document.createElement('button');
+                        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        cancelBtn.title = '取消';
+                        cancelBtn.className = 'btn-icon btn-icon-sm btn-secondary'; // 灰色叉
+
+                        // 临时编辑控件容器
+                        const editControls = document.createElement('div');
+                        editControls.className = 'group-edit-controls';
+                        editControls.style.display = 'flex';
+                        editControls.style.alignItems = 'center';
+                        editControls.style.flexGrow = '1'; // 占据空间
+                        editControls.appendChild(input);
+                        editControls.appendChild(saveBtn);
+                        editControls.appendChild(cancelBtn);
+                        
+                        // 将编辑控件插入到 span 前面（或替换 span）
+                        li.insertBefore(editControls, nameSpan);
+                        input.focus(); // 自动聚焦
+                        input.select(); // 全选文本
+
+                        // 取消编辑状态的函数
+                        const cancelEdit = () => {
+                            li.removeChild(editControls);
+                            nameSpan.style.display = ''; // 恢复显示
+                            actionsDiv.style.display = ''; // 恢复显示
+                            li.classList.remove('editing');
+                        };
+
+                        // 保存按钮逻辑
+                        saveBtn.addEventListener('click', async () => {
+                            const newName = input.value.trim();
+                            if (!newName) {
+                                showToast('分组名称不能为空', 'warning');
+                                return;
                             }
-                        }
+                            if (newName === group.name) {
+                                cancelEdit(); // 名称未改变，直接取消编辑
+                                return;
+                            }
+                            
+                            // 可选：检查新名称是否与其他分组冲突 (不包括自身)
+                            const otherGroupNames = Array.from(groupListElement.querySelectorAll('li:not(.editing) span'))
+                                                        .map(span => span.textContent.toLowerCase());
+                            if (otherGroupNames.includes(newName.toLowerCase())) {
+                                showToast(`分组名称 "${newName}" 已存在`, 'warning');
+                                return;
+                            }
+
+                            saveBtn.disabled = true; // 防止重复点击
+                            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                            try {
+                                await window.dbAPI.updateGroup(group.id, newName);
+                                showToast(`分组已重命名为 "${newName}"`, 'success');
+                                // 更新成功后，直接修改界面上的文本并退出编辑状态
+                                group.name = newName; // 更新内存中的名字
+                                nameSpan.textContent = newName;
+                                cancelEdit();
+                                // 刷新主页面的筛选器
+                                await loadGroupFilters(); 
+                            } catch (error) {
+                                if (error.message && error.message.includes('UNIQUE constraint failed: groups.name')) {
+                                    showToast(`重命名失败：分组名称 "${newName}" 已存在！`, 'error');
+                                } else {
+                                    showToast(`重命名分组失败: ${error.message}`, 'error');
+                                }
+                                saveBtn.disabled = false; // 恢复按钮
+                                saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+                            }
+                        });
+
+                        // 取消按钮逻辑
+                        cancelBtn.addEventListener('click', cancelEdit);
+                        
+                        // 回车键保存，Esc键取消
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                saveBtn.click();
+                            } else if (e.key === 'Escape') {
+                                cancelEdit();
+                            }
+                        });
                     });
+                    // --- 行内编辑逻辑结束 ---
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '<i class="fa fa-trash"></i>';
@@ -719,17 +855,36 @@ async function openManageGroupsModal() {
                          deleteBtn.style.cursor = 'not-allowed';
                      } else {
                          deleteBtn.addEventListener('click', async () => {
-                             if (confirm(`确定删除分组 "${group.name}"？\n与此分组关联的钱包将变为"无分组"。`)) {
-                                 try {
-                                     await window.dbAPI.deleteGroup(group.id);
-                                     showToast(`分组 "${group.name}" 已删除`, 'success');
-                                     await renderGroupList();
-                                     await loadGroupFilters();
-                                     await loadAndRenderWallets();
-                                 } catch (error) {
-                                     showToast(`删除分组失败: ${error.message}`, 'error');
-                                 }
-                             }
+                            // 使用自定义模态框确认
+                            showModal('tpl-confirm-dialog', (confirmModalElement) => {
+                                const messageElement = confirmModalElement.querySelector('.confirm-message');
+                                const confirmBtnModal = confirmModalElement.querySelector('.modal-confirm-btn');
+                                const cancelBtnModal = confirmModalElement.querySelector('.modal-cancel-btn');
+
+                                if (!messageElement || !confirmBtnModal || !cancelBtnModal) {
+                                    console.error("确认模态框缺少必要的元素。");
+                                    hideModal(); return;
+                                }
+
+                                messageElement.innerHTML = `确定删除分组 "<b>${group.name}</b>"？<br>与此分组关联的钱包或社交账户将变为"无分组"。`; // 使用 innerHTML 加粗并换行
+
+                                const handleConfirmGroupDelete = async () => {
+                                    confirmBtnModal.removeEventListener('click', handleConfirmGroupDelete);
+                                    hideModal(); // 关闭确认框
+
+                                    try {
+                                        await window.dbAPI.deleteGroup(group.id);
+                                        showToast(`分组 "${group.name}" 已删除`, 'success');
+                                        await renderGroupList(); // 刷新分组列表
+                                        await loadGroupFilters(); // 刷新主页筛选器
+                                        await loadAndRenderWallets(); // 刷新钱包列表（因为分组可能变了）
+                                        // 如果社交页面也使用了分组，理想情况下也应该通知刷新，但这比较复杂，暂时省略
+                                    } catch (error) {
+                                        showToast(`删除分组失败: ${error.message}`, 'error');
+                                    }
+                                };
+                                confirmBtnModal.addEventListener('click', handleConfirmGroupDelete);
+                            });
                          });
                      }
 
@@ -832,7 +987,8 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
     prevButton.disabled = currentPage === 1;
     prevButton.addEventListener('click', async () => {
         if (currentPage > 1) { 
-            await loadAndRenderWallets(currentFilters, currentPage - 1); 
+            const targetPage = currentPage - 1;
+            await loadAndRenderWallets(currentFilters, targetPage); 
         }
     });
     paginationContainer.appendChild(prevButton);
@@ -870,7 +1026,8 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
     nextButton.disabled = currentPage === totalPages;
     nextButton.addEventListener('click', async () => {
         if (currentPage < totalPages) { 
-            await loadAndRenderWallets(currentFilters, currentPage + 1); 
+            const targetPage = currentPage + 1;
+            await loadAndRenderWallets(currentFilters, targetPage); 
         }
     });
     paginationContainer.appendChild(nextButton);
@@ -1041,104 +1198,107 @@ async function handleBulkDelete() {
         return;
     }
 
-    // --- 新增：删除前确认 ---
-    if (!confirm(`确定删除选中的 ${count} 个钱包吗？此操作不可撤销！`)) {
-        showToast('批量删除已取消', 'info');
-        return; // 用户取消，中止操作
-    }
-    // --- ----------------- ---
+    // --- 新增：使用自定义模态框确认 --- 
+    showModal('tpl-confirm-dialog', (modalElement) => {
+        const messageElement = modalElement.querySelector('.confirm-message');
+        const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+        const cancelBtn = modalElement.querySelector('.modal-cancel-btn');
 
-    const bulkGenWalletsBtn = document.getElementById('bulk-generate-wallets-btn');
-    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-    const exportWalletsBtn = document.getElementById('export-wallets-btn'); // 可能也需要禁用
-    const importWalletsBtn = document.getElementById('import-wallets-btn'); // 可能也需要禁用
-
-    // 禁用所有可能冲突的操作按钮
-    if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = true;
-    if (bulkDeleteBtn) bulkDeleteBtn.disabled = true;
-    if (exportWalletsBtn) exportWalletsBtn.disabled = true;
-    if (importWalletsBtn) importWalletsBtn.disabled = true;
-
-    showToast(`正在删除 ${count} 个钱包...`, 'info');
-    
-    let timeInterval = null; // 初始化 interval ID
-    try {
-        const ids = Array.from(checkboxes).map(cb => {
-            const row = cb.closest('tr');
-            return row ? row.dataset.id : null;
-        }).filter(id => id);
-        
-        if (ids.length === 0) {
-            showToast('无法获取选中的钱包ID', 'error');
-            // 恢复按钮状态
-            if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
-            if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
-            if (exportWalletsBtn) exportWalletsBtn.disabled = false;
-            if (importWalletsBtn) importWalletsBtn.disabled = false;
-            return;
+        if (!messageElement || !confirmBtn || !cancelBtn) {
+            console.error("确认模态框缺少必要的元素。");
+            hideModal(); return;
         }
-        
-        console.log(`[${Date.now()}] handleBulkDelete: Calling IPC deleteWalletsByIds for ${ids.length} wallets`);
-        
-        let elapsedTime = 0;
-        timeInterval = setInterval(() => { // 存储 interval ID
-            elapsedTime += 0.5;
-            showToast(`正在删除钱包 (${elapsedTime.toFixed(1)}秒)...`, 'info');
-        }, 500);
-        
-        const result = await window.dbAPI.deleteWalletsByIds(ids);
-        clearInterval(timeInterval); // 确保清除 interval
-        timeInterval = null; // 清除后重置 ID
-        
-        console.log(`[${Date.now()}] handleBulkDelete: IPC deleteWalletsByIds returned`, result);
-        
-        if (result) {
-            showToast(`成功删除 ${count} 个钱包`, 'success');
+
+        messageElement.textContent = `确定删除选中的 ${count} 个钱包吗？此操作不可撤销！`;
+
+        const handleConfirmBulkDelete = async () => {
+            confirmBtn.removeEventListener('click', handleConfirmBulkDelete);
+            hideModal(); // 先关闭确认框
+
+            // --- 原有的批量删除逻辑开始 ---
+            const bulkGenWalletsBtn = document.getElementById('bulk-generate-wallets-btn');
+            const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+            const exportWalletsBtn = document.getElementById('export-wallets-btn'); 
+            const importWalletsBtn = document.getElementById('import-wallets-btn'); 
+
+            if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = true;
+            if (bulkDeleteBtn) bulkDeleteBtn.disabled = true;
+            if (exportWalletsBtn) exportWalletsBtn.disabled = true;
+            if (importWalletsBtn) importWalletsBtn.disabled = true;
+
+            showToast(`正在删除 ${count} 个钱包...`, 'info');
             
-            if (count > 50) {
-                console.log(`[${Date.now()}] handleBulkDelete: Large delete (${count}), reloading page.`);
-                showToast('操作完成，正在刷新页面...', 'info');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-                // 页面将刷新，无需手动恢复按钮
-            } else {
-                console.log(`[${Date.now()}] handleBulkDelete: Small delete (${count}), reloading wallets table.`);
-                // 直接 await 加载和渲染，然后恢复按钮
-                await loadAndRenderWallets(); 
-                console.log(`[${Date.now()}] handleBulkDelete: Wallets table reloaded after small delete.`);
-                // 恢复按钮状态
+            let timeInterval = null; 
+            try {
+                const ids = Array.from(checkboxes).map(cb => {
+                    const row = cb.closest('tr');
+                    return row ? row.dataset.id : null;
+                }).filter(id => id);
+                
+                if (ids.length === 0) {
+                    showToast('无法获取选中的钱包ID', 'error');
+                    if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
+                    if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
+                    if (exportWalletsBtn) exportWalletsBtn.disabled = false;
+                    if (importWalletsBtn) importWalletsBtn.disabled = false;
+                    return;
+                }
+                
+                console.log(`[${Date.now()}] handleBulkDelete: Calling IPC deleteWalletsByIds for ${ids.length} wallets`);
+                
+                let elapsedTime = 0;
+                timeInterval = setInterval(() => { 
+                    elapsedTime += 0.5;
+                    showToast(`正在删除钱包 (${elapsedTime.toFixed(1)}秒)...`, 'info');
+                }, 500);
+                
+                const result = await window.dbAPI.deleteWalletsByIds(ids);
+                clearInterval(timeInterval); 
+                timeInterval = null; 
+                
+                console.log(`[${Date.now()}] handleBulkDelete: IPC deleteWalletsByIds returned`, result);
+                
+                if (result) {
+                    showToast(`成功删除 ${count} 个钱包`, 'success');
+                    if (count > 50) {
+                        console.log(`[${Date.now()}] handleBulkDelete: Large delete (${count}), reloading page.`);
+                        showToast('操作完成，正在刷新页面...', 'info');
+                        setTimeout(() => { window.location.reload(); }, 1500);
+                    } else {
+                        console.log(`[${Date.now()}] handleBulkDelete: Small delete (${count}), reloading wallets table.`);
+                        await loadAndRenderWallets(); 
+                        console.log(`[${Date.now()}] handleBulkDelete: Wallets table reloaded after small delete.`);
+                        if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
+                        if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
+                        if (exportWalletsBtn) exportWalletsBtn.disabled = false;
+                        if (importWalletsBtn) importWalletsBtn.disabled = false;
+                    }
+                } else {
+                    console.warn(`[${Date.now()}] handleBulkDelete: IPC deleteWalletsByIds reported failure (result: ${result})`);
+                    showToast('删除钱包失败', 'error');
+                    if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
+                    if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
+                    if (exportWalletsBtn) exportWalletsBtn.disabled = false;
+                    if (importWalletsBtn) importWalletsBtn.disabled = false;
+                }
+            } catch (error) {
+                if (timeInterval) { clearInterval(timeInterval); timeInterval = null; }
+                console.error(`[${Date.now()}] handleBulkDelete: Error during bulk delete:`, error);
+                showToast(`删除钱包时出错: ${error.message}`, 'error');
                 if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
                 if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
                 if (exportWalletsBtn) exportWalletsBtn.disabled = false;
                 if (importWalletsBtn) importWalletsBtn.disabled = false;
+            } finally {
+                console.log(`[${Date.now()}] handleBulkDelete: Finished.`);
             }
-        } else {
-            console.warn(`[${Date.now()}] handleBulkDelete: IPC deleteWalletsByIds reported failure (result: ${result})`);
-            showToast('删除钱包失败', 'error');
-            // 恢复按钮状态
-            if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
-            if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
-            if (exportWalletsBtn) exportWalletsBtn.disabled = false;
-            if (importWalletsBtn) importWalletsBtn.disabled = false;
-        }
-    } catch (error) {
-        if (timeInterval) {
-            clearInterval(timeInterval); // 发生错误时也要清除 interval
-            timeInterval = null;
-        }
-        console.error(`[${Date.now()}] handleBulkDelete: Error during bulk delete:`, error);
-        showToast(`删除钱包时出错: ${error.message}`, 'error');
-        
-        // 恢复按钮状态
-        if (bulkGenWalletsBtn) bulkGenWalletsBtn.disabled = false;
-        if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
-        if (exportWalletsBtn) exportWalletsBtn.disabled = false;
-        if (importWalletsBtn) importWalletsBtn.disabled = false;
-    } finally {
-        // finally 块确保无论成功失败都会记录结束，但按钮恢复逻辑应在各自路径处理
-        console.log(`[${Date.now()}] handleBulkDelete: Finished.`);
-    }
+            // --- 原有的批量删除逻辑结束 ---
+        };
+
+        confirmBtn.addEventListener('click', handleConfirmBulkDelete);
+        // cancelBtn 由 modal.js 处理关闭
+    });
+    // --- ---------------------------- ---
 }
 
 /**
