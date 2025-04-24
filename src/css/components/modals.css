@@ -329,4 +329,139 @@
     padding: 8px 12px;
     flex: 1;
     min-width: 0;
-} 
+}
+
+/* --- Modal Form General Styles --- */
+.modal-box .option-group {
+    margin-bottom: 15px; /* 减小间距 */
+}
+
+.modal-box label:not(.radio-label) {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 8px; /* 标签和控件之间的间距 */
+    color: #495057;
+    font-size: 14px;
+}
+
+.modal-box .option-group label .tooltip {
+    margin-left: 5px;
+    color: #6c757d;
+    cursor: help;
+}
+
+.modal-box .option-group .required {
+    color: #dc3545; /* 红色星号 */
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+/* 让所有 input 和 select 占据全部宽度 */
+.modal-box .modal-content input[type="text"],
+.modal-box .modal-content input[type="number"],
+.modal-box .modal-content input[type="password"],
+.modal-box .modal-content select {
+    width: 100%;
+}
+
+/* Radio button group styling */
+.modal-content .radio-group {
+    display: flex;
+    gap: 15px; /* 选项间距 */
+}
+.modal-content .radio-group input[type="radio"] {
+    margin-right: 5px;
+}
+.modal-content .radio-group .radio-label {
+    font-weight: normal; /* Radio label 不需要加粗 */
+    font-size: 14px;
+    color: #343a40;
+    cursor: pointer;
+    display: inline-flex; /* 让 label 和 radio 对齐 */
+    align-items: center;
+}
+
+/* Input with character counter */
+.modal-content .input-with-counter {
+    position: relative; /* 为计数器绝对定位提供基准 */
+    display: flex; /* 让 input 和 counter 在一起 */
+}
+
+.modal-content .input-with-counter input {
+    flex-grow: 1; /* Input 占据主要空间 */
+    padding-right: 55px; /* 为计数器腾出空间 */
+}
+
+.modal-content .input-with-counter .char-counter {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #6c757d;
+    pointer-events: none; /* 避免干扰输入 */
+}
+
+/* 美化模态框中的 select 元素 */
+.modal-box select {
+    /* 继承全局样式，只修改特定的属性 */
+    height: 38px; /* 与按钮和输入框保持一致的高度 */
+    padding: 8px 30px 8px 12px; /* 内边距调整 */
+    border: 1px solid #ccc; /* 边框颜色 */
+    width: 100%; /* 确保宽度是100% */
+}
+
+/* 隐藏数字输入框的上下箭头 */
+.modal-box input[type=number]::-webkit-outer-spin-button,
+.modal-box input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.modal-box input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+}
+
+/* --- End Modal Form General Styles --- */
+
+/* --- Specific Modal Adjustments --- */
+/* 强制代理检测按钮匹配下拉框样式 */
+.add-proxy-modal .proxy-test-btn {
+    height: 38px;           /* 与下拉框高度匹配 */
+    padding: 0 15px;        /* 水平内边距 */
+    font-size: 14px;        /* 字体大小 */
+    border-radius: 4px;     /* 圆角 */
+    font-weight: normal;    /* 字重 */
+    display: flex;          /* 使用 flex 布局 */
+    align-items: center;    /* 垂直居中文本 */
+    justify-content: center;/* 水平居中文本 */
+    margin-left: 10px;      /* 与下拉框保持间距 */
+    white-space: nowrap;    /* 防止文本换行 */
+}
+
+/* 新增：代理检测结果显示区域样式 */
+.proxy-test-result {
+    font-size: 13px;
+    padding: 10px 15px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    line-height: 1.6;
+    min-height: 50px; /* 给个最小高度，避免内容为空时塌陷 */
+    display: none; /* 默认隐藏 */
+    white-space: pre-wrap; /* 保留换行符 */
+    word-break: break-all; /* 允许长单词或 IP 换行 */
+}
+
+.proxy-test-result.success {
+    color: #198754; /* 成功时的绿色 */
+    border-color: #badbcc;
+    background-color: #d1e7dd;
+}
+
+.proxy-test-result.error {
+    color: #dc3545; /* 失败时的红色 */
+    border-color: #f5c2c7;
+    background-color: #f8d7da;
+}
+
+/* 管理分组模态框样式 */ 

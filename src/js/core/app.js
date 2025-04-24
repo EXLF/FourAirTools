@@ -7,6 +7,8 @@ import { setupSidebarNavigation, loadPage } from './navigation.js';
 import { updateDashboardDate } from '../pages/dashboard.js'; // 假设它移到了仪表盘页面逻辑中
 // 全局事件监听器的占位符（如果需要）
 import { initGlobalEventListeners } from './globalListeners.js'; // 假设我们创建了这个文件
+// 导入自定义下拉框组件
+import { initCustomSelects } from '../components/custom-select.js';
 
 // ================= 初始加载 =================
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         setupSidebarNavigation();
         initGlobalEventListeners(); // 设置非特定页面的监听器
+        initCustomSelects(); // 初始化自定义下拉框
         loadPage('dashboard'); // 加载初始页面
         // updateDashboardDate(); // 这个现在很可能应该在 initDashboardPage 内部调用
     } catch (error) {

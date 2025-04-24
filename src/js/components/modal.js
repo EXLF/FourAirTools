@@ -56,6 +56,12 @@ export function showModal(templateId, setupFunction) {
         // 添加 class 前检查模态框是否仍然存在（可能因设置错误而被移除）
         if(currentOpenModal) {
             currentOpenModal.classList.add('visible');
+            
+            // 触发模态框打开事件，以便初始化其中的自定义下拉框
+            const modalOpenedEvent = new CustomEvent('modal-opened', {
+                detail: { modalElement: currentOpenModal }
+            });
+            document.dispatchEvent(modalOpenedEvent);
         }
     });
 }

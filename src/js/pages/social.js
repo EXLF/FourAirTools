@@ -590,6 +590,11 @@ async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerP
         }
 
         renderPagination(totalItems, itemsPerPage, currentPage);
+        
+        // 在分页控件渲染后初始化自定义下拉框
+        if (window.initCustomSelects) {
+            window.initCustomSelects();
+        }
 
     } catch (error) {
         console.error("加载社交账户数据失败:", error);

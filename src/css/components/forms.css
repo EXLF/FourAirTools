@@ -1,12 +1,78 @@
 /* ================= Form Element Styles ================= */
 
 .select-filter {
-    padding: 6px 10px;
+    /* 继承全局样式的关键属性 */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding: 6px 30px 6px 10px;
     border: 1px solid #dfe4ea;
     border-radius: 6px;
     background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20448%20512%22%20fill%3D%22%25236c757d%22%3E%3Cpath%20d%3D%22M201.4%20342.6c12.5%2012.5%2032.8%2012.5%2045.3%200l160-160c12.5-12.5%2012.5-32.8%200-45.3s-32.8-12.5-45.3%200L224%20274.7%2086.6%20137.4c-12.5-12.5-32.8-12.5-45.3%200s-12.5%2032.8%200%2045.3l160%20160z%22/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
     font-size: 13px;
     outline: none;
+    cursor: pointer;
+}
+
+/* 全局下拉框样式 */
+select {
+    appearance: none; /* 移除默认外观 */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #fff; /* 背景色 */
+    border: 1px solid #dfe4ea; /* 边框 */
+    border-radius: 6px; /* 圆角 */
+    padding: 6px 30px 6px 10px; /* 内边距，右侧留出箭头空间 */
+    font-size: 14px;
+    color: #343a40;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20448%20512%22%20fill%3D%22%25236c757d%22%3E%3Cpath%20d%3D%22M201.4%20342.6c12.5%2012.5%2032.8%2012.5%2045.3%200l160-160c12.5-12.5%2012.5-32.8%200-45.3s-32.8-12.5-45.3%200L224%20274.7%2086.6%20137.4c-12.5-12.5-32.8-12.5-45.3%200s-12.5%2032.8%200%2045.3l160%20160z%22/%3E%3C/svg%3E"); /* 自定义箭头 SVG */
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px; /* 箭头大小 */
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:hover {
+    border-color: #adb5bd;
+}
+
+select:focus {
+    border-color: #a29bfe;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+}
+
+/* 禁用Firefox中的默认下拉箭头 */
+select::-ms-expand {
+    display: none;
+}
+
+/* 下拉框选项样式 */
+select option {
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* 分页大小选择下拉框 */
+.page-size-select {
+    padding: 4px 25px 4px 8px; /* 右侧留更多空间给箭头 */
+    font-size: 13px;
+    background-size: 10px; /* 更小的箭头 */
+    background-position: right 8px center;
+    min-width: 70px;
+}
+
+/* 设置页面的下拉框 */
+.settings-select {
+    display: inline-block;
+    width: auto;
+    min-width: 120px;
+    margin-left: 8px;
 }
 
 .table-search-input,
@@ -86,6 +152,11 @@
     font-size: 14px;
 }
 
+/* 为.option-group中的select额外设置右侧内边距，确保箭头不会被文字覆盖 */
+.option-group select {
+    padding-right: 30px;
+}
+
 .option-group input[type="checkbox"] {
     margin-right: 5px;
 }
@@ -125,4 +196,106 @@
 }
 .search-box .table-search-input {
     padding-left: 30px;
+}
+
+/* 自定义下拉框组件 */
+.custom-select-wrapper {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+    /* 让包装器根据内容自适应宽度，但允许 flex 布局调整 */
+}
+
+/* 确保特定类的 select (如 select-filter) 的 wrapper 也有合适的宽度 */
+.custom-select-wrapper .select-filter {
+    min-width: 150px; /* 给一个最小宽度，避免太窄 */
+    width: auto; /* 允许根据内容调整，或被flex容器拉伸 */
+}
+.custom-select-wrapper .page-size-select {
+    width: 80px; /* 直接设置固定宽度 */
+    /* min-width: 70px; */
+    /* width: auto; */
+}
+.custom-select-wrapper .settings-select {
+    min-width: 120px;
+    width: auto;
+    margin-left: 8px; /* 保留 settings 的左边距 */
+}
+
+/* 内部 custom-select 占据 wrapper 的全部宽度 */
+.custom-select-wrapper .custom-select {
+     width: 100%; 
+}
+
+.custom-select {
+    position: relative;
+    display: block;
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid #dfe4ea;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #343a40;
+    cursor: pointer;
+    padding: 6px 30px 6px 10px;
+    user-select: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-select:after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20448%20512%22%20fill%3D%22%25236c757d%22%3E%3Cpath%20d%3D%22M201.4%20342.6c12.5%2012.5%2032.8%2012.5%2045.3%200l160-160c12.5-12.5%2012.5-32.8%200-45.3s-32.8-12.5-45.3%200L224%20274.7%2086.6%20137.4c-12.5-12.5-32.8-12.5-45.3%200s-12.5%2032.8%200%2045.3l160%20160z%22/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.custom-select:hover {
+    border-color: #adb5bd;
+}
+
+.custom-select:focus {
+    border-color: #a29bfe;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #dfe4ea;
+    border-radius: 6px;
+    margin-top: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.custom-select-options.open {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.custom-select-option:hover,
+.custom-select-option.selected {
+    background-color: #e6e3ff;
+    color: #6c5ce7;
+}
+
+.custom-select-option.selected {
+    font-weight: 500;
 } 

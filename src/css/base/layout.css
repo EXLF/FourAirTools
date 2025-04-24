@@ -265,7 +265,23 @@
     justify-content: center;
     align-items: center;
     gap: 5px;
-    margin-top: 25px;
+}
+
+/* 新增：分页控件外层容器 */
+.pagination-controls-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* 新增：每页显示下拉框容器 */
+.page-size-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .pagination button {

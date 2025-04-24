@@ -50,6 +50,8 @@ function initializeDatabase() {
                     createWalletsTableAndTestData();
                     // 创建 SocialAccounts 表
                     createSocialAccountsTable(); 
+                    // 新增：创建 Proxy Configs 表
+                    createProxyConfigsTable(); 
                 });
             }
         });
@@ -139,6 +141,56 @@ function createSocialAccountsTable() {
                     console.error('Error creating updatedAt trigger for social_accounts:', errTrigger.message);
                 } else {
                     console.log('UpdatedAt trigger for social_accounts is ready.');
+                }
+            });
+        }
+    });
+}
+
+/**
+ * 新增：创建 proxy_configs 表 (如果不存在)
+ */
+function createProxyConfigsTable() {
+    const createSQL = `
+        CREATE TABLE IF NOT EXISTS proxy_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,                 -- 用户定义的名称/标识
+            type TEXT NOT NULL,        -- 'http', 'https', 'socks5'
+            host TEXT NOT NULL,        -- IP 地址或域名
+            port INTEGER NOT NULL,     -- 端口号
+            username TEXT,             -- 可选的用户名
+            password TEXT,             -- 可选的密码
+            ipProtocol TEXT DEFAULT 'ipv4', -- 'ipv4' or 'ipv6'
+            ipQueryChannel TEXT DEFAULT 'ip-api', -- 用于测试的渠道
+            status TEXT DEFAULT 'unknown', -- 'active', 'inactive', 'error', 'unknown'
+            lastTestedAt TEXT,         -- 上次测试时间
+            groupId INTEGER,           -- 外键关联 groups 表
+            createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL
+        );
+    `;
+
+    // 创建触发器，用于自动更新 updatedAt 时间戳
+    const createTriggerSQL = `
+        CREATE TRIGGER IF NOT EXISTS update_proxy_configs_updatedAt
+        AFTER UPDATE ON proxy_configs
+        FOR EACH ROW
+        BEGIN
+            UPDATE proxy_configs SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+        END;
+    `;
+
+    db.run(createSQL, (err) => {
+        if (err) {
+            console.error('Error creating proxy_configs table:', err.message);
+        } else {
+            console.log('Proxy Configs table is ready.');
+            db.run(createTriggerSQL, (errTrigger) => {
+                if (errTrigger) {
+                    console.error('Error creating updatedAt trigger for proxy_configs:', errTrigger.message);
+                } else {
+                    console.log('UpdatedAt trigger for proxy_configs is ready.');
                 }
             });
         }
@@ -780,6 +832,127 @@ function countSocialAccounts() {
     });
 }
 
+// ================= Proxy Configs CRUD ================
+
+/**
+ * 添加一个新的代理配置。
+ * @param {object} configData - { name?, type, host, port, username?, password?, ipProtocol?, ipQueryChannel?, groupId? }
+ * @returns {Promise<number>} - 返回新配置的 ID。
+ */
+function addProxyConfig(configData) {
+    return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO proxy_configs
+                     (name, type, host, port, username, password, ipProtocol, ipQueryChannel, groupId)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const params = [
+            configData.name || null,
+            configData.type,
+            configData.host,
+            configData.port,
+            configData.username || null,
+            configData.password || null,
+            configData.ipProtocol || 'ipv4',
+            configData.ipQueryChannel || 'ip-api',
+            configData.groupId || null
+        ];
+        db.run(sql, params, function(err) {
+            if (err) {
+                console.error('Error adding proxy config:', err.message);
+                reject(err);
+            } else {
+                resolve(this.lastID);
+            }
+        });
+    });
+}
+
+/**
+ * 获取代理配置列表，支持筛选和排序。
+ * @param {object} [options={}] - 筛选和分页选项。
+ * @param {string} [options.type] - 按类型筛选 ('http', 'https', 'socks5').
+ * @param {number} [options.groupId] - 按分组 ID 筛选。
+ * @param {string} [options.search] - 搜索名称、主机、端口、用户名。
+ * @param {string} [options.sortBy='createdAt'] - 排序字段。
+ * @param {'ASC'|'DESC'} [options.sortOrder='DESC'] - 排序顺序。
+ * @param {number} [options.limit] - 每页记录数。
+ * @param {number} [options.page] - 页码。
+ * @returns {Promise<{configs: Array<object>, totalCount: number}>} - 返回配置列表和总记录数。
+ */
+function getProxyConfigs(options = {}) {
+    return new Promise((resolve, reject) => {
+        let baseSql = `SELECT p.id, p.name, p.type, p.host, p.port, p.username, p.password, p.ipProtocol, p.ipQueryChannel, p.status, p.lastTestedAt, p.groupId, p.createdAt, p.updatedAt, g.name as groupName
+                       FROM proxy_configs p
+                       LEFT JOIN groups g ON p.groupId = g.id`;
+        const countSql = `SELECT COUNT(*) as count FROM proxy_configs p LEFT JOIN groups g ON p.groupId = g.id`;
+        const whereClauses = [];
+        const params = [];
+        const countParams = [];
+
+        if (options.type) {
+            whereClauses.push('LOWER(p.type) = LOWER(?)');
+            params.push(options.type);
+            countParams.push(options.type);
+        }
+        if (options.groupId) {
+            whereClauses.push('p.groupId = ?');
+            params.push(options.groupId);
+            countParams.push(options.groupId);
+        }
+        if (options.search) {
+            const searchTerm = `%${options.search}%`;
+            whereClauses.push('(p.name LIKE ? OR p.host LIKE ? OR p.port LIKE ? OR p.username LIKE ? OR g.name LIKE ?)');
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+
+        let whereSql = '';
+        if (whereClauses.length > 0) {
+            whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+
+        const sortBy = options.sortBy || 'createdAt';
+        const allowedSortColumns = ['id', 'name', 'type', 'host', 'port', 'status', 'lastTestedAt', 'createdAt', 'updatedAt', 'groupName'];
+        const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `p.${sortBy}`) : 'p.createdAt';
+        const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+        const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`; // Add sorting
+
+        let limitSql = '';
+        if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
+            const offset = (options.page - 1) * options.limit;
+            limitSql = ' LIMIT ? OFFSET ?';
+            params.push(options.limit, offset);
+        } else if (options.limit !== undefined) {
+            limitSql = ' LIMIT ?';
+            params.push(options.limit);
+        }
+
+        const finalSql = baseSql + whereSql + orderBySql + limitSql;
+        const finalCountSql = countSql + whereSql;
+
+        db.serialize(() => {
+            let results = {};
+            db.get(finalCountSql, countParams, (errCount, rowCount) => {
+                if (errCount) {
+                    console.error('Error counting proxy configs:', errCount.message);
+                    return reject(errCount);
+                }
+                results.totalCount = rowCount ? rowCount.count : 0;
+
+                db.all(finalSql, params, (err, rows) => {
+                    if (err) {
+                        console.error('Error getting proxy configs:', err.message);
+                        reject(err);
+                    } else {
+                        // Map results to 'configs' key for consistency
+                        results.configs = rows;
+                        resolve(results);
+                    }
+                });
+            });
+        });
+    });
+}
+
 // 导出所有函数 (包括新增的社交账户函数)
 module.exports = {
     db,
@@ -805,5 +978,8 @@ module.exports = {
     deleteSocialAccount,
     deleteSocialAccountsByIds,
     countWallets,
-    countSocialAccounts
+    countSocialAccounts,
+    // Proxy Configs
+    addProxyConfig,
+    getProxyConfigs
 }; 

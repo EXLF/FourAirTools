@@ -29,6 +29,13 @@ contextBridge.exposeInMainWorld('dbAPI', {
     deleteSocialAccountsByIds: (ids) => ipcRenderer.invoke('db:deleteSocialAccountsByIds', ids),
     countSocialAccounts: () => ipcRenderer.invoke('db:countSocialAccounts'),
 
+    // --- 新增：Proxy Configs ---
+    addProxyConfig: (configData) => ipcRenderer.invoke('db:addProxyConfig', configData),
+    getProxyConfigs: (options) => ipcRenderer.invoke('db:getProxyConfigs', options),
+    // 新增：测试代理连接
+    proxyTestConnection: (proxyConfig, ipQueryChannel) => ipcRenderer.invoke('proxy:testConnection', proxyConfig, ipQueryChannel),
+    // --- ------------------- ---
+
     // --- 新增：应用级功能 ---
     generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options), // { count, groupId? }
     // 新增：保存文件功能 (用于导出)

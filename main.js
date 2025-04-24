@@ -6,6 +6,7 @@ const db = require('./src/js/db/index.js');
 // --- 导入新的 Handler 设置函数 ---
 const { setupDatabaseIpcHandlers } = require('./src/main/ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./src/main/ipcHandlers/appHandlers.js');
+const { setupProxyIpcHandlers } = require('./src/main/ipcHandlers/proxyHandlers.js'); // 导入新的 handler
 // --- ----------------------- ---
 
 // --- 移除旧依赖 ---
@@ -29,7 +30,8 @@ function createWindow () {
 
   // 在加载文件前设置 IPC Handlers 并传入 mainWindow
   setupDatabaseIpcHandlers(); // DB Handlers 不需要 mainWindow
-  setupApplicationIpcHandlers(mainWindow); // 传入 mainWindow 给 App Handlers
+  setupApplicationIpcHandlers(mainWindow); // 使用正确的函数名
+  setupProxyIpcHandlers();
 
   // 加载 index.html
   mainWindow.loadFile('index.html');
@@ -43,7 +45,6 @@ function createWindow () {
 
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用
 app.whenReady().then(() => {
-  // 不再在这里调用 setupApplicationIpcHandlers
   createWindow();
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，

@@ -194,6 +194,11 @@ async function initializePageContent(pageId) {
             console.log(`正在从 ${modulePath} 调用 ${initFunctionName}`);
             // 调用初始化函数，如果需要则传递 contentArea
             pageModule[initFunctionName](contentArea);
+            
+            // 在页面初始化完成后，初始化自定义下拉框
+            if (window.initCustomSelects) {
+                window.initCustomSelects();
+            }
         } else {
             console.warn(`初始化函数 "${initFunctionName}" 在模块 ${modulePath} 中未找到或不是一个函数`);
         }

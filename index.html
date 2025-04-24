@@ -379,6 +379,105 @@
         </div>
     </template>
 
+    <!-- ========= NEW: Add Proxy Config Modal Template ========== -->
+    <template id="tpl-add-proxy-form">
+        <div class="modal-overlay">
+            <div class="modal-box add-proxy-modal" style="max-width: 650px;">
+                <button class="modal-close-btn">&times;</button>
+                <h3 class="modal-title">添加代理配置</h3>
+                <div class="modal-content">
+                    <form id="add-proxy-form-actual">
+                        <!-- IP 查询渠道 & 测试按钮 -->
+                        <div class="option-group">
+                            <label for="proxy-ip-query-channel">IP查询渠道 <i class="fa fa-info-circle tooltip" title="选择用于测试代理和获取IP地理位置的服务。"></i></label>
+                            <div style="display: flex; align-items: center;">
+                                 <select id="proxy-ip-query-channel" name="ipQueryChannel" style="flex-grow: 1;">
+                                     <option value="ip123">IP123</option>
+                                     <option value="ip-api">IP-API</option>
+                                 </select>
+                                 <button type="button" class="btn btn-outline-secondary proxy-test-btn"><i class="fa fa-plug" style="margin-right: 5px;"></i>代理检测</button>
+                             </div>
+                         </div>
+                         <!-- 新增：代理检测结果显示区域 -->
+                         <div id="proxy-test-result-display" class="proxy-test-result" style="margin-top: 10px;"></div>
+
+                         <!-- 代理类型 (必需) -->
+                         <div class="option-group">
+                             <label for="proxy-type">代理类型 <span class="required">*</span></label>
+                             <select id="proxy-type" name="type" required>
+                                 <option value="" disabled selected>请选择类型</option>
+                                 <option value="http">HTTP</option>
+                                 <option value="https">HTTPS</option>
+                                 <option value="socks5">SOCKS5</option>
+                             </select>
+                         </div>
+
+                         <!-- IP 协议 -->
+                         <div class="option-group">
+                             <label>IP协议</label>
+                             <div class="radio-group" style="padding-top: 5px;"> <!-- 微调间距 -->
+                                 <input type="radio" id="proxy-ipv4" name="ipProtocol" value="ipv4" checked>
+                                 <label for="proxy-ipv4" class="radio-label">IPv4</label>
+                                 <input type="radio" id="proxy-ipv6" name="ipProtocol" value="ipv6">
+                                 <label for="proxy-ipv6" class="radio-label">IPv6</label>
+                             </div>
+                         </div>
+
+                         <!-- 代理主机 (必需) -->
+                         <div class="option-group">
+                             <label for="proxy-host">代理主机 <span class="required">*</span> <i class="fa fa-info-circle tooltip" title="代理服务器的 IP 地址或域名。"></i></label>
+                             <input type="text" id="proxy-host" name="host" placeholder="例如 127.0.0.1 或 proxy.example.com" required>
+                         </div>
+
+                         <!-- 代理端口 (必需) -->
+                         <div class="option-group">
+                             <label for="proxy-port">代理端口 <span class="required">*</span> <i class="fa fa-info-circle tooltip" title="代理服务器的端口号 (1-65535)。"></i></label>
+                             <input type="number" id="proxy-port" name="port" placeholder="例如 1080 或 8888" required min="1" max="65535">
+                         </div>
+
+                         <!-- 代理账号 (可选) -->
+                         <div class="option-group">
+                             <label for="proxy-username">代理账号 <i class="fa fa-info-circle tooltip" title="如果代理需要身份验证，请输入用户名。"></i></label>
+                             <div class="input-with-counter">
+                                 <input type="text" id="proxy-username" name="username" placeholder="(可选)" maxlength="200">
+                                 <span class="char-counter">0/200</span>
+                              </div>
+                         </div>
+
+                         <!-- 代理密码 (可选) -->
+                         <div class="option-group">
+                             <label for="proxy-password">代理密码 <i class="fa fa-info-circle tooltip" title="如果代理需要身份验证，请输入密码。"></i></label>
+                             <div class="input-with-counter">
+                                  <input type="password" id="proxy-password" name="password" placeholder="(可选)" maxlength="200">
+                                  <span class="char-counter">0/200</span>
+                              </div>
+                         </div>
+                         
+                         <!-- 名称/标识 (可选, 但推荐) -->
+                         <div class="option-group">
+                              <label for="proxy-name">名称/标识</label>
+                              <input type="text" id="proxy-name" name="name" placeholder="为此配置设置一个易于识别的名称 (例如 US_Server_1)">
+                         </div>
+                         
+                         <!-- 分组 (可选) -->
+                         <div class="option-group">
+                              <label for="proxy-group">添加到分组</label>
+                              <select id="proxy-group" name="groupId">
+                                  <option value="">无分组</option>
+                                  <!-- 分组选项将由 JS 动态填充 -->
+                              </select>
+                         </div>
+
+                     </form>
+                 </div>
+                 <div class="modal-actions">
+                     <button type="button" class="btn btn-secondary modal-cancel-btn">取消</button>
+                     <button type="submit" form="add-proxy-form-actual" class="btn btn-primary modal-save-btn">确定</button>
+                 </div>
+             </div>
+         </div>
+     </template>
+
     <!-- ========= NEW: Confirmation Dialog Modal Template ========== -->
     <template id="tpl-confirm-dialog">
         <div class="modal-overlay">

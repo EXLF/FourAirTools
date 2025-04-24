@@ -139,24 +139,21 @@ export async function initWalletsPage(contentArea) {
 }
 
 /**
- * 创建并插入页面大小选择器
+ * 配置页面大小选择器 (不再创建，而是配置模板中已有的)
  */
 function createPageSizeSelector() {
-    // 创建容器
-    pageSizeContainer = document.createElement('div');
-    pageSizeContainer.className = 'page-size-selector';
-    pageSizeContainer.style.cssText = 'display: inline-flex; align-items: center; margin-right: 15px;';
-    
-    // 创建标签
-    const label = document.createElement('span');
-    label.textContent = '每页显示: ';
-    label.style.marginRight = '8px';
-    
-    // 创建下拉框
-    const select = document.createElement('select');
-    select.className = 'page-size-select';
-    select.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;';
-    
+    // 查找模板中已存在的容器和下拉框
+    pageSizeContainer = contentAreaCache?.querySelector('.page-size-selector');
+    const select = pageSizeContainer?.querySelector('.page-size-select');
+
+    if (!pageSizeContainer || !select) {
+        console.warn("未找到 .page-size-selector 或其内部的 .page-size-select，无法配置页面大小选择器。");
+        return;
+    }
+
+    // 清空现有选项，以防重复添加
+    select.innerHTML = '';
+
     // 添加选项 (确保选中状态与当前的 rowsPerPage 匹配)
     const options = [5, 10, 15, 25, 50, 100];
     options.forEach(size => {
@@ -168,41 +165,25 @@ function createPageSizeSelector() {
         }
         select.appendChild(option);
     });
-    
+
+    // 移除旧的监听器（以防万一）
+    select.removeEventListener('change', handlePageSizeChange);
     // 添加事件监听器
-    select.addEventListener('change', async () => {
-        const newSize = parseInt(select.value);
-        if (newSize !== rowsPerPage) {
-            rowsPerPage = newSize;
-            currentPage = 1; 
-            // 将新设置保存到 localStorage
-            localStorage.setItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE, newSize.toString());
-            await loadAndRenderWallets(); 
-        }
-    });
-    
-    // 组装元素
-    pageSizeContainer.appendChild(label);
-    pageSizeContainer.appendChild(select);
-    
-    // 插入到 DOM
-    // 我们需要找到分页控件的父元素，然后将我们的选择器插入其前面或后面
-    if (paginationContainer && paginationContainer.parentNode) {
-        // 创建包装容器将分页和页面大小选择器放在一起
-        const paginationWrapper = document.createElement('div');
-        paginationWrapper.className = 'pagination-controls-wrapper';
-        paginationWrapper.style.cssText = 'display: flex; justify-content: flex-end; align-items: baseline; margin-top: 15px;';
-        
-        // 将分页控件从其父元素移除
-        const parent = paginationContainer.parentNode;
-        parent.removeChild(paginationContainer);
-        
-        // 将两者添加到包装容器
-        paginationWrapper.appendChild(pageSizeContainer);
-        paginationWrapper.appendChild(paginationContainer);
-        
-        // 将包装容器添加到原始父元素
-        parent.appendChild(paginationWrapper);
+    select.addEventListener('change', handlePageSizeChange);
+
+    // --- 移除所有动态创建和插入容器/包装器的逻辑 --- 
+}
+
+// 新增：处理页面大小变化的独立函数
+async function handlePageSizeChange(event) {
+    const select = event.target;
+    const newSize = parseInt(select.value);
+    if (newSize !== rowsPerPage) {
+        rowsPerPage = newSize;
+        currentPage = 1; 
+        // 将新设置保存到 localStorage
+        localStorage.setItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE, newSize.toString());
+        await loadAndRenderWallets(); 
     }
 }
 
@@ -1032,6 +1013,11 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
     });
     paginationContainer.appendChild(nextButton);
     // --- ----------------------------- ---
+    
+    // 确保在所有分页控件（包括页面大小选择器）都添加到DOM后初始化自定义下拉框
+    if (window.initCustomSelects) {
+        window.initCustomSelects();
+    }
 }
 
 /**

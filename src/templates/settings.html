@@ -3,10 +3,10 @@
        <div class="card">
            <h4><i class="fa fa-sliders"></i> 通用设置</h4>
            <div class="option-group">
-               <label>界面语言:</label> <select><option>简体中文</option><option>English</option></select>
+               <label>界面语言:</label> <select class="settings-select"><option>简体中文</option><option>English</option></select>
            </div>
            <div class="option-group">
-               <label>主题风格:</label> <select><option>自动</option><option>浅色</option><option>深色</option></select>
+               <label>主题风格:</label> <select class="settings-select"><option>自动</option><option>浅色</option><option>深色</option></select>
            </div>
            <div class="option-group">
                <label>通知设置:</label> <input type="checkbox" checked> 开启桌面通知
@@ -21,6 +21,18 @@
                <button class="btn btn-secondary"><i class="fa fa-upload"></i> 导入配置数据</button>
            </div>
            <p class="note">请定期备份您的配置数据以防丢失。</p>
+       </div>
+       <div class="card">
+           <h4><i class="fa fa-wifi"></i> 网络设置</h4>
+           <div class="option-group">
+               <label for="ip-query-channel">IP查询渠道:</label>
+               <select id="ip-query-channel">
+                   <option value="ip-api">IP-API (ip-api.com)</option>
+                   <option value="ip138">IP138 (ip138.com)</option>
+                   <option value="maxmind">MaxMind (GeoLite2)</option>
+               </select>
+               <i class="fa fa-info-circle tooltip" title="选择用于测试代理和获取IP地理位置的服务。"></i>
+           </div>
        </div>
         <div class="card">
            <h4><i class="fa fa-info-circle"></i> 关于</h4>

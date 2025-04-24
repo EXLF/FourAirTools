@@ -83,6 +83,17 @@ function setupDatabaseIpcHandlers() {
     });
     // --- ----------------- ---
 
+    // --- 新增：Proxy Configs ---
+    ipcMain.handle('db:addProxyConfig', async (event, configData) => {
+        console.log('[IPC] Received: db:addProxyConfig', configData);
+        return await db.addProxyConfig(configData);
+    });
+    ipcMain.handle('db:getProxyConfigs', async (event, options) => {
+        console.log('[IPC] Received: db:getProxyConfigs', options);
+        return await db.getProxyConfigs(options);
+    });
+    // --- ------------------- ---
+
     // --- Social Accounts ---
     ipcMain.handle('db:addSocialAccount', async (event, accountData) => {
         console.log('[IPC] Received: db:addSocialAccount', accountData);

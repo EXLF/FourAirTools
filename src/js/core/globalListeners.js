@@ -4,8 +4,27 @@
  */
 export function initGlobalEventListeners() {
     console.log("Initializing global event listeners..."); // 这条日志可以保留英文，因为它是给开发者看的
-    // 示例：可能是主题更改或全局设置的监听器
-    // document.body.addEventListener('click', (e) => {
-    //     if (e.target.matches('.some-global-button')) { ... }
-    // });
+    
+    // 监听内容加载完成事件，初始化自定义下拉框
+    document.addEventListener('content-loaded', () => {
+        if (window.initCustomSelects) {
+            window.initCustomSelects();
+        }
+    });
+
+    // 监听模态框显示事件，为模态框中的下拉框设置样式
+    document.addEventListener('modal-opened', (event) => {
+        if (window.initCustomSelects) {
+            setTimeout(() => {
+                window.initCustomSelects();
+            }, 50); // 短暂延迟确保DOM已完全准备好
+        }
+    });
+
+    // 监听AJAX请求完成后的内容更新
+    document.addEventListener('ajax-content-loaded', (event) => {
+        if (window.initCustomSelects) {
+            window.initCustomSelects();
+        }
+    });
 } 
