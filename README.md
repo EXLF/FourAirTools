@@ -38,22 +38,40 @@
 ## 项目结构
 
 ```
-├── src/
-│   ├── css/                # CSS 样式
-│   ├── js/                 # JavaScript 模块 (渲染进程)
-│   │   ├── core/           # 核心逻辑 (app entry, navigation, listeners)
-│   │   ├── components/     # 可重用 UI 组件逻辑 (modal, table helper)
-│   │   ├── pages/          # 页面特定逻辑 (dashboard, projects, wallets, etc.)
-│   │   ├── db/             # 数据库访问逻辑 (主进程使用)
-│   │   └── utils/          # 通用工具函数
-│   └── templates/          # HTML 页面模板片段
-├── main.js                 # Electron 主进程入口文件
-├── preload.js              # Electron Preload 脚本 (用于 IPC)
-├── index.html              # 主 HTML 骨架文件
-├── package.json            # 项目配置和依赖
-├── database.db             # SQLite 数据库文件 (本地生成, 已加入 .gitignore)
-├── .gitignore              # Git 忽略文件配置
-└── README.md               # 项目说明
+.                                   # 项目根目录
+├── .gitignore                      # Git 忽略文件配置
+├── README.md                       # 项目说明文档
+├── database.db                     # SQLite 数据库文件（本地自动生成）
+├── index.html                      # 主 HTML 骨架文件
+├── main.js                         # Electron 主进程入口
+├── package-lock.json               # npm 依赖锁定文件
+├── package.json                    # 项目依赖与配置
+├── preload.js                      # Electron Preload 脚本（用于IPC桥接）
+├── src/                            # 源码目录
+│   ├── css/                        # 样式文件目录
+│   │   ├── main.css                # 主样式入口
+│   │   ├── base/                   # 基础布局/重置/响应式样式
+│   │   ├── components/             # 组件级样式（表单、模态框、按钮等）
+│   │   └── pages/                  # 各页面专属样式
+│   ├── js/                         # 前端 JS 逻辑
+│   │   ├── core/                   # 应用核心逻辑（导航、入口、钱包生成等）
+│   │   ├── components/             # 可复用UI组件逻辑
+│   │   ├── db/                     # 数据库访问与CRUD（主进程用）
+│   │   ├── pages/                  # 各页面业务逻辑
+│   │   └── utils/                  # 通用工具函数
+│   ├── main/                       # 主进程相关代码
+│   │   └── ipcHandlers/            # 主进程IPC处理器
+│   └── templates/                  # HTML页面模板片段
+│       ├── dashboard.html          # 仪表盘页面模板
+│       ├── wallets.html            # 钱包管理页面模板
+│       ├── social.html             # 社交账户页面模板
+│       ├── tool-network.html       # 网络工具页面模板
+│       ├── settings.html           # 设置页面模板
+│       ├── tools.html              # 工具链接页面模板
+│       ├── tutorials.html          # 教程中心页面模板
+│       ├── projects.html           # 项目跟踪页面模板
+│       ├── script-plugins.html     # 脚本插件页面模板
+│       └── community.html          # 社区交流页面模板
 ```
 
 ## 如何运行 (开发模式)
