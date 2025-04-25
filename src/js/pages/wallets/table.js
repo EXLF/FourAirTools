@@ -165,6 +165,24 @@ export async function loadGroupFilters() {
 }
 
 /**
+ * 缩短字符串，显示前缀和后缀，中间用省略号代替。
+ * @param {string} str - 要缩短的字符串。
+ * @param {number} prefixLength - 要保留的前缀长度。
+ * @param {number} suffixLength - 要保留的后缀长度。
+ * @returns {string} 缩短后的字符串或原始字符串（如果太短）。
+ */
+function shortenString(str, prefixLength = 6, suffixLength = 4) {
+    if (!str || typeof str !== 'string') {
+        return ''; // 返回空字符串或合适的占位符
+    }
+    const minLength = prefixLength + suffixLength + 3; // 至少需要能放下前缀+后缀+***
+    if (str.length > minLength) {
+        return `${str.substring(0, prefixLength)}***${str.substring(str.length - suffixLength)}`;
+    }
+    return str; // 如果字符串不够长，直接返回
+}
+
+/**
  * 从数据库加载钱包数据并渲染到表格中。
  * @param {object} [filters=currentFilters] - 当前应用的筛选条件。
  * @param {number} [page=currentPage] - 要加载的目标页码，默认为全局当前页。
@@ -227,27 +245,20 @@ function createWalletRowElement(wallet, index, offset) {
     // 计算序号 (从 1 开始)
     const sequenceNumber = offset + index + 1;
 
-    let privateKeyDisplay = '<span style="color: #aaa;">未存储</span>';
+    // *** 修改：处理加密私钥的显示 ***
+    let privateKeyDisplay = '<span class="text-muted">未存储</span>';
     if (wallet.encryptedPrivateKey) {
-        const encryptedKey = wallet.encryptedPrivateKey;
-        // 注意：实际项目中私钥不应这样明文存储或截断显示，这里仅作演示
-        const truncatedKey = encryptedKey.length > 10 ?
-                                `${encryptedKey.substring(0, 6)}...${encryptedKey.substring(encryptedKey.length - 4)}` :
-                                '******';
-        privateKeyDisplay = `<span title="私钥已存储">${truncatedKey}</span>`; // 不建议在 title 中显示真实数据
+        // 使用 shortenString 函数缩短显示
+        const shortKey = shortenString(wallet.encryptedPrivateKey, 6, 4);
+        privateKeyDisplay = `<code class="encrypted-data" title="私钥已加密存储">${shortKey}</code>`;
     }
 
-    let mnemonicDisplay = '<span style="color: #aaa;">未存储</span>';
-    if (wallet.mnemonic) {
-        const words = wallet.mnemonic.split(' ').filter(w => w);
-        let truncatedMnemonic = '******'; 
-        if (words.length >= 4) {
-             // 注意：实际项目中助记词不应这样明文存储或截断显示，这里仅作演示
-            truncatedMnemonic = `${words[0]} ${words[1]} ... ${words[words.length - 2]} ${words[words.length - 1]}`;
-        } else if (words.length > 0) {
-            truncatedMnemonic = words.join(' ');
-        }
-        mnemonicDisplay = `<span title="助记词已存储">${truncatedMnemonic}</span>`; // 不建议在 title 中显示真实数据
+    // *** 修改：处理加密助记词的显示 ***
+    let mnemonicDisplay = '<span class="text-muted">未存储</span>';
+    if (wallet.mnemonic) { // 假设数据库字段名是 mnemonic
+        // 使用 shortenString 函数缩短显示
+        const shortMnemonic = shortenString(wallet.mnemonic, 6, 4); // 也可以选择不同的长度
+        mnemonicDisplay = `<code class="encrypted-data" title="助记词已加密存储">${shortMnemonic}</code>`;
     }
 
     tr.innerHTML = `

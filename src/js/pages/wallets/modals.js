@@ -313,25 +313,48 @@ export async function openAddWalletManualModal() {
                 return;
             }
 
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
             const seedType = form.elements.seedType.value;
             const seedValue = seedType === 'privateKey' ? privateKeyInput.value.trim() : mnemonicInput.value.trim();
+
+            let encryptedSeedValue = null;
+            try {
+                // --- 在保存前加密种子值 --- 
+                 console.log(`Encrypting ${seedType} for saving...`);
+                 encryptedSeedValue = await window.dbAPI.encryptData(seedValue);
+                 console.log(`Encryption result length: ${encryptedSeedValue?.length}`);
+                 if (typeof encryptedSeedValue !== 'string') { // IPC 错误或加密服务未解锁可能抛出
+                      throw new Error('加密种子值失败，返回类型不正确。');
+                 }
+                 // ---------------------------
+            } catch (encError) {
+                 console.error('加密种子值失败:', encError);
+                 showToast(`保存失败：无法加密敏感信息 (${encError.message})`, 'error');
+                 saveBtn.disabled = false;
+                 saveBtn.textContent = '保存钱包';
+                 return;
+            }
 
             const dataToSave = {
                 address: derivedAddress,
                 name: form.elements.name.value.trim() || null,
                 notes: form.elements.notes.value.trim() || null,
                 groupId: form.elements.groupId.value ? parseInt(form.elements.groupId.value) : null,
-                // Store the seed securely (here we store based on type)
-                encryptedPrivateKey: seedType === 'privateKey' ? seedValue : null,
-                mnemonic: seedType === 'mnemonic' ? seedValue : null,
+                // --- 保存加密后的值 --- 
+                encryptedPrivateKey: seedType === 'privateKey' ? encryptedSeedValue : null,
+                mnemonic: seedType === 'mnemonic' ? encryptedSeedValue : null,
+                // -----------------------
                 derivationPath: null // Path is unknown for manual import
             };
 
-            saveBtn.disabled = true;
-            saveBtn.textContent = '保存中...';
-
             try {
-                console.log('Adding new wallet:', dataToSave);
+                console.log('Adding new wallet:', {
+                     ...dataToSave,
+                     encryptedPrivateKey: dataToSave.encryptedPrivateKey ? '[ENCRYPTED]' : null, // Avoid logging encrypted data
+                     mnemonic: dataToSave.mnemonic ? '[ENCRYPTED]' : null
+                });
                 const newId = await window.dbAPI.addWallet(dataToSave);
                 console.log('Wallet added successfully, ID:', newId);
                 showToast('钱包添加成功！', 'success');
@@ -647,54 +670,129 @@ export async function openGenerateWalletsModal() {
 }
 
 /**
- * 打开查看钱包详情模态框。
- * @param {object} walletData - 包含完整钱包信息的对象。
+ * 显示查看钱包详情的模态框。
+ * @param {number} walletId 要查看的钱包 ID。
  */
-export function openViewDetailsModal(walletData) {
-    showModal('tpl-view-wallet-details', (modalElement) => {
-        const addressValueElement = modalElement.querySelector('#view-wallet-address-value'); 
-        const privateKeyElement = modalElement.querySelector('#view-private-key');
-        const mnemonicElement = modalElement.querySelector('#view-mnemonic');
-        const copyButtons = modalElement.querySelectorAll('.copy-btn');
+export function showViewDetailsModal(walletId) {
+    showModal('tpl-view-wallet-details', async (modalElement) => {
+        const addressEl = modalElement.querySelector('#view-wallet-address-value');
+        const privateKeyEl = modalElement.querySelector('#view-private-key');
+        const mnemonicEl = modalElement.querySelector('#view-mnemonic');
+        const copyBtns = modalElement.querySelectorAll('.copy-btn');
+        const modalTitle = modalElement.querySelector('.modal-title');
 
-        if (!addressValueElement || !privateKeyElement || !mnemonicElement) { 
-            console.error('查看详情模态框缺少必要的元素！'); hideModal(); return;
+        // 设置初始加载状态
+        if(addressEl) addressEl.textContent = '加载中...';
+        if(privateKeyEl) privateKeyEl.textContent = '加载中...';
+        if(mnemonicEl) mnemonicEl.textContent = '加载中...';
+        if(modalTitle) modalTitle.textContent = '查看钱包详情'; // Reset title
+
+        try {
+            // 1. 从主进程获取钱包详情 (包含加密数据)
+            console.log(`[WalletsModals] Fetching details for wallet ID: ${walletId}`);
+            const details = await window.dbAPI.getWalletDetails(walletId);
+            console.log('[WalletsModals] Received details:', details);
+
+            if (!details) {
+                throw new Error('未能获取到钱包详情。');
+            }
+
+            // 填充地址 (地址通常不加密)
+            if(addressEl) addressEl.textContent = details.address || 'N/A';
+            if(modalTitle && details.name) modalTitle.textContent = `查看详情: ${details.name} (${details.address.substring(0,6)}...)`;
+            else if (modalTitle) modalTitle.textContent = `查看详情: ${details.address.substring(0,6)}...`;
+
+
+            // 2. 解密私钥和助记词
+            let decryptedPrivateKey = '[解密失败或无数据]';
+            let decryptedMnemonic = '[解密失败或无数据]';
+
+            if (details.encryptedPrivateKey) {
+                try {
+                    console.log('[WalletsModals] Attempting to decrypt private key...');
+                    decryptedPrivateKey = await window.electron.ipcRenderer.invoke('app:decryptData', details.encryptedPrivateKey);
+                    console.log('[WalletsModals] Private key decrypted.');
+                    if (!decryptedPrivateKey) decryptedPrivateKey = '[解密返回空]';
+                } catch (error) {
+                    console.error('[WalletsModals] Failed to decrypt private key:', error);
+                    decryptedPrivateKey = `[解密错误: ${error.message}]`;
+                }
+            } else {
+                 decryptedPrivateKey = '[未存储]';
+            }
+
+            if (details.mnemonic) {
+                try {
+                    console.log('[WalletsModals] Attempting to decrypt mnemonic...');
+                    decryptedMnemonic = await window.electron.ipcRenderer.invoke('app:decryptData', details.mnemonic);
+                    console.log('[WalletsModals] Mnemonic decrypted.');
+                    if (!decryptedMnemonic) decryptedMnemonic = '[解密返回空]';
+                } catch (error) {
+                    console.error('[WalletsModals] Failed to decrypt mnemonic:', error);
+                    decryptedMnemonic = `[解密错误: ${error.message}]`;
+                }
+            } else {
+                 decryptedMnemonic = '[未存储]';
+            }
+
+            // *** 新增：在填充 UI 前打印最终的解密结果 ***
+            console.log('[WalletsModals] Final value for Private Key before UI update:', decryptedPrivateKey);
+            console.log('[WalletsModals] Final value for Mnemonic before UI update:', decryptedMnemonic);
+
+            // 3. 填充解密后的数据
+            if(privateKeyEl) {
+                console.log('[WalletsModals] Setting private key text content.');
+                privateKeyEl.textContent = decryptedPrivateKey;
+            } else {
+                 console.error('[WalletsModals] privateKeyEl not found when trying to set text!');
+            }
+            if(mnemonicEl) {
+                 console.log('[WalletsModals] Setting mnemonic text content.');
+                 mnemonicEl.textContent = decryptedMnemonic;
+             } else {
+                  console.error('[WalletsModals] mnemonicEl not found when trying to set text!');
+             }
+
+            // 重新设置复制按钮的目标 (确保它们能复制解密后的内容)
+            setupCopyButtons(modalElement);
+
+        } catch (error) {
+            console.error('[WalletsModals] Error showing view details modal:', error);
+            showToast(`加载钱包详情失败: ${error.message}`, 'error');
+            // 可以选择关闭模态框或显示错误信息
+             if(addressEl) addressEl.textContent = '加载失败';
+             if(privateKeyEl) privateKeyEl.textContent = '加载失败';
+             if(mnemonicEl) mnemonicEl.textContent = '加载失败';
+             hideModal(); // 或者保留模态框让用户看到错误
         }
+    });
+}
 
-        addressValueElement.textContent = walletData.address || '(地址未找到)';
-        addressValueElement.classList.remove('empty');
+// Helper function for copy buttons (if not already defined elsewhere)
+function setupCopyButtons(containerElement) {
+    const copyBtns = containerElement.querySelectorAll('.copy-btn');
+    copyBtns.forEach(btn => {
+        // Remove existing listener to prevent duplicates if modal is reused
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
 
-        privateKeyElement.textContent = walletData.encryptedPrivateKey ? walletData.encryptedPrivateKey : '(未存储)';
-        privateKeyElement.classList.toggle('empty', !walletData.encryptedPrivateKey);
-
-        mnemonicElement.textContent = walletData.mnemonic ? walletData.mnemonic : '(未存储)';
-        mnemonicElement.classList.toggle('empty', !walletData.mnemonic);
-
-        // Re-attach copy listeners (or use event delegation if preferred)
-        copyButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', async () => {
-                const targetId = newButton.dataset.target;
-                const elementToCopy = modalElement.querySelector(`#${targetId}`);
-                if (elementToCopy) {
-                    const textToCopy = elementToCopy.textContent;
-                    if (textToCopy && !elementToCopy.classList.contains('empty') && textToCopy !== '(未存储)') {
-                        try {
-                            await navigator.clipboard.writeText(textToCopy);
-                            showToast('已复制到剪贴板', 'success');
-                        } catch (err) { showToast('复制失败！', 'error'); console.error(`复制失败 ${targetId}: `, err); }
-                    } else { showToast('没有可复制的内容', 'warning'); }
-                } else { console.warn(`复制目标未找到:`, targetId); }
-            });
+        newBtn.addEventListener('click', async () => {
+            const targetId = newBtn.dataset.target;
+            const targetElement = containerElement.querySelector(`#${targetId}`);
+            if (targetElement) {
+                const textToCopy = targetElement.textContent;
+                 if (textToCopy && !textToCopy.startsWith('[')) { // Don't copy error messages
+                    try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        showToast('已复制到剪贴板', 'success');
+                    } catch (err) {
+                        console.error('无法复制文本: ', err);
+                        showToast('复制失败', 'error');
+                    }
+                } else {
+                    showToast('没有有效内容可复制', 'warning');
+                }
+            }
         });
-
-        // Ensure footer close button works
-        const closeButtonFooter = modalElement.querySelector('.modal-close-btn-footer');
-        if (closeButtonFooter) {
-             const newCloseButton = closeButtonFooter.cloneNode(true);
-             closeButtonFooter.parentNode.replaceChild(newCloseButton, closeButtonFooter);
-             newCloseButton.addEventListener('click', hideModal); 
-        }
     });
 } 

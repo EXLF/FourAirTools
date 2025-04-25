@@ -389,6 +389,65 @@
         </div>
     </template>
 
+    <!-- ========= NEW: Setup Password Modal Template ========== -->
+    <template id="tpl-setup-password">
+        <div class="modal-overlay">
+            <div class="modal-box setup-password-modal">
+                 <button class="modal-close-btn" title="关闭">&times;</button> <!-- Allow closing? Maybe not -->
+                 <h3 class="modal-title">设置主密码</h3>
+                 <div class="modal-content">
+                     <p class="notice info"><i class="fa fa-info-circle"></i> 这是您首次启动应用，请设置一个强主密码以保护您的数据安全。此密码将用于加密您的钱包私钥等敏感信息。</p>
+                     <form id="setup-password-form-actual">
+                         <div class="option-group">
+                             <label for="master-password">输入主密码 <span class="required">*</span></label>
+                             <input type="password" id="master-password" name="master-password" required autocomplete="new-password">
+                             <div class="password-strength-indicator">
+                                 <div class="strength-bar"><div class="strength-meter"></div></div>
+                                 <span class="strength-text"></span>
+                             </div>
+                         </div>
+                         <div class="option-group">
+                             <label for="confirm-password">确认主密码 <span class="required">*</span></label>
+                             <input type="password" id="confirm-password" name="confirm-password" required autocomplete="new-password">
+                         </div>
+                         <div class="setup-password-error notice error" style="display: none;">错误信息</div>
+                     </form>
+                 </div>
+                 <div class="modal-actions">
+                     <!-- <button class="btn btn-secondary modal-cancel-btn">取消</button> --> <!-- Should not be cancellable -->
+                     <button type="submit" form="setup-password-form-actual" class="btn btn-primary modal-setup-btn">设置密码并继续</button>
+                 </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ========= NEW: Unlock Application Modal Template ========== -->
+    <template id="tpl-unlock-app">
+        <div class="modal-overlay unlock-overlay"> <!-- Add specific class for potential styling -->
+            <div class="modal-box unlock-modal">
+                 <!-- No close button - must unlock -->
+                 <h3 class="modal-title"><i class="fa fa-lock"></i> 解锁应用</h3>
+                 <div class="modal-content">
+                     <p class="notice info">请输入您的主密码以解锁应用并访问您的数据。</p>
+                     <form id="unlock-form-actual">
+                         <div class="option-group">
+                             <label for="unlock-password">主密码</label>
+                             <input type="password" id="unlock-password" name="unlock-password" required autocomplete="current-password">
+                         </div>
+                         <div class="unlock-error notice error" style="display: none;">错误信息</div>
+                         <!-- TODO: Add 'Forgot Password?' link/functionality later -->
+                         <!-- <div style="text-align: right; margin-top: 10px;"><a href="#" class="link-forgot-password">忘记密码?</a></div> -->
+                     </form>
+                 </div>
+                 <div class="modal-actions">
+                     <button type="submit" form="unlock-form-actual" class="btn btn-primary modal-unlock-btn">
+                         <i class="fa fa-unlock-alt"></i> 解锁
+                     </button>
+                 </div>
+            </div>
+        </div>
+    </template>
+
     <!-- <script src="main.js"></script> -->
     <script type="module" src="src/js/core/app.js"></script>
     <div id="toast-container"></div> <!-- Toast container -->

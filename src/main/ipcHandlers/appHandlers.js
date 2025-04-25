@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const db = require('../../js/db/index.js'); // Still need db for saving
 const { ethers } = require('ethers'); // 导入 ethers
+const cryptoService = require('../../js/core/cryptoService.js'); // 导入加密服务
 
 // --- 移除旧的调试日志 ---
 
@@ -11,42 +12,49 @@ function setupApplicationIpcHandlers(mainWindow) {
 
     // --- 批量生成钱包 Handler ---
     ipcMain.handle('app:generateWallets', async (event, { count, groupId }) => {
-        // --- 将 require 移到 handler 内部 ---
         const walletGenerator = require('../../js/core/walletGenerator.js');
-        // --- --------------------------- ---
-
         console.log(`[IPC] Received: app:generateWallets - Count: ${count}, GroupID: ${groupId}`);
-
         if (typeof count !== 'number' || count <= 0) {
             throw new Error('无效的生成数量');
         }
-
         let generatedCount = 0;
         let errors = [];
-        const startIndex = 0; // Or potentially get last used index from DB in future
-
+        const startIndex = 0;
         try {
-            // 调用模块生成所有钱包信息
             const generatedWalletInfos = walletGenerator.generateWallets(count, startIndex);
-
             for (let i = 0; i < generatedWalletInfos.length; i++) {
                 const walletInfo = generatedWalletInfos[i];
                 const index = startIndex + i;
-
                 if (walletInfo) {
-                    const generationTime = new Date().toLocaleString('zh-CN'); // 使用中文区域设置获取时间
+                    const generationTime = new Date().toLocaleString('zh-CN');
+                    let encryptedPrivateKey = null;
+                    let encryptedMnemonic = null;
+                    try {
+                        // --- 加密私钥和助记词 --- 
+                        if (walletInfo.privateKey) {
+                            encryptedPrivateKey = cryptoService.encryptWithSessionKey(walletInfo.privateKey);
+                        }
+                        if (walletInfo.mnemonic) {
+                            encryptedMnemonic = cryptoService.encryptWithSessionKey(walletInfo.mnemonic);
+                        }
+                         // -----------------------
+                    } catch (encError) {
+                         console.error(`加密钱包 ${index} (${walletInfo.address}) 的密钥/助记词失败:`, encError);
+                         errors.push(`加密钱包 ${walletInfo.address} (索引 ${index}) 失败: ${encError.message}`);
+                         continue; // 跳过这个钱包的保存
+                    }
+
                     const walletData = {
                         address: walletInfo.address,
                         name: `Account-${index}`,
-                        notes: `生成于 ${generationTime}`, // 修改备注内容为中文
+                        notes: `生成于 ${generationTime}`,
                         groupId: groupId || null,
-                        encryptedPrivateKey: walletInfo.privateKey,
-                        mnemonic: walletInfo.mnemonic,
+                        encryptedPrivateKey: encryptedPrivateKey, // 保存加密后的私钥
+                        mnemonic: encryptedMnemonic, // 保存加密后的助记词
                         derivationPath: walletInfo.path
                     };
-
                     try {
-                        await db.addWallet(db.db, walletData); // 调用数据库添加函数
+                        await db.addWallet(db.db, walletData);
                         generatedCount++;
                     } catch (dbError) {
                         console.error(`保存生成的钱包 ${walletInfo.address} 到数据库失败:`, dbError);
@@ -56,10 +64,8 @@ function setupApplicationIpcHandlers(mainWindow) {
                     errors.push(`无法生成索引 ${index} 的钱包。`);
                 }
             }
-
             console.log(`批量生成完成: ${generatedCount} 个成功, ${errors.length} 个失败。`);
             return { generatedCount, errors };
-
         } catch (error) {
              console.error('批量生成钱包过程中发生严重错误:', error);
              throw new Error(`批量生成失败: ${error.message}`);
@@ -106,6 +112,26 @@ function setupApplicationIpcHandlers(mainWindow) {
                  friendlyError = '助记词无效或校验和错误';
             }
             return { address: null, error: friendlyError };
+        }
+    });
+
+    // --- 处理加密数据请求 ---
+    ipcMain.handle('app:encryptData', async (event, plainText) => {
+        console.log('[IPC] Received: app:encryptData');
+        if (typeof plainText !== 'string') {
+            throw new Error('无效的加密输入数据类型');
+        }
+        if (plainText === '') {
+             return ''; // Allow encrypting empty string if needed, returns empty
+        }
+        try {
+            // 使用 cryptoService 中已经设置好的会话密钥进行加密
+            const encryptedText = cryptoService.encryptWithSessionKey(plainText);
+            return encryptedText;
+        } catch (error) {
+             console.error('[IPC] Error encrypting data:', error);
+             // 向渲染进程抛出更具体的错误
+             throw new Error(`加密失败: ${error.message}`);
         }
     });
 

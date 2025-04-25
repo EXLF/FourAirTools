@@ -106,6 +106,30 @@ function setupDatabaseIpcHandlers() {
     });
     // --- ----------------- ---
 
+    // *** 新增：添加获取钱包详情的 Handler ***
+    //    假设我们需要一个能获取所有字段（包括加密字段）的函数，
+    //    如果 db.getWalletById 满足要求就用它，否则需要 db 模块提供新函数。
+    //    暂时假设 db.getWalletById 能获取所有字段。
+    ipcMain.handle('db:getWalletDetails', async (event, id) => {
+        console.log(`[IPC Handler] Received db:getWalletDetails for ID: ${id}`);
+        try {
+            // 注意：这里调用 getWalletById，确保它返回包括 privateKeyEncrypted 和 mnemonicEncrypted 的完整数据
+            const walletDetails = await db.getWalletById(db.db, id);
+             if (!walletDetails) {
+                console.warn(`[IPC Handler] Wallet details not found for ID: ${id}`);
+                // 可以返回 null 或抛出错误，取决于前端如何处理
+                 return null; // 或者 throw new Error(`Wallet not found: ${id}`);
+             }
+            // 确保返回的字段名与前端期望的一致
+            // 例如，如果数据库字段是 private_key_encrypted，但前端期望 privateKeyEncrypted，则需要转换
+             console.log(`[IPC Handler] Returning wallet details for ID: ${id}`, walletDetails); // Log returned data
+            return walletDetails;
+        } catch (error) {
+            console.error(`[IPC Handler] Error fetching wallet details for ID ${id}:`, error);
+            throw error; // 将错误传递给调用者 (invoke)
+        }
+    });
+
     console.log('[IPC] Database IPC handlers ready.');
 }
 

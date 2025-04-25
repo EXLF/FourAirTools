@@ -14,7 +14,7 @@ import {
     openWalletModal,
     openManageGroupsModal,
     openGenerateWalletsModal,
-    openViewDetailsModal,
+    showViewDetailsModal,
     openAddWalletManualModal // 导入新增钱包模态框函数
 } from './modals.js';
 import {
@@ -133,18 +133,7 @@ async function handleWalletTableRowAction(action, rowElement) {
             openWalletModal(walletId);
             break;
         case '查看详情':
-            try {
-                const walletData = await window.dbAPI.getWalletById(walletId);
-                if (!walletData) {
-                    showToast(`错误：找不到 ID 为 ${walletId} 的钱包数据。`, 'error');
-                    return;
-                }
-                // 调用 modals 模块打开详情模态框
-                openViewDetailsModal(walletData);
-            } catch (error) {
-                console.error(`获取钱包详情失败 ID ${walletId}:`, error);
-                showToast(`获取钱包详情失败: ${error.message}`, 'error');
-            }
+            showViewDetailsModal(walletId);
             break;
         default:
             console.warn(`未知的钱包行操作: ${action}`);
