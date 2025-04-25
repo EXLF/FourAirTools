@@ -27,6 +27,15 @@
 *   **社区交流**：提供社区入口（如 Discord、Telegram）。
 *   **软件设置**：配置应用参数。
 
+## 近期主要更新
+
+*   **代码结构优化**:
+    *   将主进程中的 IPC 处理器按功能拆分到 `src/main/ipcHandlers/` 目录下（例如 `dbHandlers.js`、`appHandlers.js`），使 `main.js` 更简洁。
+    *   将数据库相关的初始化和关闭逻辑封装到 `src/main/dbManager.js` 中。
+*   **功能实现**:
+    *   完善了钱包和社交账户的批量删除功能。
+    *   添加了通过 IPC 调用系统对话框保存文件的功能 (`app:saveFile`)。
+
 ## 技术栈
 
 *   **框架**: Electron
