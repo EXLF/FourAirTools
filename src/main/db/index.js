@@ -17,19 +17,19 @@ function initializeDatabaseConnection(app) {
     console.log(`Database path set to: ${dbPath}`);
 
     return new Promise((resolve, reject) => {
-        // 创建或连接数据库
+// 创建或连接数据库
         db = new sqlite3.Database(dbPath, (err) => {
-            if (err) {
-                console.error('Error opening database:', err.message);
+    if (err) {
+        console.error('Error opening database:', err.message);
                 reject(err); // 初始化失败时 reject Promise
-            } else {
-                console.log('Connected to the SQLite database.');
-                // 连接成功后，创建表结构（如果不存在）
+    } else {
+        console.log('Connected to the SQLite database.');
+        // 连接成功后，创建表结构（如果不存在）
                 initializeDatabaseSchema()
                     .then(() => resolve()) // Schema 初始化成功后 resolve
                     .catch(schemaErr => reject(schemaErr)); // Schema 初始化失败时 reject
-            }
-        });
+    }
+});
     });
 }
 
@@ -39,88 +39,88 @@ function initializeDatabaseConnection(app) {
  */
 function initializeDatabaseSchema() {
     return new Promise((resolve, reject) => {
-        const createGroupsTableSQL = `
-            CREATE TABLE IF NOT EXISTS groups (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-            );
-        `;
+    const createGroupsTableSQL = `
+        CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+    `;
 
-        const createWalletsTableSQL = `
-            CREATE TABLE IF NOT EXISTS wallets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                address TEXT NOT NULL UNIQUE,
-                name TEXT,
-                notes TEXT,
-                groupId INTEGER,
-                encryptedPrivateKey TEXT, -- 现在临时存储明文私钥
-                mnemonic TEXT,            -- 新增：助记词
-                derivationPath TEXT,      -- 新增：派生路径
-                createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    const createWalletsTableSQL = `
+        CREATE TABLE IF NOT EXISTS wallets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            address TEXT NOT NULL UNIQUE,
+            name TEXT,
+            notes TEXT,
+            groupId INTEGER,
+            encryptedPrivateKey TEXT, -- 现在临时存储明文私钥
+            mnemonic TEXT,            -- 新增：助记词
+            derivationPath TEXT,      -- 新增：派生路径
+            createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
                 FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL
-            );
-        `;
+        );
+    `;
         const createWalletsUpdatedAtTriggerSQL = `
-            CREATE TRIGGER IF NOT EXISTS update_wallets_updatedAt
-            AFTER UPDATE ON wallets
-            FOR EACH ROW
-            BEGIN
-                UPDATE wallets SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
-            END;
-        `;
+        CREATE TRIGGER IF NOT EXISTS update_wallets_updatedAt
+        AFTER UPDATE ON wallets
+        FOR EACH ROW
+        BEGIN
+            UPDATE wallets SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+        END;
+    `;
 
         const createSocialAccountsTableSQL = `
-            CREATE TABLE IF NOT EXISTS social_accounts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                platform TEXT NOT NULL,    -- e.g., 'Twitter', 'Discord', 'Email'
-                username TEXT NOT NULL,    -- e.g., '@handle', 'user#1234', 'email@example.com'
-                binding TEXT,              -- 绑定的邮箱/手机等
-                notes TEXT,
-                groupId INTEGER,           -- 外键关联 groups 表
-                createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL,
-                UNIQUE (platform, username) -- 同一平台下用户名唯一
-            );
-        `;
+        CREATE TABLE IF NOT EXISTS social_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL,    -- e.g., 'Twitter', 'Discord', 'Email'
+            username TEXT NOT NULL,    -- e.g., '@handle', 'user#1234', 'email@example.com'
+            binding TEXT,              -- 绑定的邮箱/手机等
+            notes TEXT,
+            groupId INTEGER,           -- 外键关联 groups 表
+            createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL,
+            UNIQUE (platform, username) -- 同一平台下用户名唯一
+        );
+    `;
         const createSocialAccountsUpdatedAtTriggerSQL = `
-            CREATE TRIGGER IF NOT EXISTS update_social_accounts_updatedAt
-            AFTER UPDATE ON social_accounts
-            FOR EACH ROW
-            BEGIN
-                UPDATE social_accounts SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
-            END;
-        `;
+        CREATE TRIGGER IF NOT EXISTS update_social_accounts_updatedAt
+        AFTER UPDATE ON social_accounts
+        FOR EACH ROW
+        BEGIN
+            UPDATE social_accounts SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+        END;
+    `;
 
         const createProxyConfigsTableSQL = `
-            CREATE TABLE IF NOT EXISTS proxy_configs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,                 -- 用户定义的名称/标识
-                type TEXT NOT NULL,        -- 'http', 'https', 'socks5'
-                host TEXT NOT NULL,        -- IP 地址或域名
-                port INTEGER NOT NULL,     -- 端口号
-                username TEXT,             -- 可选的用户名
-                password TEXT,             -- 可选的密码
-                ipProtocol TEXT DEFAULT 'ipv4', -- 'ipv4' or 'ipv6'
-                ipQueryChannel TEXT DEFAULT 'ip-api', -- 用于测试的渠道
-                status TEXT DEFAULT 'unknown', -- 'active', 'inactive', 'error', 'unknown'
-                lastTestedAt TEXT,         -- 上次测试时间
-                groupId INTEGER,           -- 外键关联 groups 表
-                createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL
-            );
-        `;
+        CREATE TABLE IF NOT EXISTS proxy_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,                 -- 用户定义的名称/标识
+            type TEXT NOT NULL,        -- 'http', 'https', 'socks5'
+            host TEXT NOT NULL,        -- IP 地址或域名
+            port INTEGER NOT NULL,     -- 端口号
+            username TEXT,             -- 可选的用户名
+            password TEXT,             -- 可选的密码
+            ipProtocol TEXT DEFAULT 'ipv4', -- 'ipv4' or 'ipv6'
+            ipQueryChannel TEXT DEFAULT 'ip-api', -- 用于测试的渠道
+            status TEXT DEFAULT 'unknown', -- 'active', 'inactive', 'error', 'unknown'
+            lastTestedAt TEXT,         -- 上次测试时间
+            groupId INTEGER,           -- 外键关联 groups 表
+            createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL
+        );
+    `;
         const createProxyConfigsUpdatedAtTriggerSQL = `
-            CREATE TRIGGER IF NOT EXISTS update_proxy_configs_updatedAt
-            AFTER UPDATE ON proxy_configs
-            FOR EACH ROW
-            BEGIN
-                UPDATE proxy_configs SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
-            END;
-        `;
+        CREATE TRIGGER IF NOT EXISTS update_proxy_configs_updatedAt
+        AFTER UPDATE ON proxy_configs
+        FOR EACH ROW
+        BEGIN
+            UPDATE proxy_configs SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+        END;
+    `;
 
         db.serialize(() => {
             db.run(createGroupsTableSQL, handleSchemaError('groups table'))
@@ -131,7 +131,7 @@ function initializeDatabaseSchema() {
               .run(createProxyConfigsTableSQL, handleSchemaError('proxy_configs table'))
               .run(createProxyConfigsUpdatedAtTriggerSQL, handleSchemaError('proxy_configs updatedAt trigger'))
               .run('SELECT 1', (err) => { // Dummy query to ensure serialization completes
-                  if (err) {
+        if (err) {
                      console.error('Error during schema finalization check:', err.message);
                      return reject(err); // Reject if final check fails
                   }
@@ -148,7 +148,7 @@ function initializeDatabaseSchema() {
                     // Decide if we should reject the whole initialization or just log
                     // For now, log and continue, assuming IF NOT EXISTS handles it mostly
                     // reject(err); // Uncomment to make schema errors fatal
-                } else {
+        } else {
                     console.log(`${tableName} is ready.`);
                 }
             };
@@ -183,12 +183,12 @@ function insertInitialData() {
                         console.warn('Errors occurred during initial data insertion.');
                         // Decide if this should cause a rejection
                         // reject(errors[0]); // Reject on first error
-                    } else {
+                } else {
                         console.log('Initial groups inserted (or ignored if exist).');
-                    }
+                }
                     resolve(); // Resolve even if there were non-fatal errors
-                });
-            }
+            });
+        }
         }));
     });
 }
@@ -202,13 +202,13 @@ function closeDatabase() {
     // 检查 db 实例是否存在且已打开
     if (db && db.open) {
         console.log(`Closing database connection: ${dbPath}`);
-        db.close((err) => {
-            if (err) {
-                console.error('Error closing database:', err.message);
-            } else {
+    db.close((err) => {
+        if (err) {
+            console.error('Error closing database:', err.message);
+        } else {
                 console.log('Database connection closed successfully.');
-            }
-        });
+        }
+    });
     } else {
          console.log('Database connection already closed or not initialized.');
     }
@@ -598,63 +598,63 @@ function addSocialAccount(accountData) {
  * @returns {Promise<{accounts: Array<object>, totalCount: number}>} - 返回账户列表和总数。
  */
 async function getSocialAccounts(options = {}) {
-    let baseSql = `SELECT sa.id, sa.platform, sa.username, sa.binding, sa.notes, sa.groupId, sa.createdAt, sa.updatedAt, g.name as groupName
-                   FROM social_accounts sa
-                   LEFT JOIN groups g ON sa.groupId = g.id`;
+        let baseSql = `SELECT sa.id, sa.platform, sa.username, sa.binding, sa.notes, sa.groupId, sa.createdAt, sa.updatedAt, g.name as groupName
+                       FROM social_accounts sa
+                       LEFT JOIN groups g ON sa.groupId = g.id`;
     const countSqlBase = `SELECT COUNT(*) as count FROM social_accounts sa LEFT JOIN groups g ON sa.groupId = g.id`;
-    const whereClauses = [];
-    const params = [];
-    const countParams = [];
+        const whereClauses = [];
+        const params = [];
+        const countParams = [];
 
-    if (options.platform) {
-        whereClauses.push('LOWER(sa.platform) = LOWER(?)');
-        params.push(options.platform);
-        countParams.push(options.platform);
-    }
-    if (options.groupId) {
-        whereClauses.push('sa.groupId = ?');
-        params.push(options.groupId);
-        countParams.push(options.groupId);
-    }
-    if (options.search) {
-        const searchTerm = `%${options.search}%`;
-        whereClauses.push('(sa.platform LIKE ? OR sa.username LIKE ? OR sa.binding LIKE ? OR sa.notes LIKE ? OR g.name LIKE ?)');
-        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-        countParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-    }
+        if (options.platform) {
+            whereClauses.push('LOWER(sa.platform) = LOWER(?)');
+            params.push(options.platform);
+            countParams.push(options.platform);
+        }
+        if (options.groupId) {
+            whereClauses.push('sa.groupId = ?');
+            params.push(options.groupId);
+            countParams.push(options.groupId);
+        }
+         if (options.search) {
+            const searchTerm = `%${options.search}%`;
+            whereClauses.push('(sa.platform LIKE ? OR sa.username LIKE ? OR sa.binding LIKE ? OR sa.notes LIKE ? OR g.name LIKE ?)');
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        }
 
-    let whereSql = '';
-    if (whereClauses.length > 0) {
-        whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
-    }
+        let whereSql = '';
+        if (whereClauses.length > 0) {
+            whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
+        }
 
-    const sortBy = options.sortBy || 'createdAt';
-    const allowedSortColumns = ['id', 'platform', 'username', 'binding', 'notes', 'createdAt', 'updatedAt', 'groupName'];
-    const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `sa.${sortBy}`) : 'sa.createdAt';
-    const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
-    const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
+        const sortBy = options.sortBy || 'createdAt';
+        const allowedSortColumns = ['id', 'platform', 'username', 'binding', 'notes', 'createdAt', 'updatedAt', 'groupName'];
+        const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `sa.${sortBy}`) : 'sa.createdAt';
+        const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+        const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
 
-    let limitSql = '';
+        let limitSql = '';
     let finalParams = [...params]; // Use separate params for the main query
-    if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
-        const offset = (options.page - 1) * options.limit;
-        limitSql = ' LIMIT ? OFFSET ?';
+        if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
+            const offset = (options.page - 1) * options.limit;
+            limitSql = ' LIMIT ? OFFSET ?';
         finalParams.push(options.limit, offset);
-    } else if (options.limit !== undefined) {
-        limitSql = ' LIMIT ?';
+        } else if (options.limit !== undefined) {
+            limitSql = ' LIMIT ?';
         finalParams.push(options.limit);
-    }
+        }
 
-    const finalSql = baseSql + whereSql + orderBySql + limitSql;
+        const finalSql = baseSql + whereSql + orderBySql + limitSql;
     const finalCountSql = countSqlBase + whereSql;
 
     try {
         // 并行执行计数查询和数据查询
         const [countResult, accounts] = await Promise.all([
             new Promise((resolveCount, rejectCount) => {
-                db.get(finalCountSql, countParams, (errCount, rowCount) => {
-                    if (errCount) {
-                        console.error('Error counting social accounts:', errCount.message);
+            db.get(finalCountSql, countParams, (errCount, rowCount) => {
+                 if (errCount) {
+                    console.error('Error counting social accounts:', errCount.message);
                         rejectCount(errCount);
                     } else {
                         resolveCount(rowCount ? rowCount.count : 0);
@@ -869,63 +869,63 @@ function addProxyConfig(configData) {
  * @returns {Promise<{configs: Array<object>, totalCount: number}>} - 返回配置列表和总数。
  */
 async function getProxyConfigs(options = {}) {
-    let baseSql = `SELECT p.id, p.name, p.type, p.host, p.port, p.username, p.password, p.ipProtocol, p.ipQueryChannel, p.status, p.lastTestedAt, p.groupId, p.createdAt, p.updatedAt, g.name as groupName
-                   FROM proxy_configs p
-                   LEFT JOIN groups g ON p.groupId = g.id`;
+        let baseSql = `SELECT p.id, p.name, p.type, p.host, p.port, p.username, p.password, p.ipProtocol, p.ipQueryChannel, p.status, p.lastTestedAt, p.groupId, p.createdAt, p.updatedAt, g.name as groupName
+                       FROM proxy_configs p
+                       LEFT JOIN groups g ON p.groupId = g.id`;
     const countSqlBase = `SELECT COUNT(*) as count FROM proxy_configs p LEFT JOIN groups g ON p.groupId = g.id`;
-    const whereClauses = [];
-    const params = [];
-    const countParams = [];
+        const whereClauses = [];
+        const params = [];
+        const countParams = [];
 
-    if (options.type) {
-        whereClauses.push('LOWER(p.type) = LOWER(?)');
-        params.push(options.type);
-        countParams.push(options.type);
-    }
-    if (options.groupId) {
-        whereClauses.push('p.groupId = ?');
-        params.push(options.groupId);
-        countParams.push(options.groupId);
-    }
-    if (options.search) {
-        const searchTerm = `%${options.search}%`;
-        whereClauses.push('(p.name LIKE ? OR p.host LIKE ? OR p.port LIKE ? OR p.username LIKE ? OR g.name LIKE ?)');
-        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-        countParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-    }
+        if (options.type) {
+            whereClauses.push('LOWER(p.type) = LOWER(?)');
+            params.push(options.type);
+            countParams.push(options.type);
+        }
+        if (options.groupId) {
+            whereClauses.push('p.groupId = ?');
+            params.push(options.groupId);
+            countParams.push(options.groupId);
+        }
+        if (options.search) {
+            const searchTerm = `%${options.search}%`;
+            whereClauses.push('(p.name LIKE ? OR p.host LIKE ? OR p.port LIKE ? OR p.username LIKE ? OR g.name LIKE ?)');
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        }
 
-    let whereSql = '';
-    if (whereClauses.length > 0) {
-        whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
-    }
+        let whereSql = '';
+        if (whereClauses.length > 0) {
+            whereSql = ` WHERE ${whereClauses.join(' AND ')}`;
+        }
 
-    const sortBy = options.sortBy || 'createdAt';
-    const allowedSortColumns = ['id', 'name', 'type', 'host', 'port', 'status', 'lastTestedAt', 'createdAt', 'updatedAt', 'groupName'];
-    const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `p.${sortBy}`) : 'p.createdAt';
-    const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+        const sortBy = options.sortBy || 'createdAt';
+        const allowedSortColumns = ['id', 'name', 'type', 'host', 'port', 'status', 'lastTestedAt', 'createdAt', 'updatedAt', 'groupName'];
+        const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `p.${sortBy}`) : 'p.createdAt';
+        const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
     const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
 
-    let limitSql = '';
+        let limitSql = '';
     let finalParams = [...params]; // Use separate params for the main query
-    if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
-        const offset = (options.page - 1) * options.limit;
-        limitSql = ' LIMIT ? OFFSET ?';
+        if (options.limit !== undefined && options.page !== undefined && options.page > 0) {
+            const offset = (options.page - 1) * options.limit;
+            limitSql = ' LIMIT ? OFFSET ?';
         finalParams.push(options.limit, offset);
-    } else if (options.limit !== undefined) {
-        limitSql = ' LIMIT ?';
+        } else if (options.limit !== undefined) {
+            limitSql = ' LIMIT ?';
         finalParams.push(options.limit);
-    }
+        }
 
-    const finalSql = baseSql + whereSql + orderBySql + limitSql;
+        const finalSql = baseSql + whereSql + orderBySql + limitSql;
     const finalCountSql = countSqlBase + whereSql;
 
     try {
         // 并行执行计数查询和数据查询
         const [countResult, configs] = await Promise.all([
             new Promise((resolveCount, rejectCount) => {
-                db.get(finalCountSql, countParams, (errCount, rowCount) => {
-                    if (errCount) {
-                        console.error('Error counting proxy configs:', errCount.message);
+            db.get(finalCountSql, countParams, (errCount, rowCount) => {
+                if (errCount) {
+                    console.error('Error counting proxy configs:', errCount.message);
                         rejectCount(errCount);
                     } else {
                         resolveCount(rowCount ? rowCount.count : 0);

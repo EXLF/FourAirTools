@@ -150,7 +150,7 @@ export function setupCheckAll(contentArea, tableSelector) {
 
     // 初始状态检查，以防某些框开始时已选中
     updateCheckAllState();
-}
+} 
 
 /**
  * 渲染分页控件的通用函数。

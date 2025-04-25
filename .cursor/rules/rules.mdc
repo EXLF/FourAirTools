@@ -7,3 +7,4 @@ alwaysApply: true
 # Your rule content
 
 - 代码不要用原生的confirm()原生弹窗
+- README.md文件里的需要实时根据代码改动而更新

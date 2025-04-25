@@ -89,7 +89,7 @@ export async function initWalletsPage(contentArea) {
     // --- 移除旧的 createPageSizeSelector 调用 --- 
     // createPageSizeSelector();
     // --- ----------------------------------- ---
-    
+
     // 检查 dbAPI 是否通过 preload 脚本成功注入
     if (typeof window.dbAPI === 'undefined') {
         console.error("错误: window.dbAPI 未定义! Preload 脚本可能未正确加载或配置。");
@@ -232,14 +232,14 @@ async function loadAndRenderWallets(filters = currentFilters, page = currentPage
         }
 
         const fragment = document.createDocumentFragment();
-        wallets.forEach((wallet, index) => {
-            const rowElement = createWalletRowElement(wallet, index, offset);
+            wallets.forEach((wallet, index) => {
+                const rowElement = createWalletRowElement(wallet, index, offset);
             fragment.appendChild(rowElement);
-        });
+            });
         tableBody.appendChild(fragment);
 
         // Update current page after successful load
-        currentPage = targetPage; 
+        currentPage = targetPage;
 
         // Call the unified renderPagination from tableHelper
         if (paginationContainer) {

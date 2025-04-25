@@ -27,6 +27,12 @@
 *   **社区交流**：提供社区入口（如 Discord、Telegram）。
 *   **软件设置**：配置应用参数（增加了IP查询渠道设置项）。
 
+## 代码重构
+
+*   将所有数据库操作从渲染进程迁移到主进程，通过 IPC 进行通信，提升了应用的安全性和性能。
+*   重构了数据库模块 (`src/main/db/index.js`) 和 IPC 处理逻辑 (`src/main/ipcHandlers/`)，使代码结构更清晰、更易于维护。
+*   遵循 Electron 安全最佳实践，启用了 `contextIsolation` 并使用 `preload.js` 暴露安全的 API 给渲染进程。
+
 ## 技术栈
 
 *   **框架**: Electron
@@ -38,21 +44,77 @@
 ## 项目结构
 
 ```
+FourAirTools/
+├── .cursor/                # Cursor IDE 配置 (不重要)
+├── .git/                   # Git 版本控制目录
+├── .gitignore              # Git 忽略文件配置
+├── node_modules/           # 项目依赖库 (自动生成)
 ├── src/
 │   ├── css/                # CSS 样式
+│   │   ├── base/
+│   │   │   ├── layout.css
+│   │   │   ├── reset.css
+│   │   │   └── responsive.css
+│   │   ├── components/
+│   │   │   ├── buttons.css
+│   │   │   ├── cards.css
+│   │   │   ├── forms.css
+│   │   │   ├── modals.css
+│   │   │   ├── tables.css
+│   │   │   └── tags.css
+│   │   └── pages/
+│   │       ├── dashboard.css
+│   │       ├── plugins.css
+│   │       ├── projects.css
+│   │       ├── social.css
+│   │       └── tutorials.css
 │   ├── js/                 # JavaScript 模块 (渲染进程)
-│   │   ├── core/           # 核心逻辑 (app entry, navigation, listeners)
-│   │   ├── components/     # 可重用 UI 组件逻辑 (modal, table helper)
-│   │   ├── pages/          # 页面特定逻辑 (dashboard, projects, wallets, etc.)
-│   │   ├── db/             # 数据库访问逻辑 (主进程使用)
-│   │   └── utils/          # 通用工具函数
+│   │   ├── components/
+│   │   │   ├── custom-select.js
+│   │   │   ├── modal.js
+│   │   │   ├── tableHelper.js
+│   │   │   └── toast.js
+│   │   ├── core/
+│   │   │   ├── app.js            # 渲染进程入口
+│   │   │   ├── globalListeners.js # 全局事件监听
+│   │   │   └── navigation.js     # 页面导航逻辑
+│   │   ├── pages/
+│   │   │   ├── community.js
+│   │   │   ├── dashboard.js
+│   │   │   ├── network.js
+│   │   │   ├── projects.js
+│   │   │   ├── scriptPlugins.js
+│   │   │   ├── settings.js
+│   │   │   ├── social.js
+│   │   │   ├── tutorials.js
+│   │   │   └── wallets.js
+│   │   └── utils/
+│   │       └── index.js        # 通用工具函数
+│   ├── main/               # JavaScript 模块 (主进程)
+│   │   ├── core/
+│   │   │   └── walletGenerator.js # 钱包生成相关 (主进程侧)
+│   │   ├── db/
+│   │   │   └── index.js        # 数据库初始化、Schema 定义、CRUD 函数
+│   │   └── ipcHandlers/        # 主进程 IPC 事件处理程序
+│   │       ├── appHandlers.js
+│   │       ├── dbHandlers.js
+│   │       └── proxyHandlers.js
 │   └── templates/          # HTML 页面模板片段
-├── main.js                 # Electron 主进程入口文件
-├── preload.js              # Electron Preload 脚本 (用于 IPC)
+│       ├── community.html
+│       ├── dashboard.html
+│       ├── projects.html
+│       ├── script-plugins.html
+│       ├── settings.html
+│       ├── social.html
+│       ├── tool-network.html # 网络代理管理页面模板
+│       ├── tools.html        # 常用工具链接页面模板 (静态)
+│       ├── tutorials.html
+│       └── wallets.html
 ├── index.html              # 主 HTML 骨架文件
-├── package.json            # 项目配置和依赖
-├── database.db             # SQLite 数据库文件 (本地生成, 已加入 .gitignore)
-├── .gitignore              # Git 忽略文件配置
+├── main.js                 # Electron 主进程入口文件
+├── package-lock.json       # 精确的依赖版本锁定文件
+├── package.json            # 项目配置和依赖定义
+├── preload.js              # Electron Preload 脚本 (用于安全的 IPC 通信)
 └── README.md               # 项目说明
 ```
 
