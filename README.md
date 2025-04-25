@@ -27,15 +27,6 @@
 *   **社区交流**：提供社区入口（如 Discord、Telegram）。
 *   **软件设置**：配置应用参数。
 
-## 近期主要更新
-
-*   **代码结构优化**:
-    *   将主进程中的 IPC 处理器按功能拆分到 `src/main/ipcHandlers/` 目录下（例如 `dbHandlers.js`、`appHandlers.js`），使 `main.js` 更简洁。
-    *   将数据库相关的初始化和关闭逻辑封装到 `src/main/dbManager.js` 中。
-*   **功能实现**:
-    *   完善了钱包和社交账户的批量删除功能。
-    *   添加了通过 IPC 调用系统对话框保存文件的功能 (`app:saveFile`)。
-
 ## 技术栈
 
 *   **框架**: Electron
@@ -111,4 +102,33 @@
 
 ## 免责声明
 
-本工具仅供学习和研究使用，用户应自行承担使用过程中的风险。开发者不对因使用本工具导致的任何损失负责。 
+本工具仅供学习和研究使用，用户应自行承担使用过程中的风险。开发者不对因使用本工具导致的任何损失负责。
+
+## 近期重要更新
+
+### 1. 数据库模块结构重构
+- 数据库相关代码已模块化拆分，原本所有CRUD操作全部集中在 `src/js/db/index.js`，现已按功能分为：
+  - `src/js/db/group.js`（分组相关）
+  - `src/js/db/wallet.js`（钱包相关）
+  - `src/js/db/social.js`（社交账户相关）
+- `index.js` 只负责数据库连接、表初始化和统一导出，所有CRUD方法需传递 `db.db` 作为第一个参数。
+- 这样结构更清晰，便于后续扩展教程、脚本、项目等新模块。
+
+### 2. 主进程数据库调用方式变更
+- 主进程所有数据库方法调用统一为：
+  ```js
+  db.addGroup(db.db, name)
+  db.getWallets(db.db, options)
+  db.addWallet(db.db, walletData)
+  // ... 其他同理
+  ```
+- preload.js 和前端页面的调用方式不变，依然通过 `window.dbAPI.xxx`。
+
+### 3. 批量生成钱包功能修复
+- 修复了批量生成钱包时保存到数据库报错的问题。
+- 现在批量生成的钱包会正确传递参数保存，生成失败的钱包（如为 null）会被自动过滤，不再导致数据库报错。
+- 相关代码已在 `src/main/ipcHandlers/appHandlers.js` 中修正。
+
+### 4. 其他
+- 删除了未实现的占位页面（如 tool-gas、tool-bridge）及相关模板。
+- navigation.js 注释精简，结构更清晰。 
