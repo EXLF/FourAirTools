@@ -1,6 +1,6 @@
 // ================= 网络（IP 代理）页面初始化 =================
 
-import { setupTableActions, setupCheckAll } from '../components/tableHelper.js';
+import { setupTableActions, setupCheckAll, renderPagination } from '../components/tableHelper.js';
 import { debounce } from '../utils/index.js'; // 引入 debounce
 import { showModal, hideModal } from '../components/modal.js'; // 引入模态框函数
 import { showToast } from '../components/toast.js'; // 引入 Toast
@@ -45,6 +45,8 @@ export function initNetworkPage(contentArea) {
 let currentProxyPage = 1;
 let proxyItemsPerPage = 10; // 可以考虑从 localStorage 加载
 let currentProxyFilters = {}; // 存储当前筛选条件
+let contentAreaCache = null; // 缓存 contentArea
+let paginationContainer = null; // 缓存分页容器
 // --- -------------------------------- ---
 
 /**
@@ -284,54 +286,74 @@ function setupNetworkFiltering(contentArea) {
 }
 
 /**
- * 新增：加载并渲染代理配置数据到表格。
+ * 加载并渲染代理配置列表。
  * @param {HTMLElement} contentArea - 页面内容区域。
+ * @param {number} [page=currentProxyPage] - 要加载的页码。
  */
-async function loadAndRenderProxies(contentArea) {
+async function loadAndRenderProxies(contentArea, page = currentProxyPage) {
+    contentAreaCache = contentArea; // 确保缓存被设置
     const tableBody = contentArea.querySelector('.data-table tbody');
-    const paginationControls = contentArea.querySelector('.pagination'); // 获取分页控件容器
+    paginationContainer = contentArea.querySelector('.pagination'); // 确保分页容器被缓存
 
-    if (!tableBody || !paginationControls || typeof window.dbAPI === 'undefined') {
-        console.error("Table body, pagination controls, or dbAPI not ready for proxy loading.");
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">加载代理列表失败：组件或接口未准备好。</td></tr>';
+    if (!tableBody) {
+        console.error("Proxy table body not found!");
         return;
     }
 
-    console.log(`Loading proxies: Page ${currentProxyPage}, Limit ${proxyItemsPerPage}, Filters:`, currentProxyFilters);
-    tableBody.innerHTML = '<tr><td colspan="9" class="text-center"><i class="fas fa-spinner fa-spin"></i> 正在加载代理列表...</td></tr>'; // 显示加载状态
+    tableBody.innerHTML = '<tr><td colspan="9">加载中...</td></tr>'; // Colspan 调整为 9
 
     try {
+        const offset = (page - 1) * proxyItemsPerPage;
         const options = {
-            page: currentProxyPage,
+            ...currentProxyFilters,
             limit: proxyItemsPerPage,
-            ...currentProxyFilters // 应用当前筛选条件
-            // sortBy: 'createdAt', // 默认排序
-            // sortOrder: 'DESC'
+            offset: offset,
+            sortBy: 'createdAt', // 或者其他默认排序
+            sortOrder: 'DESC'
         };
 
-        const result = await window.dbAPI.getProxyConfigs(options);
-        const configs = result.configs;
-        const totalItems = result.totalCount;
+        const { configs, totalCount } = await window.dbAPI.getProxyConfigs(options);
 
-        tableBody.innerHTML = ''; // 清空旧内容
+        tableBody.innerHTML = ''; // 清空加载提示
 
         if (!configs || configs.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="9" class="text-center">暂无代理配置数据。</td></tr>';
-        } else {
-            configs.forEach(config => {
-                const row = createProxyRowElement(config);
-                tableBody.appendChild(row);
-            });
+            tableBody.innerHTML = '<tr><td colspan="9">暂无代理配置数据</td></tr>';
+            if (paginationContainer) {
+                renderPagination(paginationContainer, 0, proxyItemsPerPage, 1, handleProxyPageChange);
+            }
+            return;
         }
 
-        // 渲染分页 (需要一个通用的或特定于此页面的 renderPagination 函数)
-        renderProxyPagination(contentArea, totalItems, proxyItemsPerPage, currentProxyPage);
-        // 重新初始化全选复选框状态
+        const fragment = document.createDocumentFragment();
+        configs.forEach(config => {
+            fragment.appendChild(createProxyRowElement(config));
+        });
+        tableBody.appendChild(fragment);
+
+        // 更新当前页
+        currentProxyPage = page;
+
+        // 调用统一的分页渲染函数
+        if (paginationContainer) {
+            renderPagination(paginationContainer, totalCount, proxyItemsPerPage, currentProxyPage, handleProxyPageChange);
+        }
+
+        // 重新设置全选
         setupCheckAll(contentArea, '.data-table');
 
     } catch (error) {
         console.error("加载代理配置失败:", error);
-        tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">加载代理列表失败: ${error.message}</td></tr>`;
+        tableBody.innerHTML = '<tr><td colspan="9">加载数据时出错</td></tr>';
+        if (paginationContainer) {
+            renderPagination(paginationContainer, 0, proxyItemsPerPage, 1, handleProxyPageChange);
+        }
+    }
+}
+
+// 新增: 处理分页改变的回调函数
+function handleProxyPageChange(newPage) {
+    if (newPage !== currentProxyPage) {
+        loadAndRenderProxies(contentAreaCache, newPage);
     }
 }
 
@@ -376,71 +398,6 @@ function createProxyRowElement(config) {
         });
     });
     return row;
-}
-
-/**
- * 新增：渲染网络页面的分页控件。
- * @param {HTMLElement} contentArea
- * @param {number} totalItems
- * @param {number} itemsPerPage
- * @param {number} currentPage
- */
-function renderProxyPagination(contentArea, totalItems, itemsPerPage, currentPage) {
-    const paginationControls = contentArea.querySelector('.pagination');
-    if (!paginationControls) return;
-
-    paginationControls.innerHTML = ''; // 清空
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-    // 显示页码信息
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'page-info';
-    const displayPage = Math.max(1, currentPage);
-    const displayTotalPages = Math.max(1, totalPages);
-    pageInfo.textContent = `${displayPage}/${displayTotalPages}页 共${totalItems}条`;
-    pageInfo.style.marginRight = '15px';
-    paginationControls.appendChild(pageInfo);
-
-    if (totalPages <= 1) return;
-
-    // 创建分页按钮 (与 social.js 类似)
-    const createPageButton = (text, pageNum, isDisabled = false, isActive = false) => {
-        const button = document.createElement('button');
-        button.innerHTML = text;
-        button.disabled = isDisabled;
-        if (isActive) button.classList.add('active');
-        button.addEventListener('click', async () => {
-            currentProxyPage = pageNum;
-            await loadAndRenderProxies(contentArea);
-        });
-        return button;
-    };
-
-    // 上一页按钮
-    paginationControls.appendChild(createPageButton('&laquo;', currentPage - 1, currentPage === 1));
-
-    // 页码按钮逻辑 (简化版，可按需扩展)
-    let startPage = Math.max(1, currentPage - 2);
-    let endPage = Math.min(totalPages, currentPage + 2);
-
-    if (startPage > 1) paginationControls.appendChild(createPageButton('1', 1));
-    if (startPage > 2) {
-        const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px';
-        paginationControls.appendChild(ellipsis);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-        paginationControls.appendChild(createPageButton(i, i, false, i === currentPage));
-    }
-
-    if (endPage < totalPages - 1) {
-        const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px';
-        paginationControls.appendChild(ellipsis);
-    }
-    if (endPage < totalPages) paginationControls.appendChild(createPageButton(totalPages, totalPages));
-
-    // 下一页按钮
-    paginationControls.appendChild(createPageButton('&raquo;', currentPage + 1, currentPage === totalPages));
 }
 
 /**

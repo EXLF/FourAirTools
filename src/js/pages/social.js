@@ -1,4 +1,4 @@
-import { setupFilteringAndSearch, setupCheckAll } from '../components/tableHelper.js';
+import { setupFilteringAndSearch, setupCheckAll, renderPagination, setupPageSizeSelector } from '../components/tableHelper.js';
 import { showModal, hideModal } from '../components/modal.js';
 import { showToast } from '../components/toast.js';
 import { debounce } from '../utils/index.js'; // 确保导入 debounce
@@ -21,144 +21,6 @@ let searchInput = null; // 新增：缓存搜索输入框元素
 
 let pageSizeContainer = null; // 缓存页面大小选择器的容器
 const LOCAL_STORAGE_KEY_ROWS_PER_PAGE_SOCIAL = 'socialPage_rowsPerPage'; // 定义 localStorage 键
-
-/**
- * 创建并插入页面大小选择器
- */
-function createPageSizeSelector() {
-    // 直接查找模板中已存在的容器
-    pageSizeContainer = contentAreaCache?.querySelector('.page-size-selector');
-    
-    if (!pageSizeContainer) {
-        console.warn("未找到 .page-size-selector 容器 (来自 social.html 模板)，无法创建页面大小选择器。");
-        return;
-    }
-    
-    // 清空容器内容，以防重复添加
-    pageSizeContainer.innerHTML = '';
-    
-    // 创建标签
-    const label = document.createElement('span');
-    label.textContent = '每页显示: ';
-    label.style.marginRight = '8px';
-
-    // 创建下拉框
-    const select = document.createElement('select');
-    select.className = 'page-size-select';
-    select.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;';
-
-    // 添加选项
-    const options = [5, 10, 15, 25, 50, 100];
-    options.forEach(size => {
-        const option = document.createElement('option');
-        option.value = size;
-        option.textContent = `${size}条`;
-        if (size === itemsPerPage) {
-            option.selected = true;
-        }
-        select.appendChild(option);
-    });
-
-    // 添加事件监听器
-    select.addEventListener('change', async () => {
-        const newSize = parseInt(select.value);
-        if (newSize !== itemsPerPage) {
-            itemsPerPage = newSize;
-            currentPage = 1;
-            localStorage.setItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE_SOCIAL, newSize.toString());
-            await loadAndRenderSocialAccounts(); // 使用正确的加载函数
-        }
-    });
-
-    // 组装元素到已存在的容器中
-    pageSizeContainer.appendChild(label);
-    pageSizeContainer.appendChild(select);
-    
-    // --- 移除所有创建/查找/操作 pagination-controls-wrapper 的逻辑 ---
-}
-
-/**
- * 渲染分页控件。
- * @param {number} totalItems - 总记录数。
- * @param {number} itemsPerPage - 每页记录数。
- * @param {number} currentPage - 当前页码。
- */
-function renderPagination(totalItems, itemsPerPage, currentPage) {
-    paginationControls = contentAreaCache?.querySelector('.pagination');
-    if (!paginationControls) {
-        console.warn("未找到 .pagination 容器，无法渲染分页控件。");
-        return;
-    }
-
-    // 更新页面大小选择器的值
-    const pageSizeSelect = pageSizeContainer?.querySelector('.page-size-select');
-    if (pageSizeSelect && parseInt(pageSizeSelect.value) !== itemsPerPage) {
-        pageSizeSelect.value = itemsPerPage.toString();
-    }
-
-    paginationControls.innerHTML = '';
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'page-info';
-    const displayPage = Math.max(1, currentPage);
-    const displayTotalPages = Math.max(1, totalPages);
-    pageInfo.textContent = `${displayPage}/${displayTotalPages}页 共${totalItems}条`;
-    pageInfo.style.marginRight = '15px';
-    paginationControls.appendChild(pageInfo);
-
-    if (totalPages <= 1) return;
-
-    const prevButton = document.createElement('button');
-    prevButton.innerHTML = '&laquo;';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', async () => {
-        if (currentPage > 1) {
-            await loadAndRenderSocialAccounts(currentPage - 1); // 使用正确的加载函数
-        }
-    });
-    paginationControls.appendChild(prevButton);
-
-    let startPage = Math.max(1, currentPage - 2);
-    let endPage = Math.min(totalPages, currentPage + 2);
-     if (startPage > 1) {
-        const firstButton = document.createElement('button'); firstButton.textContent = '1';
-        firstButton.addEventListener('click', async () => { 
-            await loadAndRenderSocialAccounts(1);
-        });
-        paginationControls.appendChild(firstButton);
-        if (startPage > 2) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px'; paginationControls.appendChild(ellipsis); }
-    }
-    for (let i = startPage; i <= endPage; i++) {
-        const pageButton = document.createElement('button'); pageButton.textContent = i;
-        if (i === currentPage) { pageButton.classList.add('active'); }
-        const pageNumber = i;
-        pageButton.addEventListener('click', async () => { 
-            await loadAndRenderSocialAccounts(pageNumber);
-        });
-        paginationControls.appendChild(pageButton);
-    }
-     if (endPage < totalPages) {
-         if (endPage < totalPages - 1) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px'; paginationControls.appendChild(ellipsis); }
-        const lastButton = document.createElement('button'); lastButton.textContent = totalPages;
-        lastButton.addEventListener('click', async () => { 
-            await loadAndRenderSocialAccounts(totalPages);
-        });
-        paginationControls.appendChild(lastButton);
-    }
-
-    const nextButton = document.createElement('button');
-    nextButton.innerHTML = '&raquo;';
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', async () => {
-        if (currentPage < totalPages) {
-            await loadAndRenderSocialAccounts(currentPage + 1);
-        }
-    });
-    paginationControls.appendChild(nextButton);
-}
-
-// ========================================================================
 
 /**
  * 新增：设置平台筛选按钮的监听器
@@ -253,91 +115,99 @@ function setupSearchListener() {
  * @param {HTMLElement} contentArea - 要操作的主要内容区域。
  */
 export async function initSocialPage(contentArea) {
-    // --- 从 localStorage 加载每页显示条数 (移到这里) ---
-    const savedRowsPerPage = localStorage.getItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE_SOCIAL);
-    if (savedRowsPerPage) {
-        itemsPerPage = parseInt(savedRowsPerPage, 10);
-        const validOptions = [5, 10, 15, 25, 50, 100];
-        if (!validOptions.includes(itemsPerPage)) {
-            itemsPerPage = 10; // 如果无效，重置为默认值
-            localStorage.removeItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE_SOCIAL);
-        }
-    } else {
-        itemsPerPage = 10; // 确保在没有 localStorage 值时也有默认值
-    }
-    // --- ------------------------------------------ ---
-
-    console.log("正在初始化社交账户页面..."); // 控制台日志也中文化
+    console.log("正在初始化社交账户页面...");
     contentAreaCache = contentArea;
 
-    addAccountBtn = contentArea.querySelector('.header-actions .btn-primary'); // 基于模板结构查找添加按钮
+    // --- 缓存核心 DOM 元素 --- 
+    addAccountBtn = contentArea.querySelector('.header-actions .btn-primary'); 
     tableBody = contentArea.querySelector('.social-table tbody');
-    paginationControls = contentArea.querySelector('.pagination');
-
-    if (!addAccountBtn || !tableBody) {
+    groupFilterSelect = contentArea.querySelector('#social-group-filter'); 
+    searchInput = contentArea.querySelector('.table-search-input'); 
+    paginationControls = contentArea.querySelector('.pagination'); // 修正:从.pagination-controls改为.pagination
+    
+    if (!addAccountBtn || !tableBody || !groupFilterSelect || !searchInput) {
         console.error("社交账户页面缺少必要的 DOM 元素！");
         return;
     }
 
-    // 检查 dbAPI
+    if (!paginationControls) {
+        console.warn("未找到分页控件！");
+    }
+
+    // --- 检查 dbAPI --- 
     if (typeof window.dbAPI === 'undefined') {
         console.error("错误: window.dbAPI 未定义!");
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color: red;">应用程序配置错误，无法访问数据库。</td></tr>'; // Colspan 设为 7 (6 列 + 操作列)
+        tableBody.innerHTML = '<tr><td colspan="7">应用程序配置错误</td></tr>';
         return;
     }
 
-    // 为添加账户按钮添加监听器 - 调用时不带参数表示添加模式
+    // --- 1. 设置页面大小选择器 (它会读取 localStorage 并返回最终值) --- 
+    const pageSizeOptions = [5, 10, 15, 25, 50, 100];
+    itemsPerPage = setupPageSizeSelector(
+        '.page-size-selector', // Container selector in the template
+        pageSizeOptions,          
+        itemsPerPage, // Pass the initial default
+        LOCAL_STORAGE_KEY_ROWS_PER_PAGE_SOCIAL, 
+        (newSize) => { // Callback for when user changes selection
+            if (itemsPerPage !== newSize) {
+                itemsPerPage = newSize;
+                currentPage = 1; // Reset page when size changes
+                loadAndRenderSocialAccounts(); 
+            }
+        },
+        contentArea 
+    );
+    console.log(`社交账户页面大小初始化为: ${itemsPerPage}`); // Log the actual initial value
+    // --- -------------------------------------------------------------- ---
+
+    // --- 2. 设置按钮和筛选器监听 --- 
     addAccountBtn.addEventListener('click', () => openSocialAccountModal());
-
-    // 先加载数据，确保分页控件已创建
-    await loadAndRenderSocialAccounts();
-    
-    // 然后创建页面大小选择器
-    createPageSizeSelector();
-
-    // 设置平台筛选监听器
     setupPlatformFilterListeners();
-
-    // 设置分组筛选监听器
     setupGroupFilterListener();
-
-    // 设置搜索监听器
     setupSearchListener();
+    // --- ------------------------- ---
 
-    // 加载分组过滤器选项
+    // --- 3. 加载分组选项到筛选器 --- 
     await loadGroupFiltersForSocial();
+    // --- ------------------------- ---
 
-    // 设置全选功能
-    setupCheckAll(contentAreaCache, '.social-table'); // 添加调用
-
-    // --- 添加：点击行内空白区域切换复选框 (借鉴 wallets.js) ---
+    // --- 4. 设置表格辅助功能 --- 
+    setupCheckAll(contentArea, '.social-table');
+    // 设置行内点击切换复选框
     if (tableBody) {
         tableBody.addEventListener('click', (event) => {
             const target = event.target;
             const row = target.closest('tr');
-            if (!row || !row.dataset.accountId) return; // 点击的不是包含账户ID的表格行内
-
-            // 检查是否点击在操作按钮、按钮图标、链接或复选框本身
-            if (target.tagName === 'BUTTON' || 
-                target.closest('button') || 
-                target.tagName === 'A' || 
-                target.tagName === 'INPUT' && target.type === 'checkbox') {
-                return; // 如果是这些元素，则不触发切换
+            if (!row || !row.dataset.accountId) return; 
+            if (target.tagName === 'BUTTON' || target.closest('button') || target.tagName === 'A' || (target.tagName === 'INPUT' && target.type === 'checkbox')) {
+                return; 
             }
-            
-            // 找到行内的复选框 (假设类名为 row-checkbox)
             const checkbox = row.querySelector('.row-checkbox');
             if (checkbox) {
                 checkbox.checked = !checkbox.checked;
-                // 手动触发 change 事件，以更新 setupCheckAll 的状态
                 checkbox.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
+        // 设置操作按钮事件委托
+        tableBody.addEventListener('click', (event) => {
+            const target = event.target.closest('.action-btn'); 
+            if (target) {
+                const row = target.closest('tr');
+                const accountId = row?.dataset.accountId;
+                const action = target.dataset.action;
+                if (accountId && action) {
+                    handleSocialAccountAction(action.toLowerCase(), accountId);
+                }
+            }
+        });
     }
-    // --- -------------------------------------------------- ---
+    // --- ---------------------- ---
 
-    // TODO: 设置表格操作 (setupTableActions) - 改为直接在 create 中添加监听
-    // TODO: 设置筛选器监听 (分组、搜索)
+    // --- 5. 加载并渲染初始数据 (使用已确定的 itemsPerPage) --- 
+    await loadAndRenderSocialAccounts();
+    // --- ----------------------------------------------- ---
+
+    console.log("Social accounts page initialized.");
 }
 
 /**
@@ -589,16 +459,24 @@ async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerP
             });
         }
 
-        renderPagination(totalItems, itemsPerPage, currentPage);
-        
-        // 在分页控件渲染后初始化自定义下拉框
-        if (window.initCustomSelects) {
-            window.initCustomSelects();
+        // 使用 tableHelper 中的 renderPagination
+        if (paginationControls) {
+            // --- 添加日志 --- 
+            console.log(`Calling renderPagination: totalItems=${totalItems}, itemsPerPage=${limit}, currentPage=${currentPage}`);
+            // --- ---------- ---
+            renderPagination(paginationControls, totalItems, limit, currentPage, handleSocialPageChange); // Use the imported function
         }
+        
+        // 重新设置全选
+        setupCheckAll(contentAreaCache, '.social-table'); // Use the cached contentArea
 
     } catch (error) {
         console.error("加载社交账户数据失败:", error);
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: red;">加载数据失败: ${error.message}</td></tr>`; // colspan 更新为 7
+        // 渲染错误状态下的分页
+        if (paginationControls) {
+            renderPagination(paginationControls, 0, limit, 1, handleSocialPageChange); // Use the imported function
+        }
     }
 }
 
@@ -757,4 +635,11 @@ function filterSocialRow(rowElement, filterValues) {
     const searchMatch = !searchTerm || searchContent.includes(searchTerm);
 
     return platformMatch && groupMatch && searchMatch;
+}
+
+// 新增: 处理分页改变的回调函数
+function handleSocialPageChange(newPage) {
+    if (newPage !== currentPage) {
+        loadAndRenderSocialAccounts(newPage);
+    }
 }

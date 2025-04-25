@@ -1,4 +1,4 @@
-import { setupTableActions, setupFilteringAndSearch, setupCheckAll } from '../components/tableHelper.js';
+import { setupTableActions, setupFilteringAndSearch, setupCheckAll, renderPagination, setupPageSizeSelector } from '../components/tableHelper.js';
 // import { truncateAddress } from '../utils/index.js'; // 可能需要用于某些操作
 
 // 导入数据库操作函数和工具函数
@@ -16,7 +16,7 @@ import { showToast } from '../components/toast.js'; // <-- 导入 showToast
 // 存储当前筛选和分页状态
 let currentFilters = {};
 let currentPage = 1;
-let rowsPerPage = 15; // 默认值
+let rowsPerPage = 15; // Default value, will be updated by setupPageSizeSelector
 const LOCAL_STORAGE_KEY_ROWS_PER_PAGE = 'walletsPage_rowsPerPage'; // 定义 localStorage 键
 
 // 缓存 DOM 元素
@@ -36,7 +36,8 @@ let contentAreaCache; // 缓存 contentArea
  * @param {HTMLElement} contentArea - 要操作的主要内容区域。
  */
 export async function initWalletsPage(contentArea) {
-    // 加载持久化的设置
+    // --- 移除旧的 localStorage 加载逻辑 ---
+    /*
     const savedRowsPerPage = localStorage.getItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE);
     if (savedRowsPerPage) {
         rowsPerPage = parseInt(savedRowsPerPage, 10);
@@ -47,26 +48,48 @@ export async function initWalletsPage(contentArea) {
             localStorage.removeItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE); // 移除无效值
         }
     }
+    */
+    // --- -------------------------------- ---
 
-    console.log(`正在初始化钱包页面 (IPC 版本)... 每页显示: ${rowsPerPage}`);
+    console.log(`正在初始化钱包页面 (IPC 版本)...`);
     contentAreaCache = contentArea; // 缓存供其他函数使用
 
-    // 缓存页面元素
+    // --- 缓存页面元素 (pageSizeContainer 移到 setupPageSizeSelector 内部查找) ---
     tableBody = contentArea.querySelector('.wallet-table tbody');
     groupFilterSelect = contentArea.querySelector('#wallet-group-filter');
     // chainFilterSelect = contentArea.querySelector('#wallet-chain-filter'); // Removed
     // typeFilterSelect = contentArea.querySelector('#wallet-type-filter'); // Removed
     searchInput = contentArea.querySelector('.table-search-input');
     paginationContainer = contentArea.querySelector('.pagination');
+    // pageSizeContainer 不再需要在这里缓存
+    // --- ---------------------------------------------------------------- ---
 
     if (!tableBody || !groupFilterSelect || !searchInput || !paginationContainer) {
         console.error("钱包页面缺少必要的 DOM 元素！");
         return;
     }
 
-    // 创建并插入页面大小选择器 (它会读取当前的 rowsPerPage)
-    createPageSizeSelector();
+    // --- 调用通用的 setupPageSizeSelector --- 
+    const pageSizeOptions = [5, 10, 15, 25, 50, 100];
+    rowsPerPage = setupPageSizeSelector(
+        '.page-size-selector', // Container selector
+        pageSizeOptions,          // Available options
+        rowsPerPage,              // Initial default value
+        LOCAL_STORAGE_KEY_ROWS_PER_PAGE, // Local storage key
+        (newSize) => {              // Callback on change
+            rowsPerPage = newSize;
+            currentPage = 1;
+            loadAndRenderWallets();
+        },
+        contentArea // Parent element to search within
+    );
+    console.log(`页面大小初始化为: ${rowsPerPage}`); // Log the final initial value
+    // --- -------------------------------- ---
 
+    // --- 移除旧的 createPageSizeSelector 调用 --- 
+    // createPageSizeSelector();
+    // --- ----------------------------------- ---
+    
     // 检查 dbAPI 是否通过 preload 脚本成功注入
     if (typeof window.dbAPI === 'undefined') {
         console.error("错误: window.dbAPI 未定义! Preload 脚本可能未正确加载或配置。");
@@ -139,55 +162,6 @@ export async function initWalletsPage(contentArea) {
 }
 
 /**
- * 配置页面大小选择器 (不再创建，而是配置模板中已有的)
- */
-function createPageSizeSelector() {
-    // 查找模板中已存在的容器和下拉框
-    pageSizeContainer = contentAreaCache?.querySelector('.page-size-selector');
-    const select = pageSizeContainer?.querySelector('.page-size-select');
-
-    if (!pageSizeContainer || !select) {
-        console.warn("未找到 .page-size-selector 或其内部的 .page-size-select，无法配置页面大小选择器。");
-        return;
-    }
-
-    // 清空现有选项，以防重复添加
-    select.innerHTML = '';
-
-    // 添加选项 (确保选中状态与当前的 rowsPerPage 匹配)
-    const options = [5, 10, 15, 25, 50, 100];
-    options.forEach(size => {
-        const option = document.createElement('option');
-        option.value = size;
-        option.textContent = `${size}条`;
-        if (size === rowsPerPage) { // 使用初始化或加载后的 rowsPerPage 值
-            option.selected = true;
-        }
-        select.appendChild(option);
-    });
-
-    // 移除旧的监听器（以防万一）
-    select.removeEventListener('change', handlePageSizeChange);
-    // 添加事件监听器
-    select.addEventListener('change', handlePageSizeChange);
-
-    // --- 移除所有动态创建和插入容器/包装器的逻辑 --- 
-}
-
-// 新增：处理页面大小变化的独立函数
-async function handlePageSizeChange(event) {
-    const select = event.target;
-    const newSize = parseInt(select.value);
-    if (newSize !== rowsPerPage) {
-        rowsPerPage = newSize;
-        currentPage = 1; 
-        // 将新设置保存到 localStorage
-        localStorage.setItem(LOCAL_STORAGE_KEY_ROWS_PER_PAGE, newSize.toString());
-        await loadAndRenderWallets(); 
-    }
-}
-
-/**
  * 设置筛选器和搜索框的事件监听器。
  * 当筛选条件改变时，重置页码并重新加载数据。
  */
@@ -246,26 +220,44 @@ async function loadAndRenderWallets(filters = currentFilters, page = currentPage
         const { wallets, totalCount } = await window.dbAPI.getWallets(options);
         console.log(`[${Date.now()}] loadAndRenderWallets: Received ${wallets?.length} wallets, totalCount: ${totalCount}`);
 
-        tableBody.innerHTML = '';
+        tableBody.innerHTML = ''; // Clear previous content
 
-        if (wallets && wallets.length > 0) {
-            wallets.forEach((wallet, index) => {
-                const rowElement = createWalletRowElement(wallet, index, offset);
-                tableBody.appendChild(rowElement);
-            });
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">没有找到匹配的钱包。</td></tr>';
+        if (!wallets || wallets.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px;">暂无钱包数据</td></tr>';
+            // Render pagination even if no data to show total count and page info
+            if (paginationContainer) {
+                renderPagination(paginationContainer, 0, rowsPerPage, 1, handlePageChange);
+            }
+            return;
         }
 
-        currentPage = targetPage;
-        console.log(`[${Date.now()}] loadAndRenderWallets: Rendering pagination for page ${currentPage}`);
-        renderPagination(totalCount, rowsPerPage, currentPage);
+        const fragment = document.createDocumentFragment();
+        wallets.forEach((wallet, index) => {
+            const rowElement = createWalletRowElement(wallet, index, offset);
+            fragment.appendChild(rowElement);
+        });
+        tableBody.appendChild(fragment);
+
+        // Update current page after successful load
+        currentPage = targetPage; 
+
+        // Call the unified renderPagination from tableHelper
+        if (paginationContainer) {
+            renderPagination(paginationContainer, totalCount, rowsPerPage, currentPage, handlePageChange);
+        }
+        
+        // Re-setup check all after rendering new rows
         setupCheckAll(contentAreaCache, '.wallet-table');
+
         console.log(`[${Date.now()}] loadAndRenderWallets: End successfully.`);
 
     } catch (error) {
-        console.error(`[${Date.now()}] loadAndRenderWallets: Error loading/rendering wallets:`, error);
+        console.error(`[${Date.now()}] IPC: 加载钱包列表失败:`, error);
         tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px; color: red;">加载钱包数据时出错。</td></tr>';
+        // Optionally render pagination with error state or zero count
+        if (paginationContainer) {
+           renderPagination(paginationContainer, 0, rowsPerPage, 1, handlePageChange);
+        }
     }
 }
 
@@ -931,96 +923,6 @@ async function openManageGroupsModal() {
 }
 
 /**
- * 渲染分页控件。
- * @param {number} totalItems - 总记录数。
- * @param {number} itemsPerPage - 每页记录数。
- * @param {number} currentPage - 当前页码。
- */
-function renderPagination(totalItems, itemsPerPage, currentPage) {
-    // 更新页面大小选择器的值（如果存在且不匹配）
-    const pageSizeSelect = pageSizeContainer?.querySelector('.page-size-select');
-    if (pageSizeSelect && parseInt(pageSizeSelect.value) !== itemsPerPage) {
-        pageSizeSelect.value = itemsPerPage.toString();
-    }
-
-    paginationContainer.innerHTML = ''; // 清空现有分页
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-    // --- 始终创建并显示页码信息（总条数） ---
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'page-info';
-    // 确保 currentPage 和 totalPages 至少为 1
-    const displayPage = Math.max(1, currentPage); 
-    const displayTotalPages = Math.max(1, totalPages); 
-    pageInfo.textContent = `${displayPage}/${displayTotalPages}页 共${totalItems}条`;
-    pageInfo.style.marginRight = '15px';
-    paginationContainer.appendChild(pageInfo);
-    // --- ------------------------------------ ---
-
-    // 如果只有一页或没有数据，则不显示分页按钮
-    if (totalPages <= 1) {
-        return;
-    }
-
-    // --- 只有在有多页时才添加分页按钮 --- 
-    const prevButton = document.createElement('button');
-    prevButton.innerHTML = '&laquo;';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', async () => {
-        if (currentPage > 1) { 
-            const targetPage = currentPage - 1;
-            await loadAndRenderWallets(currentFilters, targetPage); 
-        }
-    });
-    paginationContainer.appendChild(prevButton);
-
-    let startPage = Math.max(1, currentPage - 2);
-    let endPage = Math.min(totalPages, currentPage + 2);
-     if (startPage > 1) {
-        const firstButton = document.createElement('button'); firstButton.textContent = '1';
-        firstButton.addEventListener('click', async () => { 
-            await loadAndRenderWallets(currentFilters, 1); 
-        });
-        paginationContainer.appendChild(firstButton);
-        if (startPage > 2) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px'; paginationContainer.appendChild(ellipsis); }
-    }
-    for (let i = startPage; i <= endPage; i++) {
-        const pageButton = document.createElement('button'); pageButton.textContent = i;
-        if (i === currentPage) { pageButton.classList.add('active'); }
-        const pageNumber = i; 
-        pageButton.addEventListener('click', async () => { 
-            await loadAndRenderWallets(currentFilters, pageNumber); 
-        });
-        paginationContainer.appendChild(pageButton);
-    }
-     if (endPage < totalPages) {
-         if (endPage < totalPages - 1) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.style.padding = '0 10px'; paginationContainer.appendChild(ellipsis); }
-        const lastButton = document.createElement('button'); lastButton.textContent = totalPages;
-        lastButton.addEventListener('click', async () => { 
-            await loadAndRenderWallets(currentFilters, totalPages); 
-        });
-        paginationContainer.appendChild(lastButton);
-    }
-
-    const nextButton = document.createElement('button');
-    nextButton.innerHTML = '&raquo;';
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', async () => {
-        if (currentPage < totalPages) { 
-            const targetPage = currentPage + 1;
-            await loadAndRenderWallets(currentFilters, targetPage); 
-        }
-    });
-    paginationContainer.appendChild(nextButton);
-    // --- ----------------------------- ---
-    
-    // 确保在所有分页控件（包括页面大小选择器）都添加到DOM后初始化自定义下拉框
-    if (window.initCustomSelects) {
-        window.initCustomSelects();
-    }
-}
-
-/**
  * 打开批量生成钱包模态框。
  */
 async function openGenerateWalletsModal() {
@@ -1366,4 +1268,12 @@ function openViewDetailsModal(walletData) {
 
         console.log(`[${Date.now()}] openViewDetailsModal: Modal setup complete.`);
     });
+}
+
+// Callback function for pagination changes
+function handlePageChange(newPage) {
+    if (newPage !== currentPage) {
+        // currentPage = newPage; // The load function will set it after successful load
+        loadAndRenderWallets(currentFilters, newPage);
+    }
 }

@@ -5,12 +5,8 @@ const { SocksProxyAgent } = require('socks-proxy-agent');
 
 // IP 查询服务的 URL 列表 (可以根据需要调整或从设置读取)
 const ipCheckUrls = {
-    'ip123': 'https://api.ip123.in/ipinfo', // 添加 IP123
+    'ip123': 'http://ip234.in/ip.json', // 添加 IP123
     'ip-api': 'http://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp,org',
-    'ipify': 'https://api.ipify.org?format=json',
-    'httpbin': 'https://httpbin.org/ip'
-    // 'ip138': '...', // 暂不处理 HTML
-    // 'maxmind': '...' // 暂不处理
 };
 
 /**

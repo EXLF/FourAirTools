@@ -6,19 +6,8 @@ const sidebarLinks = document.querySelectorAll('.sidebar nav ul li a');
 
 // 存储模板映射 (仅适用于尚未移动到单独文件的模板)
 const templates = {
-    // dashboard: document.getElementById('tpl-dashboard'), // 已移除
-    // projects: document.getElementById('tpl-projects'), // 已移除
-    // wallets: document.getElementById('tpl-wallets'), // 已移除
-    // social: document.getElementById('tpl-social'), // 已移除
-    // 'script-plugins': document.getElementById('tpl-script-plugins'), // 已移除
-    // 'tool-network': document.getElementById('tpl-network'), // 已移除
-    // tutorials: document.getElementById('tpl-tutorials'), // 已移除
-    // community: document.getElementById('tpl-community'), // 已移除
-    // settings: document.getElementById('tpl-settings'), // 已移除
-    // 别名或已弃用的模板
     toolBridge: document.getElementById('tpl-tool-bridge'), // 暂时保留
     toolGas: document.getElementById('tpl-tool-gas'),       // 暂时保留
-    // 随着模板移至文件而移除条目
 };
 
 let currentPage = 'dashboard'; // 跟踪当前页面 ID

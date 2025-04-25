@@ -1,7 +1,7 @@
 const { ipcMain, dialog } = require('electron');
 const fs = require('fs').promises;
 const path = require('path');
-const db = require('../../js/db/index.js'); // Still need db for saving
+const db = require('../db/index.js'); // Still need db for saving
 
 // --- 移除旧的调试日志 ---
 
@@ -10,9 +10,9 @@ function setupApplicationIpcHandlers(mainWindow) {
 
     // --- 批量生成钱包 Handler ---
     ipcMain.handle('app:generateWallets', async (event, { count, groupId }) => {
-        // --- 将 require 移到 handler 内部 ---
-        const walletGenerator = require('../../js/core/walletGenerator.js');
-        // --- --------------------------- ---
+        // --- 修改：从新的位置导入钱包生成器 ---
+        const walletGenerator = require('../core/walletGenerator.js');
+        // --- ----------------------------- ---
 
         console.log(`[IPC] Received: app:generateWallets - Count: ${count}, GroupID: ${groupId}`);
 

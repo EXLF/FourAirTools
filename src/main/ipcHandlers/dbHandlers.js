@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const db = require('../../js/db/index.js'); // Adjust path relative to this file
+const db = require('../db/index.js'); // Adjust path relative to this file
 
 function setupDatabaseIpcHandlers() {
     console.log('[IPC] Setting up Database IPC handlers...');

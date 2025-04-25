@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+开发electron桌面应用一定要遵守electron性能和安全规范，对应文档链接https://www.electronjs.org/zh/docs/latest/tutorial/performance和https://www.electronjs.org/zh/docs/latest/tutorial/security

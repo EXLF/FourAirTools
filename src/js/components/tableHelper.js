@@ -150,4 +150,183 @@ export function setupCheckAll(contentArea, tableSelector) {
 
     // 初始状态检查，以防某些框开始时已选中
     updateCheckAllState();
+}
+
+/**
+ * 渲染分页控件的通用函数。
+ * @param {HTMLElement} containerElement - 用于放置分页控件的容器元素。
+ * @param {number} totalItems - 总记录数。
+ * @param {number} itemsPerPage - 每页记录数。
+ * @param {number} currentPage - 当前页码 (1-based)。
+ * @param {function} onPageChangeCallback - 当页码改变时调用的回调函数，接收新的页码作为参数。
+ */
+export function renderPagination(containerElement, totalItems, itemsPerPage, currentPage, onPageChangeCallback) {
+    if (!containerElement) {
+        console.warn("Pagination container element not provided.");
+        return;
+    }
+
+    containerElement.innerHTML = ''; // 清空旧的分页
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    // 显示页码信息
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'page-info';
+    const displayPage = Math.max(1, currentPage);
+    const displayTotalPages = Math.max(1, totalPages);
+    pageInfo.textContent = `${displayPage}/${displayTotalPages}页 共${totalItems}条`;
+    pageInfo.style.marginRight = '15px'; // 可根据需要调整样式
+    containerElement.appendChild(pageInfo);
+
+    if (totalPages <= 1) return; // 如果只有一页或没有数据，则不需要分页按钮
+
+    // --- 创建按钮的辅助函数 ---
+    const createButton = (text, pageNumber, isDisabled = false, isActive = false) => {
+        const button = document.createElement('button');
+        button.innerHTML = text; // 使用 innerHTML 以支持 HTML 实体 (如 &laquo;)
+        button.disabled = isDisabled;
+        if (isActive) {
+            button.classList.add('active');
+        }
+        if (pageNumber !== null) {
+            button.addEventListener('click', (e) => {
+                e.preventDefault(); // 防止潜在的表单提交
+                if (!isDisabled && !isActive) {
+                    onPageChangeCallback(pageNumber);
+                }
+            });
+        }
+        return button;
+    };
+    // --- ----------------- ---
+
+    // 上一页按钮
+    containerElement.appendChild(createButton('&laquo;', currentPage - 1, currentPage === 1));
+
+    // 页码按钮逻辑 (显示当前页、前后几页、省略号)
+    const maxPagesToShow = 5; // 最多显示的页码按钮数 (包括省略号)
+    let startPage, endPage;
+
+    if (totalPages <= maxPagesToShow) {
+        startPage = 1;
+        endPage = totalPages;
+    } else {
+        const maxPagesBeforeCurrent = Math.floor((maxPagesToShow - 3) / 2); // -3 for first, last, ellipsis
+        const maxPagesAfterCurrent = Math.ceil((maxPagesToShow - 3) / 2);
+
+        if (currentPage <= maxPagesBeforeCurrent + 1) {
+            startPage = 1;
+            endPage = maxPagesToShow - 2; // first, pages, ellipsis, last
+        } else if (currentPage >= totalPages - maxPagesAfterCurrent) {
+            startPage = totalPages - (maxPagesToShow - 3);
+            endPage = totalPages;
+        } else {
+            startPage = currentPage - maxPagesBeforeCurrent;
+            endPage = currentPage + maxPagesAfterCurrent;
+        }
+    }
+
+    // 第一页和省略号
+    if (startPage > 1) {
+        containerElement.appendChild(createButton('1', 1));
+        if (startPage > 2) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            ellipsis.style.padding = '0 8px'; // 可调整样式
+            containerElement.appendChild(ellipsis);
+        }
+    }
+
+    // 中间的页码按钮
+    for (let i = startPage; i <= endPage; i++) {
+        containerElement.appendChild(createButton(i.toString(), i, false, i === currentPage));
+    }
+
+    // 省略号和最后一页
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            ellipsis.style.padding = '0 8px';
+            containerElement.appendChild(ellipsis);
+        }
+        containerElement.appendChild(createButton(totalPages.toString(), totalPages));
+    }
+
+    // 下一页按钮
+    containerElement.appendChild(createButton('&raquo;', currentPage + 1, currentPage === totalPages));
+}
+
+/**
+ * 设置页面大小（每页行数）选择器。
+ * @param {string} containerSelector - 放置选择器的容器元素的 CSS 选择器。
+ * @param {Array<number>} options - 可选的页面大小数字数组，例如 [5, 10, 15, 25, 50, 100]。
+ * @param {number} initialValue - 初始的每页行数值。
+ * @param {string} localStorageKey - 用于在 localStorage 中存储用户选择的键名。
+ * @param {function} onChangeCallback - 当选择改变时调用的回调函数，接收新的页面大小作为参数。
+ * @param {HTMLElement} [parentElement=document] - 查找容器元素的父元素，默认为 document。
+ */
+export function setupPageSizeSelector(containerSelector, options, initialValue, localStorageKey, onChangeCallback, parentElement = document) {
+    const container = parentElement.querySelector(containerSelector);
+    if (!container) {
+        console.warn(`Page size selector container not found: ${containerSelector}`);
+        return initialValue; // Return initial value if container not found
+    }
+
+    // 尝试从 localStorage 加载保存的值
+    const savedValue = localStorage.getItem(localStorageKey);
+    let currentValue = initialValue;
+    if (savedValue) {
+        const parsedValue = parseInt(savedValue, 10);
+        if (options.includes(parsedValue)) {
+            currentValue = parsedValue;
+        } else {
+            localStorage.removeItem(localStorageKey);
+        }
+    }
+
+    // 创建或查找下拉框元素
+    let select = container.querySelector('select.page-size-select');
+    if (!select) {
+        container.innerHTML = ''; // 清空容器
+        const label = document.createElement('span');
+        label.textContent = '每页显示: ';
+        label.style.marginRight = '8px';
+        container.appendChild(label);
+
+        select = document.createElement('select');
+        select.className = 'page-size-select';
+        select.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; margin-left: 5px;'; 
+        container.appendChild(select);
+    } else {
+        select.innerHTML = ''; // 清空现有选项
+    }
+
+    // 填充选项
+    options.forEach(size => {
+        const option = document.createElement('option');
+        option.value = size;
+        option.textContent = `${size}条`;
+        if (size === currentValue) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+
+    // 移除旧监听器并添加新监听器 (克隆节点法)
+    const oldSelect = select;
+    const newSelect = oldSelect.cloneNode(true);
+    oldSelect.parentNode.replaceChild(newSelect, oldSelect);
+
+    newSelect.addEventListener('change', (event) => {
+        const newSize = parseInt(event.target.value);
+        if (newSize !== currentValue) { 
+            localStorage.setItem(localStorageKey, newSize.toString());
+            onChangeCallback(newSize);
+            // 注意：currentValue 的更新现在由调用者在回调中处理
+        }
+    });
+
+    // 返回最终确定的当前页面大小 (可能来自 localStorage)
+    return currentValue;
 } 
