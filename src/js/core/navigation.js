@@ -120,42 +120,47 @@ async function initializePageContent(pageId) {
     switch (pageId) {
         // 仪表盘页面
         case 'dashboard':
-            modulePath = '../pages/dashboard.js';
+            modulePath = '../pages/dashboard/index.js';
             initFunctionName = 'initDashboardPage';
             break;
         // 钱包管理页面
         case 'wallets':
-            modulePath = '../pages/wallets.js';
+            modulePath = '../pages/wallets/index.js';
             initFunctionName = 'initWalletsPage';
+            break;
+        // 项目跟踪页面 (New Entry)
+        case 'projects':
+            modulePath = '../pages/projects/index.js';
+            initFunctionName = 'initProjectsPage';
             break;
         // 社交账户管理页面
         case 'social':
-            modulePath = '../pages/social.js';
+            modulePath = '../pages/social/index.js';
             initFunctionName = 'initSocialPage';
             break;
         // 脚本插件管理页面
         case 'script-plugins':
-            modulePath = '../pages/scriptPlugins.js';
+            modulePath = '../pages/scriptPlugins/index.js';
             initFunctionName = 'initScriptPluginPage';
             break;
         // 网络工具页面
         case 'tool-network':
-            modulePath = '../pages/network.js';
+            modulePath = '../pages/network/index.js';
             initFunctionName = 'initNetworkPage';
             break;
         // 教程页面
         case 'tutorials':
-            modulePath = '../pages/tutorials.js';
+            modulePath = '../pages/tutorials/index.js';
             initFunctionName = 'initTutorialsPage';
             break;
         // 社区页面
         case 'community':
-            modulePath = '../pages/community.js';
+            modulePath = '../pages/community/index.js';
             initFunctionName = 'initCommunityPage';
             break;
         // 设置页面
         case 'settings':
-            modulePath = '../pages/settings.js';
+            modulePath = '../pages/settings/index.js';
             initFunctionName = 'initSettingsPage';
             break;
         // 工具页面（静态内容，无需初始化）

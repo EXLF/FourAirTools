@@ -13,7 +13,7 @@ function createWindow() {
     webPreferences: {
       // 安全配置: 启用上下文隔离并指定 Preload 脚本
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'src', 'preload.js')
     }
   });
 

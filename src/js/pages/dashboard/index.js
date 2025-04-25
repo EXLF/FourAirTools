@@ -1,6 +1,7 @@
-// ================= 仪表板页面初始化 =================
-
-// 基础初始化不需要直接导入，假设 loadPageWithContext 处理快捷方式
+// Import other modules if needed
+// import * as table from './table.js';
+// import * as modals from './modals.js';
+// import * as actions from './actions.js';
 
 /**
  * 初始化仪表板页面。
@@ -20,7 +21,7 @@ export function initDashboardPage(contentArea) {
  * 现在需要 contentArea 来限定查询范围。
  * @param {HTMLElement} contentArea
  */
-export function updateDashboardDate(contentArea) {
+function updateDashboardDate(contentArea) { // Make this function internal to the module
     const dateElement = contentArea.querySelector('#current-date');
     if (dateElement) {
         const today = new Date();
