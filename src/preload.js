@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('dbAPI', {
     generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options),
     // 保存文件: {defaultPath: 默认路径, content: 文件内容}
     saveFile: (options) => ipcRenderer.invoke('app:saveFile', options),
+    // 从种子派生地址: {seedType: 'privateKey' | 'mnemonic', seed: string}
+    deriveAddressFromSeed: (options) => ipcRenderer.invoke('app:deriveAddressFromSeed', options),
 }); 
 
 // 安全地暴露部分electron功能给渲染进程

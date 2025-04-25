@@ -18,7 +18,9 @@ export function showModal(templateId, setupFunction) {
         return;
     }
 
-    currentOpenModal = template.content.firstElementChild.cloneNode(true);
+    const newModalElement = template.content.firstElementChild.cloneNode(true); // 使用局部变量
+    const modalToShow = newModalElement; // 保存引用
+    currentOpenModal = modalToShow; // 更新全局状态
 
     // 由调用者提供的内容和监听器设置
     if (setupFunction && typeof setupFunction === 'function') {
@@ -51,11 +53,11 @@ export function showModal(templateId, setupFunction) {
     }
 
     // 将模态框添加到 body 并使其可见
-    document.body.appendChild(currentOpenModal);
+    document.body.appendChild(modalToShow);
     requestAnimationFrame(() => {
-        // 添加 class 前检查模态框是否仍然存在（可能因设置错误而被移除）
-        if(currentOpenModal) {
-            currentOpenModal.classList.add('visible');
+        // 使用局部变量来添加 class，即使全局 currentOpenModal 被改变
+        if (modalToShow && document.body.contains(modalToShow)) { // 再次检查是否还在DOM中
+            modalToShow.classList.add('visible');
         }
     });
 }

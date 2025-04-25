@@ -14,7 +14,8 @@ import {
     openWalletModal,
     openManageGroupsModal,
     openGenerateWalletsModal,
-    openViewDetailsModal
+    openViewDetailsModal,
+    openAddWalletManualModal // 导入新增钱包模态框函数
 } from './modals.js';
 import {
     initActionElements,
@@ -54,6 +55,7 @@ export async function initWalletsPage(contentArea) {
         exportBtn: contentArea.querySelector('#export-wallets-btn'),
         manageGroupsBtn: contentArea.querySelector('#manage-groups-btn'),
         bulkDeleteBtn: contentArea.querySelector('#bulk-delete-btn'),
+        addWalletManualBtn: contentArea.querySelector('#add-wallet-manual-btn'), // 缓存新按钮
         contentAreaCache: contentArea // 传递给其他模块
     };
 
@@ -90,6 +92,7 @@ export async function initWalletsPage(contentArea) {
     if (elements.exportBtn) elements.exportBtn.addEventListener('click', handleExportWallets);
     if (elements.manageGroupsBtn) elements.manageGroupsBtn.addEventListener('click', openManageGroupsModal);
     if (elements.bulkDeleteBtn) elements.bulkDeleteBtn.addEventListener('click', handleBulkDelete);
+    if (elements.addWalletManualBtn) elements.addWalletManualBtn.addEventListener('click', openAddWalletManualModal); // 添加监听器
 
     // --- 加载初始数据 --- 
     try {

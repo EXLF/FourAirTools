@@ -329,4 +329,85 @@
     padding: 8px 12px;
     flex: 1;
     min-width: 0;
-} 
+}
+
+/* ===================== 新增：通用模态框表单布局 ===================== */
+.modal-box .form-group {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+    align-items: center; /* Vertically align items in the middle */
+    margin-bottom: 15px; /* Space between form groups */
+    gap: 10px; /* Gap between label and control area */
+}
+
+.modal-box .form-group > label:first-child {
+    flex: 0 0 100px; /* Label fixed width (adjust as needed) */
+    text-align: right;
+    font-weight: 500;
+    padding-right: 10px; /* Space between label text and colon/control */
+    box-sizing: border-box;
+    /* Remove margin-bottom if it exists from global styles */
+    margin-bottom: 0;
+}
+
+/* Container for the actual input/select/textarea and potentially buttons */
+.modal-box .form-group > div:not(.radio-group):not(.derived-address-display),
+.modal-box .form-group > input:not([type="radio"]):not([type="checkbox"]),
+.modal-box .form-group > select,
+.modal-box .form-group > textarea {
+    flex: 1; /* Take remaining space */
+    min-width: 0; /* Allow shrinking */
+    display: flex; /* Allow items inside (like input + button) to align */
+    align-items: center;
+    gap: 5px;
+}
+
+/* Ensure form controls within the flex container take full width */
+.modal-box .form-group > div > input,
+.modal-box .form-group > div > select,
+.modal-box .form-group > div > textarea {
+     width: 100%; 
+}
+
+/* Special handling for radio groups if label is needed */
+.modal-box .form-group > .radio-group {
+    flex-basis: calc(100% - 110px); /* Take remaining width after label */
+    display: flex;
+    gap: 15px;
+}
+
+.modal-box .form-group > .radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 0; /* Override default label margin */
+}
+
+/* Adjust input field groups (like private key + eye icon) */
+.modal-box .input-field-group {
+    flex-wrap: nowrap; /* Prevent wrapping for input+icon */
+}
+.modal-box .input-field-group > input,
+.modal-box .input-field-group > textarea {
+    flex-grow: 1; /* Input takes most space */
+}
+.modal-box .input-field-group > button {
+    flex-shrink: 0; /* Button doesn't shrink */
+}
+
+/* Style derived address display */
+.modal-box .derived-address-display {
+    flex-basis: calc(100% - 110px);
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: monospace;
+    min-height: 36px; /* Match input height */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.modal-box .derived-address-display .address-text {
+    word-break: break-all;
+}
+/* ====================================================================== */ 
