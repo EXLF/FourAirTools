@@ -45,7 +45,7 @@ function setupApplicationIpcHandlers(mainWindow) {
                     };
 
                     try {
-                        await db.addWallet(walletData); // 调用数据库添加函数
+                        await db.addWallet(db.db, walletData); // 调用数据库添加函数
                         generatedCount++;
                     } catch (dbError) {
                         console.error(`保存生成的钱包 ${walletInfo.address} 到数据库失败:`, dbError);

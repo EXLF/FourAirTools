@@ -7,46 +7,45 @@ function setupDatabaseIpcHandlers() {
     // --- Groups --- 
     ipcMain.handle('db:addGroup', async (event, name) => {
         console.log('[IPC] Received: db:addGroup', name);
-        return await db.addGroup(name);
+        return await db.addGroup(db.db, name);
     });
     ipcMain.handle('db:getGroups', async () => {
         console.log('[IPC] Received: db:getGroups');
-        return await db.getGroups();
+        return await db.getGroups(db.db);
     });
     ipcMain.handle('db:updateGroup', async (event, id, newName) => {
         console.log('[IPC] Received: db:updateGroup', id, newName);
-        return await db.updateGroup(id, newName);
+        return await db.updateGroup(db.db, id, newName);
     });
     ipcMain.handle('db:deleteGroup', async (event, id) => {
         console.log('[IPC] Received: db:deleteGroup', id);
-        return await db.deleteGroup(id);
+        return await db.deleteGroup(db.db, id);
     });
 
     // --- Wallets --- 
     ipcMain.handle('db:addWallet', async (event, walletData) => {
         console.log('[IPC] Received: db:addWallet', walletData);
-        // Add validation or pre-processing if needed before calling db
-        return await db.addWallet(walletData);
+        return await db.addWallet(db.db, walletData);
     });
     ipcMain.handle('db:getWallets', async (event, options) => {
         console.log('[IPC] Received: db:getWallets', options);
-        return await db.getWallets(options);
+        return await db.getWallets(db.db, options);
     });
      ipcMain.handle('db:getWalletById', async (event, id) => {
         console.log('[IPC] Received: db:getWalletById', id);
-        return await db.getWalletById(id);
+        return await db.getWalletById(db.db, id);
     });
     ipcMain.handle('db:getWalletsByIds', async (event, ids) => {
         console.log('[IPC] Received: db:getWalletsByIds', ids);
-        return await db.getWalletsByIds(ids);
+        return await db.getWalletsByIds(db.db, ids);
     });
     ipcMain.handle('db:updateWallet', async (event, id, walletData) => {
         console.log('[IPC] Received: db:updateWallet', id, walletData);
-        return await db.updateWallet(id, walletData);
+        return await db.updateWallet(db.db, id, walletData);
     });
     ipcMain.handle('db:deleteWallet', async (event, id) => {
         console.log('[IPC] Received: db:deleteWallet', id);
-        return await db.deleteWallet(id);
+        return await db.deleteWallet(db.db, id);
     });
 
     // --- 新增：批量删除钱包 ---
@@ -59,14 +58,12 @@ function setupDatabaseIpcHandlers() {
         }
         try {
             console.log(`[${Date.now()}] [IPC Main] db:deleteWalletsByIds - Calling db module...`); // <-- 日志
-            // 调用数据库模块中的批量删除函数 (假设存在)
-            const deletedCount = await db.deleteWalletsByIds(ids);
+            const deletedCount = await db.deleteWalletsByIds(db.db, ids);
             console.log(`[${Date.now()}] [IPC Main] db:deleteWalletsByIds - db module returned: ${deletedCount}`); // <-- 日志
             console.log(`[${Date.now()}] [IPC Main] db:deleteWalletsByIds - Successfully deleted ${deletedCount} wallets. Total time: ${Date.now() - startTime}ms`); // <-- 日志 + 耗时
             return { deletedCount: deletedCount, errors: [] };
         } catch (error) {
             console.error(`[${Date.now()}] [IPC Main] db:deleteWalletsByIds - Error: ${error.message}. Total time: ${Date.now() - startTime}ms`, error); // <-- 日志 + 耗时
-            // 返回包含错误信息的对象，以便前端可以显示
             return { deletedCount: 0, errors: [error.message || 'An unknown error occurred during bulk deletion.'] };
         }
     });
@@ -75,23 +72,23 @@ function setupDatabaseIpcHandlers() {
     // --- Social Accounts ---
     ipcMain.handle('db:addSocialAccount', async (event, accountData) => {
         console.log('[IPC] Received: db:addSocialAccount', accountData);
-        return await db.addSocialAccount(accountData);
+        return await db.addSocialAccount(db.db, accountData);
     });
     ipcMain.handle('db:getSocialAccounts', async (event, options) => {
         console.log('[IPC] Received: db:getSocialAccounts', options);
-        return await db.getSocialAccounts(options);
+        return await db.getSocialAccounts(db.db, options);
     });
     ipcMain.handle('db:getSocialAccountById', async (event, id) => {
         console.log('[IPC] Received: db:getSocialAccountById', id);
-        return await db.getSocialAccountById(id);
+        return await db.getSocialAccountById(db.db, id);
     });
     ipcMain.handle('db:updateSocialAccount', async (event, id, accountData) => {
         console.log('[IPC] Received: db:updateSocialAccount', id, accountData);
-        return await db.updateSocialAccount(id, accountData);
+        return await db.updateSocialAccount(db.db, id, accountData);
     });
     ipcMain.handle('db:deleteSocialAccount', async (event, id) => {
         console.log('[IPC] Received: db:deleteSocialAccount', id);
-        return await db.deleteSocialAccount(id);
+        return await db.deleteSocialAccount(db.db, id);
     });
     ipcMain.handle('db:deleteSocialAccountsByIds', async (event, ids) => {
         console.log('[IPC] Received: db:deleteSocialAccountsByIds', ids);
@@ -100,7 +97,7 @@ function setupDatabaseIpcHandlers() {
             return { deletedCount: 0, errors: ['Invalid input: IDs array is required.'] };
         }
         try {
-            const deletedCount = await db.deleteSocialAccountsByIds(ids);
+            const deletedCount = await db.deleteSocialAccountsByIds(db.db, ids);
             return { deletedCount: deletedCount, errors: [] };
         } catch (error) {
             console.error(`[IPC Main] db:deleteSocialAccountsByIds - Error: ${error.message}`, error);
