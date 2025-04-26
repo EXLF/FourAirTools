@@ -70,7 +70,8 @@ const validInvokeChannels = [
     'app:importWallets',
     'app:encryptData', 
     'app:decryptData',
-    'app:lock'
+    'app:lock',
+    'wallet:getBalance'
 ];
 
 contextBridge.exposeInMainWorld('electron', {
@@ -111,6 +112,12 @@ contextBridge.exposeInMainWorld('electron', {
         }
     }
 }); 
+
+// --- 修改：也暴露 wallet 相关的 API 到 window 对象下，方便调用 --- 
+// (或者你可以选择继续通过 electron.ipcRenderer.invoke 调用)
+contextBridge.exposeInMainWorld('walletAPI', {
+    getBalance: (address) => ipcRenderer.invoke('wallet:getBalance', address)
+});
 
 console.log('[Preload] Preload script executed successfully.');
 

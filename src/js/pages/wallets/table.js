@@ -9,6 +9,11 @@ let currentPage = 1;
 let rowsPerPage = 15; // 默认值
 const LOCAL_STORAGE_KEY_ROWS_PER_PAGE = 'walletsPage_rowsPerPage'; // 定义 localStorage 键
 
+// *** 新增：余额缓存 ***
+const balanceCache = new Map(); // 使用 Map 存储: address => { balanceFormatted: string, timestamp: number }
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 缓存有效期：5分钟
+// *** -------------- ***
+
 // 缓存 DOM 元素 (在 index.js 中初始化并传入)
 let tableBody;
 let groupFilterSelect;
@@ -242,25 +247,19 @@ function createWalletRowElement(wallet, index, offset) {
     const tr = document.createElement('tr');
     tr.dataset.id = wallet.id;
 
-    // 计算序号 (从 1 开始)
     const sequenceNumber = offset + index + 1;
-
-    // *** 修改：处理加密私钥的显示 ***
     let privateKeyDisplay = '<span class="text-muted">未存储</span>';
     if (wallet.encryptedPrivateKey) {
-        // 使用 shortenString 函数缩短显示
         const shortKey = shortenString(wallet.encryptedPrivateKey, 6, 4);
         privateKeyDisplay = `<code class="encrypted-data" title="私钥已加密存储">${shortKey}</code>`;
     }
-
-    // *** 修改：处理加密助记词的显示 ***
     let mnemonicDisplay = '<span class="text-muted">未存储</span>';
-    if (wallet.mnemonic) { // 假设数据库字段名是 mnemonic
-        // 使用 shortenString 函数缩短显示
-        const shortMnemonic = shortenString(wallet.mnemonic, 6, 4); // 也可以选择不同的长度
+    if (wallet.mnemonic) {
+        const shortMnemonic = shortenString(wallet.mnemonic, 6, 4);
         mnemonicDisplay = `<code class="encrypted-data" title="助记词已加密存储">${shortMnemonic}</code>`;
     }
 
+    // 先设置不包含余额列的 innerHTML
     tr.innerHTML = `
         <td><input type="checkbox"></td>
         <td>${sequenceNumber}</td>
@@ -269,6 +268,7 @@ function createWalletRowElement(wallet, index, offset) {
         </td>
         <td>${privateKeyDisplay}</td>
         <td>${mnemonicDisplay}</td>
+        <!-- 余额占位 -->
         <td>${wallet.notes || ''}</td>
         <td class="group-cell">${wallet.groupName || ''}</td>
         <td class="actions-cell">
@@ -277,9 +277,69 @@ function createWalletRowElement(wallet, index, offset) {
             <button class="btn-icon" title="删除" data-action="删除"><i class="fas fa-trash-alt"></i></button>
         </td>
     `;
+
+    // *** 修改：单独创建余额单元格和内容元素 ***
+    const balanceTd = document.createElement('td');
+    const balanceElement = document.createElement('span');
+    balanceElement.id = `balance-${wallet.id}`;
+    balanceElement.className = 'balance-loading text-muted';
+    balanceElement.textContent = '加载中...';
+    balanceTd.appendChild(balanceElement);
+
+    // 将余额单元格插入到正确的位置 (助记词后面，备注前面)
+    // 注意：列的索引从 0 开始，插入到索引 5 的位置 (第 6 列)
+    const mnemonicTd = tr.cells[4]; // 获取助记词单元格 (索引4)
+    tr.insertBefore(balanceTd, mnemonicTd.nextSibling); // 插入到助记词后面
+
+    // --- 异步获取/更新余额 (现在直接操作 balanceElement) --- 
+    (async (elementToUpdate) => {
+        const address = wallet.address;
+        const now = Date.now();
+        const cachedEntry = balanceCache.get(address);
+
+        // 检查缓存
+        if (cachedEntry && (now - cachedEntry.timestamp < CACHE_DURATION_MS)) {
+            // console.log(`[Table] Using cached balance for ${address}`);
+            const displayBalance = parseFloat(cachedEntry.balanceFormatted).toFixed(4);
+            elementToUpdate.textContent = `${displayBalance} ETH`;
+            elementToUpdate.className = ''; // 清除加载和提示样式
+            elementToUpdate.title = `余额: ${cachedEntry.balanceFormatted} ETH`;
+            return; // 命中缓存
+        }
+
+        // --- 缓存无效或不存在 --- 
+        elementToUpdate.textContent = '加载中...';
+        elementToUpdate.className = 'balance-loading text-muted';
+        
+        try {
+            // console.log(`[Table] Fetching balance for ${address}`);
+            const result = await window.walletAPI.getBalance(address);
+
+            if (result && result.error === null && result.balanceFormatted !== null) {
+                const displayBalance = parseFloat(result.balanceFormatted).toFixed(4);
+                elementToUpdate.textContent = `${displayBalance} ETH`;
+                elementToUpdate.className = ''; 
+                elementToUpdate.title = `余额: ${result.balanceFormatted} ETH`;
+                // 更新缓存
+                balanceCache.set(address, { 
+                    balanceFormatted: result.balanceFormatted, 
+                    timestamp: Date.now() 
+                });
+            } else {
+                elementToUpdate.textContent = '获取失败';
+                elementToUpdate.className = 'text-danger'; // 错误样式
+                elementToUpdate.title = result?.error || '获取余额时发生未知错误';
+            }
+        } catch (error) {
+            console.error(`[Table] Error fetching balance for ${address}:`, error);
+            elementToUpdate.textContent = '错误';
+            elementToUpdate.className = 'text-danger'; 
+            elementToUpdate.title = error.message;
+        }
+    })(balanceElement);
+
     return tr;
 }
-
 
 /**
  * 渲染分页控件。

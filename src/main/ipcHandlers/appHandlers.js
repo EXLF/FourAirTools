@@ -5,7 +5,31 @@ const db = require('../../js/db/index.js'); // Still need db for saving
 const { ethers } = require('ethers'); // 导入 ethers
 const cryptoService = require('../../js/core/cryptoService.js'); // 导入加密服务
 
-// --- 移除旧的调试日志 ---
+// *** TODO: Make this configurable in settings ***
+const DEFAULT_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/eOvLOWiFwLA0k3YIYnfJzmKrfUUO_dgo'; // Replace with a real key or use a public one carefully
+// const DEFAULT_RPC_URL = 'https://rpc.ankr.com/eth'; // Example public RPC
+
+let jsonRpcProvider = null; // Cache the provider
+function getProvider() {
+    // Basic caching to avoid reconnecting constantly
+    // TODO: Add logic to handle changes in configured RPC URL
+    if (!jsonRpcProvider) {
+        try {
+            // Replace with actual configured URL later
+            const rpcUrl = DEFAULT_RPC_URL; 
+            if (!rpcUrl || !rpcUrl.startsWith('http')) {
+                console.warn('[Wallet Balance] Invalid or missing RPC URL.');
+                return null;
+            }
+            jsonRpcProvider = new ethers.JsonRpcProvider(rpcUrl);
+            console.log(`[Wallet Balance] Connected to RPC: ${rpcUrl}`);
+        } catch (error) {
+            console.error('[Wallet Balance] Failed to create JsonRpcProvider:', error);
+            return null;
+        }
+    }
+    return jsonRpcProvider;
+}
 
 function setupApplicationIpcHandlers(mainWindow) {
     console.log('[IPC] Setting up Application IPC handlers...');
@@ -254,6 +278,42 @@ function setupApplicationIpcHandlers(mainWindow) {
         } catch (error) {
             console.error('[IPC] Error performing plaintext export:', error);
             throw new Error(`执行导出时出错: ${error.message}`);
+        }
+    });
+
+    // --- 新增：获取钱包余额 Handler ---
+    ipcMain.handle('wallet:getBalance', async (event, address) => {
+        // console.log(`[IPC] Received: wallet:getBalance for ${address}`);
+        if (!ethers.isAddress(address)) {
+            // console.warn(`[Wallet Balance] Invalid address format: ${address}`);
+            return { balance: null, error: '无效的钱包地址格式' };
+        }
+
+        const provider = getProvider();
+        if (!provider) {
+            return { balance: null, error: '无法连接到 RPC 服务，请检查配置' };
+        }
+
+        try {
+            const balanceBigInt = await provider.getBalance(address);
+            const balanceEther = ethers.formatEther(balanceBigInt);
+            // console.log(`[Wallet Balance] Balance for ${address}: ${balanceEther} ETH`);
+            // 返回格式化后的余额和原始 BigInt 值 (可选)
+            return { 
+                balanceFormatted: parseFloat(balanceEther).toFixed(6), // 保留6位小数 
+                // balanceRaw: balanceBigInt.toString(), // 原始 wei 值
+                error: null 
+            };
+        } catch (error) {
+            console.error(`[Wallet Balance] Error fetching balance for ${address}:`, error);
+            let errorMsg = '获取余额失败';
+            if (error.message?.includes('NETWORK_ERROR')) {
+                errorMsg = '网络错误，无法连接 RPC';
+            } else if (error.message?.includes('SERVER_ERROR')) {
+                 errorMsg = 'RPC 服务端错误';
+            }
+            // TODO: Handle rate limits specifically if possible
+            return { balance: null, error: errorMsg };
         }
     });
 
