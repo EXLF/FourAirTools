@@ -168,6 +168,33 @@ function setupDatabaseIpcHandlers() {
         return db.getAllSocialsWithLinkStatus(db.db, walletId);
     });
 
+    // --- 新增：处理更新钱包社交链接的请求 --- 
+    ipcMain.handle('db:updateWalletSocialLinks', async (event, walletId, linkedSocialIds) => {
+        console.log(`[IPC Handler] Received db:updateWalletSocialLinks for Wallet ${walletId} with IDs:`, linkedSocialIds);
+        if (typeof walletId !== 'number' || walletId <= 0) {
+             throw new Error('无效的 walletId。');
+        }
+        if (!Array.isArray(linkedSocialIds)) {
+            throw new Error('linkedSocialIds 必须是一个数组。');
+        }
+        // 对 ID 进行基本验证，确保它们是正整数
+        const validIds = linkedSocialIds.filter(id => typeof id === 'number' && id > 0);
+        if (validIds.length !== linkedSocialIds.length) {
+            console.warn('[IPC Handler] updateWalletSocialLinks: 移除了无效的 social ID。');
+        }
+
+        try {
+            // 假设 db.linkSocialsToWallet 处理事务：先删除旧的，再插入新的
+            const result = await db.linkSocialsToWallet(db.db, walletId, validIds);
+            console.log(`[IPC Handler] Successfully updated social links for Wallet ${walletId}. Result:`, result);
+            return result; // 或者返回一个成功状态
+        } catch (error) {
+            console.error(`[IPC Handler] Error updating social links for Wallet ${walletId}:`, error);
+            throw error; // 将错误传递给调用者
+        }
+    });
+    // --- ------------------------------------ --- 
+
     console.log('[IPC] Database IPC handlers ready.');
 }
 

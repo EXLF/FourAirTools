@@ -279,7 +279,6 @@ function createWalletRowElement(wallet, index, offset) {
     }
 
     // 先设置不包含余额和关联账户列的 innerHTML
-    // 注意列数减少了 2
     tr.innerHTML = `
         <td><input type="checkbox"></td>
         <td>${sequenceNumber}</td>
@@ -292,11 +291,7 @@ function createWalletRowElement(wallet, index, offset) {
         <!-- 关联账户占位 -->
         <td>${wallet.notes || ''}</td>
         <td class="group-cell">${wallet.groupName || ''}</td>
-        <td class="actions-cell">
-            <button class="btn-icon" title="查看详情" data-action="查看详情"><i class="fas fa-eye"></i></button>
-            <button class="btn-icon" title="编辑" data-action="编辑"><i class="fas fa-pencil-alt"></i></button>
-            <button class="btn-icon" title="删除" data-action="删除"><i class="fas fa-trash-alt"></i></button>
-        </td>
+        <!-- 操作按钮占位 -->
     `;
 
     // --- 单独创建和插入余额单元格 --- 
@@ -306,15 +301,14 @@ function createWalletRowElement(wallet, index, offset) {
     balanceElement.className = 'balance-loading text-muted';
     balanceElement.textContent = '加载中...';
     balanceTd.appendChild(balanceElement);
-    // 插入到助记词后面 (索引 5)
     tr.insertBefore(balanceTd, tr.cells[4].nextSibling);
 
     // --- 单独创建和插入关联账户单元格 --- 
     const linkedSocialsTd = document.createElement('td');
     linkedSocialsTd.className = 'linked-socials-cell';
-    linkedSocialsTd.style.cursor = 'pointer';
-    linkedSocialsTd.dataset.walletId = wallet.id;
-    linkedSocialsTd.dataset.walletAddress = wallet.address;
+    linkedSocialsTd.style.cursor = 'pointer'; // <<< 恢复指针样式，表示可点击
+    // linkedSocialsTd.dataset.walletId = wallet.id; // <<< 不再需要，直接从 wallet 对象获取
+    // linkedSocialsTd.dataset.walletAddress = wallet.address;
 
     const linkedSocialsContainer = document.createElement('span');
     linkedSocialsContainer.id = `linked-socials-${wallet.id}`;
@@ -324,13 +318,21 @@ function createWalletRowElement(wallet, index, offset) {
 
     tr.insertBefore(linkedSocialsTd, tr.cells[5].nextSibling);
 
-    // --- 修改：添加点击事件监听器，调用模态框函数 --- 
+    // --- 恢复：将打开模态框的监听器附加到关联账户单元格 --- 
     linkedSocialsTd.addEventListener('click', (event) => {
-        const targetCell = event.currentTarget;
-        const walletId = targetCell.dataset.walletId;
-        const walletAddress = targetCell.dataset.walletAddress;
-        // 调用 modals.js 中的函数来显示模态框
-        showLinkSocialsModal(walletId, walletAddress);
+        console.log('[Wallet Table Linked Cell] Clicked. Wallet:', wallet);
+        // 从闭包中的 wallet 对象获取信息
+        const walletId = parseInt(wallet.id, 10);
+        const walletAddress = wallet.address;
+        const walletName = wallet.name;
+
+        console.log('[Wallet Table Linked Cell] Passing walletId to modal:', walletId, typeof walletId);
+        if (isNaN(walletId) || typeof walletId !== 'number' || walletId <= 0) {
+            console.error('[Wallet Table Linked Cell] Invalid walletId before calling showLinkSocialsModal:', walletId);
+            showToast('无法打开关联模态框：钱包 ID 无效或解析失败。', 'error');
+            return; 
+        }
+        showLinkSocialsModal(walletId, walletAddress, walletName); 
     });
 
     // --- 异步获取/更新余额 (保持不变) --- 
@@ -380,7 +382,7 @@ function createWalletRowElement(wallet, index, offset) {
         }
     })(balanceElement);
 
-    // --- 新增：异步获取/更新关联账户图标 --- 
+    // --- 异步获取/更新关联账户图标 --- 
     (async (containerElement) => {
         const walletId = wallet.id;
         try {
@@ -428,7 +430,44 @@ function createWalletRowElement(wallet, index, offset) {
             containerElement.className = 'linked-socials-icons text-danger'; // 显示错误状态
             containerElement.title = error.message;
         }
-    })(linkedSocialsContainer); // 立即执行
+    })(linkedSocialsContainer); 
+
+    // --- 操作按钮 --- 
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'wallet-actions actions-cell';
+    // *** 移除 link-socials 按钮 ***
+    actionsCell.innerHTML = `
+        <button class="btn-icon btn-icon-sm" data-action="edit" title="编辑">
+            <i class="fas fa-edit"></i> 
+        </button>
+        <button class="btn-icon btn-icon-sm text-danger" data-action="delete" title="删除">
+            <i class="fas fa-trash"></i>
+        </button>
+        <button class="btn-icon btn-icon-sm" data-action="view-details" title="查看详情">
+             <i class="fas fa-eye"></i>
+        </button>
+    `;
+    // *** 移除 action === 'link-socials' 的处理逻辑 ***
+    actionsCell.addEventListener('click', (event) => {
+        console.log('[Wallet Table Actions Cell] Clicked. Target:', event.target);
+        const button = event.target.closest('button[data-action]');
+        if (!button) {
+            console.log('[Wallet Table Actions Cell] Clicked target is not an action button or descendant.');
+            return;
+        }
+
+        const action = button.dataset.action;
+        const walletId = parseInt(wallet.id, 10); // 仍然需要解析 ID 用于其他操作
+        
+        console.log(`[Wallet Table Actions Cell] Detected Action: '${action}', Wallet ID: ${walletId} (Type: ${typeof walletId}), Button:`, button);
+
+        // if (action === 'link-socials') { ... } // <<< 移除这个分支
+        
+        // 直接分发其他操作
+        console.log(`[Wallet Table Actions Cell] Dispatching action '${action}' to handleWalletTableRowAction for Wallet ID: ${walletId}`);
+        handleWalletTableRowAction(action, walletId); 
+    });
+    tr.appendChild(actionsCell);
 
     return tr;
 }

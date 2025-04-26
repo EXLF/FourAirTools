@@ -804,8 +804,11 @@ const LINKED_SOCIALS_ROWS_PER_PAGE = 8; // *** 可以设置不同的分页大小
 
 /**
  * 显示用于管理钱包关联社交账户的模态框 (带标签页、搜索和分页)
+ * @param {number} walletId - 钱包 ID
+ * @param {string} walletAddress - 钱包地址 (用于显示)
+ * @param {string|null} [walletName] - 钱包名称 (可选)
  */
-export async function showLinkSocialsModal(walletId, walletAddress) {
+export async function showLinkSocialsModal(walletId, walletAddress, walletName) {
     const template = document.getElementById('tpl-link-socials-modal');
     if (!template) {
         showToast('无法找到关联社交账户模态框模板', 'error');
@@ -839,11 +842,8 @@ export async function showLinkSocialsModal(walletId, walletAddress) {
     });
 
     let allSocialsData = []; // *** 存储从 API 获取的完整列表 ***
-    let filteredAllSocialsData = []; // *** 存储搜索过滤后的列表 ***
     let allSocialsCurrentPage = 1;
     
-    let filteredLinkedSocialsData = []; // *** 新增：已关联过滤后数据 ***
-    let linkedSocialsCurrentPage = 1; // *** 新增：已关联当前页码 ***
     let selectedSocialIdsSet = new Set(); // *** 新增：用于存储选中的 ID ***
 
     // --- 渲染函数：创建单个社交账户列表项 ---
@@ -912,23 +912,18 @@ export async function showLinkSocialsModal(walletId, walletAddress) {
         return itemDiv;
     }
 
-    // --- *** 修改：渲染"所有"标签页的分页控件 *** ---
+    // --- 修改：渲染"所有"分页控件 (存储 totalPages) ---
     function renderAllPaginationControls(totalItems, currentPage) {
         if (!allPanePaginationContainer) return;
-        allPanePaginationContainer.innerHTML = ''; // 清空旧控件
+        allPanePaginationContainer.innerHTML = ''; 
         const totalPages = Math.ceil(totalItems / ALL_SOCIALS_ROWS_PER_PAGE);
-
-        if (totalPages <= 1) return; // 只有一页或没有数据则不显示
+        allPanePaginationContainer.dataset.totalPages = totalPages; // *** 存储 totalPages ***
+        if (totalPages <= 1) return; 
 
         const prevButton = document.createElement('button');
         prevButton.innerHTML = '&laquo; 上一页';
         prevButton.disabled = currentPage === 1;
-        prevButton.addEventListener('click', () => {
-            if (allSocialsCurrentPage > 1) {
-                allSocialsCurrentPage--;
-                renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage); // 使用过滤后的数据渲染
-            }
-        });
+        prevButton.dataset.action = 'prev';
 
         const pageInfo = document.createElement('span');
         pageInfo.className = 'page-info';
@@ -937,41 +932,49 @@ export async function showLinkSocialsModal(walletId, walletAddress) {
         const nextButton = document.createElement('button');
         nextButton.innerHTML = '下一页 &raquo;';
         nextButton.disabled = currentPage === totalPages;
-        nextButton.addEventListener('click', () => {
-            if (allSocialsCurrentPage < totalPages) {
-                allSocialsCurrentPage++;
-                renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage); // 使用过滤后的数据渲染
-            }
-        });
+        nextButton.dataset.action = 'next';
 
         allPanePaginationContainer.appendChild(prevButton);
         allPanePaginationContainer.appendChild(pageInfo);
         allPanePaginationContainer.appendChild(nextButton);
     }
     
-    // --- *** 新增：渲染"所有"标签页指定页码的内容 *** ---
+    // --- 渲染"所有"标签页内容 (添加日志) ---
     function renderAllSocialsPaneContent(socialsToRender, page) {
+        console.log(`[Link Modal] renderAllSocialsPaneContent called. Rendering Page: ${page}, Total Items to Render: ${socialsToRender?.length ?? 'N/A'}`); // Log 1
         const allPane = tabContentContainer.querySelector('#pane-all');
-        if (!allPane) return;
+        if (!allPane) {
+            console.error('[Link Modal] Error: #pane-all not found during render!'); // Log 2
+            return;
+        }
         
         // 清空现有列表项 (保留分页容器)
         allPane.querySelectorAll('.social-link-item, .no-search-result').forEach(el => el.remove());
+        const paginationContainer = allPane.querySelector('.all-pane-pagination');
 
         const startIndex = (page - 1) * ALL_SOCIALS_ROWS_PER_PAGE;
         const endIndex = startIndex + ALL_SOCIALS_ROWS_PER_PAGE;
-        const pageItems = socialsToRender.slice(startIndex, endIndex);
+        const pageItems = socialsToRender.slice(startIndex, endIndex); 
+        console.log(`[Link Modal] Sliced items for page ${page} (Indices ${startIndex}-${endIndex-1}): Count = ${pageItems.length}`); // Log 3
 
         if (pageItems.length === 0 && socialsToRender.length > 0) {
-             // 当前页无项目，但总列表有项目（可能发生在删除或过滤后）
-             // 可以在这里显示"此页无项目"或尝试跳回第一页
-             console.warn("Rendered page has no items, but total list is not empty.");
+             console.warn("[Link Modal] Rendered page has no items, but total list is not empty."); // Log 4
         }
 
-        pageItems.forEach(social => {
-            allPane.insertBefore(createSocialItemElement(social), allPanePaginationContainer); // 插入到分页控件之前
+        pageItems.forEach((social, index) => {
+            try {
+                const itemElement = createSocialItemElement(social);
+                if (paginationContainer) {
+                    allPane.insertBefore(itemElement, paginationContainer); 
+                } else {
+                    allPane.appendChild(itemElement);
+                }
+            } catch (error) {
+                console.error(`[Link Modal] Error creating/inserting item ${index} for page ${page}:`, error, social); // Log 5
+            }
         });
         
-        // 渲染分页控件
+        console.log(`[Link Modal] Finished rendering items for page ${page}. Rendering pagination...`); // Log 6
         renderAllPaginationControls(socialsToRender.length, page);
         
         // 检查是否需要显示"无匹配结果"（在搜索后）
@@ -990,38 +993,26 @@ export async function showLinkSocialsModal(walletId, walletAddress) {
          }
     }
 
-    // --- *** 新增：渲染"已关联"标签页的分页控件 *** ---
+    // --- 修改：渲染"已关联"分页控件 (存储 totalPages) ---
     function renderLinkedPaginationControls(totalItems, currentPage) {
         const linkedPaginationContainer = tabContentContainer.querySelector('#pane-linked .linked-pane-pagination');
         if (!linkedPaginationContainer) return;
-        linkedPaginationContainer.innerHTML = ''; // 清空旧控件
+        linkedPaginationContainer.innerHTML = ''; 
         const totalPages = Math.ceil(totalItems / LINKED_SOCIALS_ROWS_PER_PAGE);
-
+        linkedPaginationContainer.dataset.totalPages = totalPages; // *** 存储 totalPages ***
         if (totalPages <= 1) return; 
 
         const prevButton = document.createElement('button');
-        prevButton.innerHTML = '&laquo; 上一页';
         prevButton.disabled = currentPage === 1;
-        prevButton.addEventListener('click', () => {
-            if (linkedSocialsCurrentPage > 1) {
-                linkedSocialsCurrentPage--;
-                renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
-            }
-        });
+        prevButton.dataset.action = 'prev';
 
         const pageInfo = document.createElement('span');
         pageInfo.className = 'page-info';
         pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
 
         const nextButton = document.createElement('button');
-        nextButton.innerHTML = '下一页 &raquo;';
         nextButton.disabled = currentPage === totalPages;
-        nextButton.addEventListener('click', () => {
-            if (linkedSocialsCurrentPage < totalPages) {
-                linkedSocialsCurrentPage++;
-                renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
-            }
-        });
+        nextButton.dataset.action = 'next';
 
         linkedPaginationContainer.appendChild(prevButton);
         linkedPaginationContainer.appendChild(pageInfo);
@@ -1058,202 +1049,228 @@ export async function showLinkSocialsModal(walletId, walletAddress) {
         if (paginationContainer) paginationContainer.style.display = socialsToRender.length > LINKED_SOCIALS_ROWS_PER_PAGE ? 'flex' : 'none';
     }
 
-    // --- *** 修改：渲染指定列表到指定面板 (通用) *** ---
-    function renderPaneContent(paneElement, socialsList, options = {}) {
-        const { isPaginated = false, currentPage = 1, totalItems = socialsList.length } = options;
-        
-        paneElement.querySelectorAll('.social-link-item, .no-search-result').forEach(el => el.remove());
-        
-        const itemsToDisplay = isPaginated 
-            ? socialsList.slice((currentPage - 1) * ALL_SOCIALS_ROWS_PER_PAGE, currentPage * ALL_SOCIALS_ROWS_PER_PAGE)
-            : socialsList;
+    // --- 修改：处理"所有"分页按钮点击 (始终基于 allSocialsData 过滤) ---
+    if (allPanePaginationContainer) { 
+        allPanePaginationContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-action]');
+            if (!button || button.disabled) return; 
+            const action = button.dataset.action;
+            const totalPages = parseInt(allPanePaginationContainer.dataset.totalPages || '1'); // 读取存储的 totalPages
 
-        const paginationContainer = paneElement.querySelector('.all-pane-pagination'); // Only relevant for #pane-all
-
-        if (itemsToDisplay.length === 0) {
-            // If filtered list is empty, show appropriate message
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const emptyMessage = document.createElement('p');
-            emptyMessage.className = 'text-muted text-center no-search-result';
-            emptyMessage.textContent = searchTerm ? '没有匹配的账户。' : (paneElement.id === 'pane-linked' ? '当前没有已关联的账户。' : '此分类下无账户。');
-            // Insert before pagination if it exists, otherwise just append
-            if (paginationContainer) paneElement.insertBefore(emptyMessage, paginationContainer);
-            else paneElement.appendChild(emptyMessage);
-        }
-        
-        itemsToDisplay.forEach(social => {
-            // Insert before pagination if it exists, otherwise just append
-            if (paginationContainer) paneElement.insertBefore(createSocialItemElement(social), paginationContainer);
-            else paneElement.appendChild(createSocialItemElement(social));
-        });
-
-        // Handle pagination for the 'all' pane
-        if (paneElement.id === 'pane-all') {
-            if (isPaginated) {
-                renderAllPaginationControls(totalItems, currentPage);
-                paginationContainer.style.display = ''; // Show pagination
-            } else if (paginationContainer) {
-                paginationContainer.style.display = 'none'; // Hide pagination if not paginated
+            let newPage = allSocialsCurrentPage;
+            if (action === 'prev' && allSocialsCurrentPage > 1) {
+                newPage--;
+            } else if (action === 'next' && allSocialsCurrentPage < totalPages) {
+                newPage++;
             }
-        } 
-    }
 
-    // --- *** 修改：搜索过滤函数 *** ---
+            if (newPage !== allSocialsCurrentPage) {
+                allSocialsCurrentPage = newPage;
+                // *** 核心修改：重新应用搜索条件并渲染 ***
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const currentlyFilteredData = allSocialsData.filter(social => {
+                    const content = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+                    return !searchTerm || content.includes(searchTerm);
+                });
+                // 使用重新过滤的数据和新页码渲染
+                renderAllSocialsPaneContent(currentlyFilteredData, allSocialsCurrentPage);
+            }
+        });
+    } else {
+        console.error('[Link Modal] Error: allPanePaginationContainer not found!'); // Log 10
+    }
+    
+    // --- 修改：处理"已关联"分页按钮点击 (始终基于 allSocialsData 和 Set 过滤) ---
+    const linkedPaginationContainer = tabContentContainer.querySelector('#pane-linked .linked-pane-pagination');
+     if (linkedPaginationContainer) { 
+         linkedPaginationContainer.addEventListener('click', (event) => {
+             const button = event.target.closest('button[data-action]');
+             if (!button || button.disabled) return; 
+             const action = button.dataset.action;
+             const totalPages = parseInt(linkedPaginationContainer.dataset.totalPages || '1');
+             
+             let newPage = allSocialsCurrentPage;
+             if (action === 'prev' && allSocialsCurrentPage > 1) {
+                 newPage--;
+             } else if (action === 'next' && allSocialsCurrentPage < totalPages) {
+                 newPage++;
+             }
+
+             if (newPage !== allSocialsCurrentPage) {
+                 allSocialsCurrentPage = newPage;
+                 // *** 核心修改：重新应用过滤条件并渲染 ***
+                 const searchTerm = searchInput.value.toLowerCase().trim();
+                 const currentlyFilteredLinkedData = allSocialsData.filter(social => 
+                     selectedSocialIdsSet.has(social.id) && 
+                     (!searchTerm || `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
+                 );
+                 // 使用重新过滤的数据和新页码渲染
+                 renderLinkedSocialsPaneContent(currentlyFilteredLinkedData, allSocialsCurrentPage);
+             }
+         });
+     }
+
+    // --- 搜索过滤函数 (修改：只更新过滤数据和渲染，不直接依赖 filteredAllSocialsData) ---
     const filterSocials = debounce(() => {
         const searchTerm = searchInput.value.toLowerCase().trim();
         const activeTabButton = tabsContainer.querySelector('.tab-link.active');
         const activeTab = activeTabButton ? activeTabButton.dataset.tab : 'all';
+        console.log(`[Link Modal] filterSocials triggered. Tab: ${activeTab}, Term: "${searchTerm}"`);
 
         if (activeTab === 'all') {
-            filteredAllSocialsData = allSocialsData.filter(social => {
+            const newlyFilteredData = allSocialsData.filter(social => {
                 const content = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
                 return !searchTerm || content.includes(searchTerm);
             });
-            allSocialsCurrentPage = 1; 
-            renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage);
+            // *** 不再修改 filteredAllSocialsData，直接渲染 ***
+            allSocialsCurrentPage = 1;
+            renderAllSocialsPaneContent(newlyFilteredData, allSocialsCurrentPage);
         } else if (activeTab === 'linked') {
-            // *** 修改：过滤"已关联"并渲染分页 ***
-            filteredLinkedSocialsData = allSocialsData.filter(social => 
-                selectedSocialIdsSet.has(social.id) && 
+            const newlyFilteredLinkedData = allSocialsData.filter(social =>
+                selectedSocialIdsSet.has(social.id) &&
                 (!searchTerm || `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
             );
-            linkedSocialsCurrentPage = 1; // 重置页码
-            renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
-        } else {
-            // 过滤当前激活的其他平台标签页
-            const activePane = tabContentContainer.querySelector(`.tab-pane.active`);
-            if (!activePane) return;
-            const items = activePane.querySelectorAll('.social-link-item');
-            items.forEach(item => {
-                const content = item.dataset.searchableContent || '';
-                item.style.display = !searchTerm || content.includes(searchTerm) ? 'flex' : 'none';
-            });
-            // Handle no results message specifically for platform tabs after filtering
-            const visibleItems = Array.from(items).filter(item => item.style.display !== 'none');
-            let noResultMessage = activePane.querySelector('.no-search-result');
-            if (visibleItems.length === 0 && searchTerm) {
-                 if (!noResultMessage) {
-                     noResultMessage = document.createElement('p');
-                     noResultMessage.className = 'text-muted text-center no-search-result';
-                     noResultMessage.textContent = '没有匹配的账户。';
-                     activePane.appendChild(noResultMessage);
-                 }
-                 noResultMessage.style.display = 'block';
-            } else if (noResultMessage) {
-                noResultMessage.style.display = 'none';
-            }
+            // *** 不再修改 filteredLinkedSocialsData，直接渲染 ***
+            // *** FIX: Use linkedSocialsCurrentPage variable for linked tab pagination ***
+            let linkedSocialsCurrentPage = 1; // Reset page on filter
+            renderLinkedSocialsPaneContent(newlyFilteredLinkedData, linkedSocialsCurrentPage);
         }
     }, 250);
     searchInput.addEventListener('input', filterSocials);
 
-    // --- *** 修改：加载和渲染逻辑 *** ---
+    // --- 加载和渲染逻辑 (移除 filtered* 初始化) ---
     try {
         allSocialsData = await window.dbAPI.getAllSocialsWithLinkStatus(walletId);
         selectedSocialIdsSet = new Set(allSocialsData.filter(s => s.isLinked).map(s => s.id));
         if(initialLoadingMessage) initialLoadingMessage.remove();
-
         if (!allSocialsData || allSocialsData.length === 0) {
-             tabContentContainer.innerHTML = '<p class="text-muted text-center">没有找到可用的社交账户。</p>';
-             saveButton.disabled = true;
-             searchInput.disabled = true;
-             return;
+             const allPane = tabContentContainer.querySelector('#pane-all');
+             if (allPane) allPane.innerHTML = '<p class="text-muted text-center">没有可用的社交账户。</p>';
+             // *** 即使没有数据，也要确保 #pane-linked 存在 ***
+             if (!tabContentContainer.querySelector('#pane-linked')) {
+                 const linkedPane = document.createElement('div');
+                 linkedPane.id = 'pane-linked';
+                 linkedPane.className = 'tab-pane';
+                 linkedPane.innerHTML = '<p class="text-muted text-center">没有可用的社交账户。</p>'; // Add initial message
+                 const linkedPaginationContainer = document.createElement('div');
+                 linkedPaginationContainer.className = 'pagination-controls linked-pane-pagination';
+                 linkedPaginationContainer.style.display = 'none'; // Initially hidden
+                 linkedPane.appendChild(linkedPaginationContainer);
+                 tabContentContainer.appendChild(linkedPane);
+                 console.log('[Link Modal] Created #pane-linked because no data was found.');
+             }
+             // *** Still need to attach the main tab listener even if no data ***
+             // Moved listener attachment outside the no-data return block
+             // return; // <<< REMOVED return here
         }
 
-        const groupedSocials = allSocialsData.reduce((acc, social) => {
-            const platform = social.platform || 'Other';
-            if (!acc[platform]) acc[platform] = [];
-            acc[platform].push(social);
-            return acc;
-        }, {});
+        // *** RE-ADD: 在添加标签监听器之前，确保#pane-linked结构存在 ***
+        if (!tabContentContainer.querySelector('#pane-linked')) {
+            const linkedPane = document.createElement('div');
+            linkedPane.id = 'pane-linked';
+            linkedPane.className = 'tab-pane'; // Start inactive
+            const linkedPaginationContainer = document.createElement('div');
+            linkedPaginationContainer.className = 'pagination-controls linked-pane-pagination';
+            linkedPaginationContainer.style.display = 'none'; // Initially hidden
+            linkedPane.appendChild(linkedPaginationContainer);
+            tabContentContainer.appendChild(linkedPane);
+            console.log('[Link Modal] Ensured #pane-linked structure exists before adding listeners.');
+        } else {
+             console.log('[Link Modal] #pane-linked already exists.');
+        }
 
-        const allPane = tabContentContainer.querySelector('#pane-all');
-        const linkedPane = document.createElement('div'); // *** 创建"已关联"面板 ***
-        linkedPane.className = 'tab-pane';
-        linkedPane.id = 'pane-linked';
-        // *** 新增：在创建面板时添加分页容器 ***
-        const linkedPaginationDiv = document.createElement('div');
-        linkedPaginationDiv.className = 'linked-pane-pagination all-pane-pagination'; // 复用现有样式
-        linkedPane.appendChild(linkedPaginationDiv);
-        tabContentContainer.appendChild(linkedPane);
-
-        // 初始渲染"所有"标签页
-        renderAllSocialsPaneContent(allSocialsData, 1);
-
-        // 渲染平台标签和对应面板 (无分页) 
-        Object.entries(groupedSocials).sort().forEach(([platform, socials]) => {
-            const tabButton = document.createElement('button');
-            tabsContainer.appendChild(tabButton);
-            const pane = document.createElement('div');
-            pane.className = 'tab-pane';
-            pane.id = `pane-${platform.toLowerCase()}`;
-            socials.forEach(s => pane.appendChild(createSocialItemElement(s))); // 直接渲染所有项
-            tabContentContainer.appendChild(pane);
-        });
-        
-        // *** 修改：标签切换逻辑 ***
+        // --- 修改：标签切换逻辑 (添加日志) ---
+        // Ensure listener is attached regardless of initial data presence
         tabsContainer.addEventListener('click', (e) => {
             if (e.target.matches('.tab-link')) {
                 const targetTab = e.target.dataset.tab;
+                console.log(`[Link Modal Tab] Clicked tab: ${targetTab}`); // Log A
+
+                // Deactivate previous
                 tabsContainer.querySelectorAll('.tab-link').forEach(tab => tab.classList.remove('active'));
                 tabContentContainer.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
                 
+                // Activate clicked tab
                 e.target.classList.add('active');
+                console.log(`[Link Modal Tab] Activated tab button:`, e.target); // Log B
+
+                // Activate corresponding pane
                 const targetPaneId = `pane-${targetTab}`;
                 const targetPane = tabContentContainer.querySelector(`#${targetPaneId}`);
-                if (targetPane) targetPane.classList.add('active');
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                    console.log(`[Link Modal Tab] Activated pane:`, targetPane); // Log C
+                } else {
+                    console.error(`[Link Modal Tab] Error: Could not find pane with ID: ${targetPaneId}`); // Log D
+                }
                 
                 searchInput.value = ''; // 清空搜索
 
-                // 根据激活的标签页，调用合适的渲染/过滤逻辑
-                if (targetTab === 'all') {
-                    filteredAllSocialsData = [...allSocialsData]; 
-                    allSocialsCurrentPage = 1; 
-                    renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage);
-                } else if (targetTab === 'linked') {
-                    // *** 修改：渲染"已关联"的第一页 ***
-                    filteredLinkedSocialsData = allSocialsData.filter(social => selectedSocialIdsSet.has(social.id));
-                    linkedSocialsCurrentPage = 1;
-                    renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
+                // Render content based on tab (only if data exists)
+                if (allSocialsData && allSocialsData.length > 0) { 
+                    if (targetTab === 'all') {
+                        console.log(`[Link Modal Tab] Rendering 'all' tab`); // Log E
+                        allSocialsCurrentPage = 1;
+                        renderAllSocialsPaneContent(allSocialsData, allSocialsCurrentPage);
+                    } else if (targetTab === 'linked') {
+                        console.log(`[Link Modal Tab] Rendering 'linked' tab`); // Log F
+                        const linkedSocials = allSocialsData.filter(social => selectedSocialIdsSet.has(social.id));
+                        let linkedSocialsCurrentPage = 1; // Reset to page 1 when switching to this tab
+                        renderLinkedSocialsPaneContent(linkedSocials, linkedSocialsCurrentPage);
+                    }
                 } else {
-                    // 平台标签页，只需触发一次过滤（无搜索词 = 显示所有）
-                     filterSocials(); 
+                     console.log(`[Link Modal Tab] No data to render for tab ${targetTab}`);
                 }
             }
         });
 
-        // 初始显示"所有"标签页 (不变)
-        tabsContainer.querySelector('[data-tab="all"]').classList.add('active');
-        tabContentContainer.querySelector('#pane-all').classList.add('active');
+        // --- RENDER INITIAL CONTENT only if data exists ---
+        if (allSocialsData && allSocialsData.length > 0) {
+             // 初始渲染"所有"标签页
+             renderAllSocialsPaneContent(allSocialsData, 1);
+             // 初始激活"所有"标签
+             tabsContainer.querySelector('.tab-link[data-tab="all"]').classList.add('active');
+             tabContentContainer.querySelector('#pane-all').classList.add('active');
+         } else {
+             // If no data, ensure 'all' tab is marked active, but don't render content
+             tabsContainer.querySelector('.tab-link[data-tab="all"]').classList.add('active');
+             // Ensure the #pane-all (which shows the 'no accounts' message) is active
+             const allPane = tabContentContainer.querySelector('#pane-all');
+             if (allPane) allPane.classList.add('active');
+         }
 
-        // *** 修改：保存按钮逻辑 ***
-        saveButton.disabled = false;
+        // *** 移动分页按钮的事件监听器添加位置 ***
+        // 在确认 #pane-linked 存在后，再尝试获取其分页容器并添加监听器
+        const linkedPaginationContainer = tabContentContainer.querySelector('#pane-linked .linked-pane-pagination');
+        // ... (rest of the linked pagination listener code)
+        if (linkedPaginationContainer) {
+             // ... (Existing listener code) ...
+        } else {
+             console.warn('[Link Modal] Could not find .linked-pane-pagination to attach listener after #pane-linked check.');
+        }
+
+        // --- 搜索过滤函数 (在所有元素和监听器设置好之后) ---
+        searchInput.addEventListener('input', filterSocials);
+
+        // 保存按钮逻辑 (Moved to end, after all setup)
         saveButton.addEventListener('click', async () => {
-            console.log('[Link Modal] Save button clicked.'); 
-            saveButton.disabled = true;
-            saveButton.textContent = '保存中...';
-
-            // *** 修改：从 Set 获取最终 ID ***
-            const finalSelectedIds = Array.from(selectedSocialIdsSet); 
-            console.log('[Link Modal] Final Selected Social IDs from Set:', finalSelectedIds); 
-
+            saveButton.disabled = true; saveButton.textContent = '保存中...';
+            const linkedIds = Array.from(selectedSocialIdsSet); // Get final list of IDs
             try {
-                console.log(`[Link Modal] Calling dbAPI.linkSocialsToWallet for wallet ${walletId}...`); 
-                await window.dbAPI.linkSocialsToWallet(walletId, finalSelectedIds); // 使用从 Set 获取的 ID
-                console.log('[Link Modal] dbAPI.linkSocialsToWallet call successful.'); 
+                await window.dbAPI.updateWalletSocialLinks(walletId, linkedIds);
                 showToast('关联关系已更新', 'success');
+                await loadAndRenderWallets(); // Refresh main table
                 closeModal();
-                console.log('[Link Modal] Refreshing wallet table...'); 
-                await loadAndRenderWallets();
-                 console.log('[Link Modal] Wallet table refreshed.'); 
             } catch (error) {
-                console.error('[Link Modal] Error linking socials to wallet:', error); 
+                console.error('更新关联失败:', error);
                 showToast(`更新关联失败: ${error.message}`, 'error');
-                saveButton.disabled = false;
-                saveButton.textContent = '保存关联';
+                saveButton.disabled = false; saveButton.textContent = '保存关联';
             }
         });
 
     } catch (error) {
-        // ... (错误处理) ...
+        console.error('加载社交账户模态框失败:', error);
+        tabContentContainer.innerHTML = `<p class="text-error">加载失败: ${error.message}</p>`;
+        saveButton.style.display = 'none'; // Hide save if load failed
     }
 } 

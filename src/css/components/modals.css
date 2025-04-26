@@ -419,6 +419,19 @@
     max-width: 600px;
 }
 
+.link-socials-modal-box .modal-title {
+    padding-bottom: 15px; /* Slightly reduce bottom padding if adding subtitle padding */
+}
+
+.link-socials-modal-box .modal-subtitle {
+    font-size: 1.05em; /* *** 增大字体大小 *** */
+    color: #6c757d; /* Subtitle color */
+    padding: 0 20px 15px 20px; /* Add horizontal and bottom padding */
+    margin: -10px 0 0 0; /* Adjust top margin to be closer to title */
+    border-bottom: 1px solid #dee2e6; /* Match control bar border */
+    background-color: #fff; /* Ensure background matches modal box */
+}
+
 .link-socials-modal-box .modal-subtitle code {
     font-size: 0.9em;
     background-color: #eee;
@@ -432,14 +445,14 @@
     align-items: center; 
     gap: 15px; /* Re-confirm gap */
     padding: 10px 15px; /* Revert padding */
-    border-bottom: 1px solid #dee2e6; 
+    border-bottom: none; /* Remove top border as subtitle now has bottom border */
     background-color: #f8f9fa; 
     flex-shrink: 0; 
 }
 
 .modal-controls .search-social-input {
     flex-grow: 0;
-    flex-basis: 200px; /* Slightly narrower base width */
+    flex-basis: 230px; /* Slightly narrower base width */
     padding: 8px 12px;
     font-size: 14px;
     border-radius: 6px;
@@ -447,6 +460,7 @@
     height: 34px; /* Adjust height slightly */
     box-sizing: border-box;
     flex-shrink: 0; /* Prevent search from shrinking too much */
+    order: 2; /* *** 让搜索框排在后面 *** */
 }
 
 .tabs-container {
@@ -459,6 +473,7 @@
     background-color: #e9ecef; 
     border-radius: 6px; 
     padding: 5px; /* Padding inside the container */
+    order: 1; /* *** 让标签栏排在前面 *** */
 }
 
 .tab-link {
