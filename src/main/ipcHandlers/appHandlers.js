@@ -1,4 +1,4 @@
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, BrowserWindow } = require('electron');
 const fs = require('fs').promises;
 const path = require('path');
 const db = require('../../js/db/index.js'); // Still need db for saving
@@ -165,6 +165,95 @@ function setupApplicationIpcHandlers(mainWindow) {
         } catch (error) {
             console.error('[IPC] app:saveFile - Error saving file:', error);
             return { success: false, error: error.message || '保存文件时发生未知错误' };
+        }
+    });
+
+    // --- 处理导出钱包请求 (第一步：检查解锁并请求确认) ---
+    ipcMain.handle('app:exportWallets', async (event, walletIds) => {
+        console.log(`[IPC] Received export request (step 1) for IDs:`, walletIds);
+        if (!Array.isArray(walletIds) || walletIds.length === 0) {
+            throw new Error('没有选择要导出的钱包。');
+        }
+        // 只检查是否解锁
+        if (!cryptoService.isUnlocked()) {
+            throw new Error('应用已锁定，无法导出钱包数据。请先解锁。');
+        }
+        // 返回需要前端确认的信号
+        console.log('[IPC] App is unlocked. Requesting frontend confirmation for export.');
+        return { needsConfirmation: true }; 
+    });
+
+    // --- 新增：处理执行明文导出的请求 (第二步：在用户确认后调用) ---
+    ipcMain.handle('app:performPlaintextExport', async (event, walletIds) => {
+         console.log(`[IPC] Received perform plaintext export request (step 2) for IDs:`, walletIds);
+         if (!Array.isArray(walletIds) || walletIds.length === 0) {
+            throw new Error('内部错误：缺少要导出的钱包 ID。'); // 这不应该发生
+        }
+        // 再次检查解锁状态 (以防万一)
+        if (!cryptoService.isUnlocked()) {
+            throw new Error('应用已锁定，无法执行导出。');
+        }
+
+        const focusedWindow = BrowserWindow.getFocusedWindow() || mainWindow;
+
+        try {
+            // 获取包含加密数据的钱包信息
+            const walletsToExport = await db.getWalletsByIds(db.db, walletIds);
+            if (!walletsToExport || walletsToExport.length === 0) {
+                throw new Error('找不到选定的钱包数据。');
+            }
+
+            // 解密数据并构建最终导出对象
+            const decryptedWallets = [];
+            for (const wallet of walletsToExport) {
+                let decryptedPrivateKey = null;
+                let decryptedMnemonic = null;
+                try {
+                    if (wallet.encryptedPrivateKey) {
+                        decryptedPrivateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
+                    }
+                    if (wallet.mnemonic) {
+                        decryptedMnemonic = cryptoService.decryptWithSessionKey(wallet.mnemonic);
+                    }
+                } catch (decryptError) {
+                    console.error(`[IPC] Failed to decrypt data for wallet ${wallet.address} (ID: ${wallet.id}):`, decryptError);
+                    throw new Error(`解密钱包 ${wallet.address} 数据失败: ${decryptError.message}。导出已中止。`);
+                }
+                decryptedWallets.push({
+                    address: wallet.address,
+                    name: wallet.name,
+                    notes: wallet.notes,
+                    groupId: wallet.groupId,
+                    groupName: wallet.groupName,
+                    privateKey: decryptedPrivateKey, // 明文
+                    mnemonic: decryptedMnemonic,   // 明文
+                    derivationPath: wallet.derivationPath
+                });
+            }
+
+            const fileContent = JSON.stringify(decryptedWallets, null, 2);
+
+            // 弹出保存文件对话框
+            const defaultFileName = `wallets_export_plaintext_${Date.now()}.json`;
+            const saveResult = await dialog.showSaveDialog(focusedWindow, {
+                title: '导出明文钱包数据',
+                defaultPath: defaultFileName,
+                filters: [{ name: 'JSON 文件', extensions: ['json'] }]
+            });
+
+            if (saveResult.canceled || !saveResult.filePath) {
+                console.log('[IPC] Save dialog canceled by user.');
+                return { success: false, canceled: true };
+            }
+
+            // 写入文件
+            await fs.writeFile(saveResult.filePath, fileContent, 'utf8');
+            console.log(`[IPC] Plaintext wallets exported successfully to: ${saveResult.filePath}`);
+            return { success: true, filePath: saveResult.filePath };
+
+        } catch (error) {
+            console.error('[IPC] Error performing plaintext export:', error);
+            throw new Error(`执行导出时出错: ${error.message}`);
         }
     });
 

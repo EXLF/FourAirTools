@@ -66,9 +66,10 @@ const validInvokeChannels = [
     'db:getSocialAccounts', 'db:addSocialAccount', 'db:updateSocialAccount', 'db:deleteSocialAccount', 'db:deleteSocialAccounts',
     'app:generateWallets',
     'app:exportWallets',
+    'app:performPlaintextExport',
     'app:importWallets',
     'app:encryptData', 
-    'app:decryptData', // *** 新增：添加解密通道 ***
+    'app:decryptData',
     'app:lock'
 ];
 

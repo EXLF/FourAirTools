@@ -31,8 +31,8 @@ export function handleImportWallets() {
         const reader = new FileReader();
         reader.onload = async (e) => {
             let successCount = 0, errorCount = 0; const errors = [];
-            const importBtn = contentAreaCache?.querySelector('#import-wallets-btn'); // 从缓存获取按钮
-            if (importBtn) importBtn.disabled = true; // 禁用按钮
+            const importBtn = contentAreaCache?.querySelector('#import-wallets-btn');
+            if (importBtn) importBtn.disabled = true;
 
             try {
                 const walletsToImport = JSON.parse(e.target.result);
@@ -41,17 +41,53 @@ export function handleImportWallets() {
                 showToast(`开始导入 ${walletsToImport.length} 个钱包...`, 'info');
 
                 for (const walletData of walletsToImport) {
-                    // 基本验证
                     if (!walletData.address) {
                         errors.push(`跳过无效条目 (缺少地址): ${JSON.stringify(walletData).substring(0, 50)}...`); 
                         errorCount++; 
                         continue;
                     }
+
+                    let encryptedPk = null;
+                    let encryptedMn = null;
+                    let encryptionFailed = false;
+
                     try {
-                        // 准备数据，移除前端特定的或不应直接导入的字段
-                         walletData.groupId = walletData.groupId ? parseInt(walletData.groupId) : null;
-                         const { chain, type, isBackedUp, groupName, ...dataToSave } = walletData;
-                         // 确保数据类型正确 (例如 groupId)
+                        // *** 新增：在保存前加密私钥（如果存在） ***
+                        if (walletData.privateKey && typeof walletData.privateKey === 'string') {
+                            console.log(`[Import] Encrypting private key for ${walletData.address}...`);
+                            encryptedPk = await window.electron.ipcRenderer.invoke('app:encryptData', walletData.privateKey);
+                             if (!encryptedPk) throw new Error('加密私钥返回空值'); // 增加检查
+                        }
+                        // *** 新增：在保存前加密助记词（如果存在） ***
+                        if (walletData.mnemonic && typeof walletData.mnemonic === 'string') {
+                            console.log(`[Import] Encrypting mnemonic for ${walletData.address}...`);
+                            encryptedMn = await window.electron.ipcRenderer.invoke('app:encryptData', walletData.mnemonic);
+                             if (!encryptedMn) throw new Error('加密助记词返回空值'); // 增加检查
+                        }
+                    } catch (encError) {
+                        console.error(`[Import] 加密导入钱包 ${walletData.address} 的数据失败:`, encError);
+                        errors.push(`加密 ${walletData.address} 失败 (${encError.message})，跳过。`);
+                        errorCount++;
+                        encryptionFailed = true; 
+                    }
+
+                    if (encryptionFailed) continue; // 如果加密失败，跳过这个钱包的添加
+
+                    try {
+                         // 准备数据，确保使用加密后的值和正确的字段名
+                         const dataToSave = {
+                             address: walletData.address,
+                             name: walletData.name || null,
+                             notes: walletData.notes || null,
+                             groupId: walletData.groupId ? parseInt(walletData.groupId) : null,
+                             encryptedPrivateKey: encryptedPk, // 使用加密后的私钥
+                             mnemonic: encryptedMn,           // 使用加密后的助记词
+                             derivationPath: walletData.derivationPath || null
+                             // 可以选择性地处理 createdAt/updatedAt，通常不需要导入
+                         };
+
+                         // 从 dataToSave 中移除原始的明文私钥（如果存在于 walletData 中）
+                         // delete dataToSave.privateKey; // 实际上我们没有把它加进去
 
                          await window.dbAPI.addWallet(dataToSave);
                          successCount++;
@@ -61,7 +97,7 @@ export function handleImportWallets() {
                             errors.push(`地址 ${walletData.address} 已存在，跳过。 `);
                         } else { 
                             errors.push(`导入 ${walletData.address} 失败: ${error.message}`); 
-                            console.error(`导入错误 - 钱包: ${walletData.address}`, error); // Log detailed error
+                            console.error(`导入错误 - 钱包: ${walletData.address}`, error);
                         }
                     }
                 }
@@ -79,7 +115,7 @@ export function handleImportWallets() {
                 console.error("解析或导入失败:", error); 
                 showToast(`导入失败: ${error.message}`, 'error'); 
             } finally {
-                if (importBtn) importBtn.disabled = false; // 重新启用按钮
+                if (importBtn) importBtn.disabled = false;
             }
         };
         reader.onerror = (e) => { 
@@ -97,49 +133,98 @@ export function handleImportWallets() {
 }
 
 /**
- * 处理导出选中钱包的逻辑。
+ * 处理导出选中钱包的逻辑 (使用自定义确认模态框)。
  */
 export async function handleExportWallets() {
-     const walletIdsToExport = getSelectedWalletIds(); // 从 table.js 获取选中的 ID
+    const selectedIds = getSelectedWalletIds();
          
-     if (walletIdsToExport.length === 0) { 
-         showToast("请先选择要导出的钱包！ ", 'warning');
-         return; 
-     }
+    if (selectedIds.length === 0) { 
+        showToast("请先选择要导出的钱包！", 'warning');
+        return; 
+    }
+
+    const exportBtn = contentAreaCache?.querySelector('#export-wallets-btn');
+    if (exportBtn) exportBtn.disabled = true;
+    showToast('正在准备导出...', 'info');
 
     try {
-        const walletsToExport = await window.dbAPI.getWalletsByIds(walletIdsToExport);
-        if (!walletsToExport || walletsToExport.length === 0) {
-            showToast("错误：无法获取选定钱包的数据。 ", 'error'); 
-            return;
-        }
+        // 第一步：调用后端检查解锁状态并请求确认
+        const checkResult = await window.electron.ipcRenderer.invoke('app:exportWallets', selectedIds);
 
-        // 移除 groupName 等前端字段，只导出数据库字段
-        const exportData = walletsToExport.map(({ groupName, ...rest }) => rest);
-        const jsonString = JSON.stringify(exportData, null, 2);
+        if (checkResult && checkResult.needsConfirmation) {
+            // 需要前端显示确认模态框
+            showModal('tpl-confirm-dialog', (modalElement) => {
+                const messageElement = modalElement.querySelector('.confirm-message');
+                const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+                const cancelBtn = modalElement.querySelector('.modal-cancel-btn'); // 获取取消按钮
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const defaultPath = `four-air-wallets-export-${timestamp}.json`;
+                if (!messageElement || !confirmBtn || !cancelBtn) {
+                    console.error("确认框元素缺失"); 
+                    hideModal(); 
+                    if (exportBtn) exportBtn.disabled = false;
+                    showToast('显示确认框时出错', 'error');
+                    return; 
+                }
 
-        showToast('正在准备导出文件...', 'info');
-        // 调用主进程保存文件对话框
-        const result = await window.dbAPI.saveFile({ defaultPath: defaultPath, content: jsonString });
+                // 设置确认信息和按钮文本
+                 modalElement.querySelector('.modal-title').textContent = '安全风险警告'; // 设置标题
+                messageElement.innerHTML = `
+                    <strong style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> 确认导出明文密钥?</strong><br><br>
+                    这将导出包含 **未加密** 的私钥和助记词的 JSON 文件！<br>
+                    任何获取此文件的人都可以 **完全控制** 您的钱包。<br><br>
+                    请务必妥善保管导出的文件，并在使用后 **立即安全删除**。
+                    强烈建议不要在不安全的环境中执行此操作。
+                `;
+                confirmBtn.textContent = '确认导出明文';
+                confirmBtn.classList.add('btn-danger'); // 确认按钮用红色
+                cancelBtn.textContent = '取消';
 
-        if (result.success) {
-            showToast(`成功导出 ${walletsToExport.length} 个钱包到 ${result.filePath}`, 'success', 5000);
-            // 再次强调安全风险
-            showToast(`**重要提示：** 导出的 JSON 文件包含钱包的明文私钥和助记词！请务必妥善保管此文件！`, 'warning', 10000);
-        } else if (result.canceled) {
-            showToast('导出已取消', 'info');
+                // 处理确认按钮点击
+                const handleConfirmExport = async () => {
+                    confirmBtn.removeEventListener('click', handleConfirmExport);
+                    cancelBtn.removeEventListener('click', hideModal); // 移除取消监听
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 导出中...';
+                    hideModal(); // 可以先关掉确认框
+                    showToast('正在执行导出操作...', 'info');
+
+                    try {
+                        // 第二步：调用后端执行实际的导出操作
+                        const exportResult = await window.electron.ipcRenderer.invoke('app:performPlaintextExport', selectedIds);
+                        if (exportResult.success) {
+                            showToast(`成功导出 ${selectedIds.length} 个钱包到 ${exportResult.filePath}`, 'success', 5000);
+                        } else if (exportResult.canceled) {
+                            showToast('导出已取消', 'info');
+                        } else {
+                            console.error("导出钱包失败 (来自主进程 - perform):", exportResult.error);
+                            showToast(`导出钱包失败: ${exportResult.error || '未知错误'}`, 'error');
+                        }
+                    } catch (performError) {
+                        console.error("调用执行导出功能时出错:", performError);
+                        showToast(`导出钱包时发生错误: ${performError.message}`, 'error');
+                    } finally {
+                         if (exportBtn) exportBtn.disabled = false; // 无论成功失败都启用按钮
+                    }
+                };
+                confirmBtn.addEventListener('click', handleConfirmExport);
+
+                // 取消按钮只需关闭模态框
+                cancelBtn.addEventListener('click', () => { if (exportBtn) exportBtn.disabled = false; hideModal(); });
+            });
         } else {
-            console.error("导出钱包失败:", result.error);
-            showToast(`导出钱包失败: ${result.error || '未知错误'}`, 'error');
+            // 如果 checkResult 返回的不是 needsConfirmation，说明可能有错误
+            // 或者主进程逻辑有变，这里直接抛出错误或显示提示
+            console.error('请求导出确认失败，未收到预期响应:', checkResult);
+            throw new Error(checkResult?.error || '请求导出确认时发生未知错误');
         }
 
     } catch (error) {
-        console.error("IPC: 导出钱包时发生意外错误:", error);
-        showToast(`导出钱包时发生错误: ${error.message}`, 'error');
+        // 处理第一步 invoke 抛出的错误 (例如应用锁定)
+        console.error("请求导出确认时出错:", error);
+        showToast(`导出准备失败: ${error.message}`, 'error');
+        if (exportBtn) exportBtn.disabled = false;
     }
+    // 注意：finally 块移到了确认回调内部，因为按钮需要在异步操作完成后才启用
 }
 
 /**
