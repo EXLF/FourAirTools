@@ -197,13 +197,22 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         console.log('Webview DOM ready for ' + url);
         
         // --- 尝试注入 CSS ---
+        // 更新注入的 CSS，尝试强制内容宽度并移除限制
         const cssToInject = `
-            body { 
-                min-width: 900px !important; /* 尝试强制一个最小宽度 */
-                zoom: 1.1; /* 尝试稍微放大 */
+            body {
+                width: 100% !important;
+                min-width: initial !important; /* 覆盖之前的注入 */
+                box-sizing: border-box !important;
             }
-            /* 你可以根据需要添加更多针对 Notion 特定元素的规则 */
-            /* 例如: .notion-frame { width: 100% !important; } (需要检查实际类名) */
+            /* 尝试针对 Notion 的常用容器类名 */
+            .notion-frame, .notion-page-content {
+                max-width: none !important; /* 移除最大宽度限制 */
+                width: 100% !important;
+                padding-left: 10px !important; /* 减少可能的内边距 */
+                padding-right: 10px !important;
+                box-sizing: border-box !important;
+            }
+            /* 可能还有其他内部元素需要调整 */
         `;
         webview.insertCSS(cssToInject).then(() => {
             console.log('Injected custom CSS into webview.');

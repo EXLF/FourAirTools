@@ -141,7 +141,8 @@
     background-color: #fff;
 }
 
-#test-webview {
+/* 修改选择器，应用到容器内的所有 webview */
+.webview-content-area > webview {
     position: absolute;
     top: 0;
     left: 0;
