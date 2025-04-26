@@ -23,37 +23,24 @@
     <section class="tutorial-content">
         <!-- Container for the list -->
         <div id="tutorial-list-container">
-            <div class="tutorial-item">
-                <div class="item-icon"><i class="fa fa-video-camera"></i></div>
-                <div class="item-details">
-                    <h4>【视频】如何创建和备份你的第一个Web3钱包？</h4>
-                    <p>适合纯新手，一步步教你安装MetaMask钱包并安全备份助记词。</p>
-                    <div class="item-meta"><span>分类: 新手入门</span> | <span>时长: 5分钟</span> | <span>难度: ★☆☆☆☆</span></div>
-                </div>
-                 <a href="#" class="btn btn-primary btn-small">开始学习</a>
-            </div>
-             <div class="tutorial-item">
-                <div class="item-icon"><i class="fa fa-file-text-o"></i></div>
-                <div class="item-details">
-                    <h4>【文章】撸毛防女巫：降低钱包关联性的10个技巧</h4>
-                    <p>深入讲解Sybil攻击原理，并提供实用的操作建议，避免交互钱包被关联。</p>
-                     <div class="item-meta"><span>分类: 安全防范</span> | <span>阅读时长: 10分钟</span> | <span>难度: ★★★☆☆</span></div>
-                </div>
-                <a href="#" class="btn btn-primary btn-small">阅读文章</a>
-            </div>
-             <div class="tutorial-item">
-                <div class="item-icon"><i class="fa fa-file-text-o"></i></div>
-                <div class="item-details">
-                    <h4>【图文】LayerZero交互全攻略 (2024版)</h4>
-                    <p>覆盖Stargate、Aptos Bridge等核心应用，提供最新的交互路径和Gas优化建议。</p>
-                     <div class="item-meta"><span>分类: LayerZero</span> | <span>阅读时长: 15分钟</span> | <span>难度: ★★★☆☆</span></div>
-                </div>
-                <a href="#" class="btn btn-primary btn-small">查看攻略</a>
-            </div>
+            <!-- Tutorial items will be loaded here by JS -->
+            <div class="loading-placeholder" style="text-align: center; padding: 20px;">教程列表加载中...</div>
         </div>
-        <!-- Container for the article view (initially hidden) -->
-        <div id="article-view-container" style="display: none;">
-            <!-- Article content will be loaded here by JS -->
+        
+        <!-- WebView Container (Initially Hidden) -->
+        <div id="webview-container" class="webview-container" style="display: none;">
+            <div class="webview-header">
+                 <button id="close-webview-btn" class="btn btn-sm btn-secondary"><i class="fas fa-times"></i> 关闭</button>
+                 <span id="webview-title" class="webview-title-text">加载中...</span>
+                 <div class="webview-controls">
+                     <button id="refresh-webview-btn" class="btn btn-sm btn-icon" title="刷新"><i class="fas fa-sync-alt"></i></button>
+                     <!-- Future: Add back/forward? -->
+                 </div>
+            </div>
+            <div id="webview-content" class="webview-content-area">
+                <!-- 直接添加一个 webview 标签用于测试, 移除内联 style -->
+                <webview id="test-webview" src=""></webview>
+            </div>
         </div>
     </section>
 </div> 

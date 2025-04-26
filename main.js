@@ -20,7 +20,8 @@ function createWindow() {
     webPreferences: {
       // 安全配置: 启用上下文隔离并指定 Preload 脚本
       contextIsolation: true,
-      preload: path.join(__dirname, 'src', 'preload.js')
+      preload: path.join(__dirname, 'src', 'preload.js'),
+      webviewTag: true // 启用 webview 标签支持
     }
   });
 

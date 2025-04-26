@@ -98,4 +98,64 @@
 }
 .tutorial-item .item-meta span {
     margin-right: 10px;
+}
+
+/* ============ WebView Styles ============ */
+.webview-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 150px);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #f8f9fa;
+}
+
+.webview-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.webview-header .webview-title-text {
+    flex-grow: 1;
+    margin: 0 15px;
+    font-weight: 500;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.webview-header .webview-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.webview-content-area {
+    flex-grow: 1;
+    position: relative;
+    background-color: #fff;
+}
+
+#test-webview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.loading-placeholder {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.btn-disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
 } 

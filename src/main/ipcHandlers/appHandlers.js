@@ -1,5 +1,5 @@
-const { ipcMain, dialog, BrowserWindow } = require('electron');
-const fs = require('fs').promises;
+const { ipcMain, dialog, BrowserWindow, app } = require('electron');
+const fs = require('fs'); // <-- 使用同步版本即可，或保持异步看场景
 const path = require('path');
 const db = require('../../js/db/index.js'); // Still need db for saving
 const { ethers } = require('ethers'); // 导入 ethers
@@ -314,6 +314,40 @@ function setupApplicationIpcHandlers(mainWindow) {
             }
             // TODO: Handle rate limits specifically if possible
             return { balance: null, error: errorMsg };
+        }
+    });
+
+    // --- 新增：处理加载教程数据请求 ---
+    ipcMain.handle('app:loadTutorials', async () => {
+        console.log('[IPC] Received: app:loadTutorials');
+        let filePath;
+        // 区分开发环境和生产环境的路径
+        if (app.isPackaged) {
+            // 生产环境：假设 data 文件夹在 resources/app/ 目录下
+            filePath = path.join(process.resourcesPath, 'app', 'src', 'data', 'tutorials.json');
+        } else {
+            // 开发环境：相对于项目根目录
+            filePath = path.join(app.getAppPath(), 'src', 'data', 'tutorials.json');
+        }
+
+        console.log(`[IPC] Attempting to load tutorials from: ${filePath}`);
+
+        try {
+            // 使用同步读取，因为这是在 IPC handler 中，阻塞一下通常没问题，且简化逻辑
+            if (fs.existsSync(filePath)) {
+                const data = fs.readFileSync(filePath, 'utf-8');
+                const jsonData = JSON.parse(data);
+                console.log('[IPC] Tutorials loaded successfully.');
+                return jsonData;
+            } else {
+                console.error(`[IPC] Tutorials file not found at: ${filePath}`);
+                throw new Error(`教程文件未找到: ${filePath}`);
+            }
+        } catch (error) {
+            console.error('[IPC] Error loading or parsing tutorials.json:', error);
+            // 将错误信息传递给渲染进程，或者只返回 null/空数组
+            // throw new Error(`加载教程数据失败: ${error.message}`);
+            return null; // 更倾向于返回 null，让渲染进程处理显示
         }
     });
 

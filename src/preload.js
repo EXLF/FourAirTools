@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld('dbAPI', {
     encryptData: (plainText) => ipcRenderer.invoke('app:encryptData', plainText),
 }); 
 
+// --- 修改：教程加载 API 调用主进程 --- 
+contextBridge.exposeInMainWorld('tutorialAPI', {
+  loadTutorials: () => ipcRenderer.invoke('app:loadTutorials')
+});
+
 // 白名单通道：明确列出允许渲染进程使用的 IPC 通道
 const validSendChannels = [
     'auth:setupPassword', 
@@ -81,7 +86,8 @@ const validInvokeChannels = [
     'app:encryptData', 
     'app:decryptData',
     'app:lock',
-    'wallet:getBalance'
+    'wallet:getBalance',
+    'app:loadTutorials'
 ];
 
 contextBridge.exposeInMainWorld('electron', {
