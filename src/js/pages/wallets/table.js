@@ -308,7 +308,7 @@ function createWalletRowElement(wallet, index, offset) {
         }
 
         // --- 缓存无效或不存在 --- 
-        elementToUpdate.textContent = '加载中...';
+        elementToUpdate.textContent = '查询中...';
         elementToUpdate.className = 'balance-loading text-muted';
         
         try {
