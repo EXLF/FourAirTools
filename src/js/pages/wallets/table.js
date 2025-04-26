@@ -2,6 +2,8 @@ import { truncateAddress } from '../../utils/index.js';
 import { debounce } from '../../utils/index.js';
 import { showToast } from '../../components/toast.js';
 import { setupCheckAll } from '../../components/tableHelper.js';
+// *** 修改：导入模态框函数 ***
+import { showLinkSocialsModal } from './modals.js';
 
 // 存储当前筛选和分页状态
 let currentFilters = {};
@@ -21,6 +23,23 @@ let searchInput;
 let paginationContainer;
 let pageSizeContainer;
 let contentAreaCache; // 缓存 contentArea, 确保 setupCheckAll 能用
+
+// *** 新增：平台到 Font Awesome 图标的映射 ***
+const platformIconMap = {
+    'twitter': 'fab fa-twitter text-info',
+    'discord': 'fab fa-discord text-primary',
+    'email': 'fas fa-envelope text-secondary',
+    'telegram': 'fab fa-telegram-plane text-info',
+    'google': 'fab fa-google text-danger',
+    // 可以根据需要添加更多平台
+    'default': 'fas fa-user-circle text-muted' // 默认图标
+};
+
+// *** 修改：添加 export ***
+export function getPlatformIconClass(platform) {
+    const lowerPlatform = platform?.toLowerCase() || '';
+    return platformIconMap[lowerPlatform] || platformIconMap['default'];
+}
 
 /**
  * 初始化表格模块所需的 DOM 元素引用。
@@ -259,7 +278,8 @@ function createWalletRowElement(wallet, index, offset) {
         mnemonicDisplay = `<code class="encrypted-data" title="助记词已加密存储">${shortMnemonic}</code>`;
     }
 
-    // 先设置不包含余额列的 innerHTML
+    // 先设置不包含余额和关联账户列的 innerHTML
+    // 注意列数减少了 2
     tr.innerHTML = `
         <td><input type="checkbox"></td>
         <td>${sequenceNumber}</td>
@@ -269,6 +289,7 @@ function createWalletRowElement(wallet, index, offset) {
         <td>${privateKeyDisplay}</td>
         <td>${mnemonicDisplay}</td>
         <!-- 余额占位 -->
+        <!-- 关联账户占位 -->
         <td>${wallet.notes || ''}</td>
         <td class="group-cell">${wallet.groupName || ''}</td>
         <td class="actions-cell">
@@ -278,20 +299,41 @@ function createWalletRowElement(wallet, index, offset) {
         </td>
     `;
 
-    // *** 修改：单独创建余额单元格和内容元素 ***
+    // --- 单独创建和插入余额单元格 --- 
     const balanceTd = document.createElement('td');
     const balanceElement = document.createElement('span');
     balanceElement.id = `balance-${wallet.id}`;
     balanceElement.className = 'balance-loading text-muted';
     balanceElement.textContent = '加载中...';
     balanceTd.appendChild(balanceElement);
+    // 插入到助记词后面 (索引 5)
+    tr.insertBefore(balanceTd, tr.cells[4].nextSibling);
 
-    // 将余额单元格插入到正确的位置 (助记词后面，备注前面)
-    // 注意：列的索引从 0 开始，插入到索引 5 的位置 (第 6 列)
-    const mnemonicTd = tr.cells[4]; // 获取助记词单元格 (索引4)
-    tr.insertBefore(balanceTd, mnemonicTd.nextSibling); // 插入到助记词后面
+    // --- 单独创建和插入关联账户单元格 --- 
+    const linkedSocialsTd = document.createElement('td');
+    linkedSocialsTd.className = 'linked-socials-cell';
+    linkedSocialsTd.style.cursor = 'pointer';
+    linkedSocialsTd.dataset.walletId = wallet.id;
+    linkedSocialsTd.dataset.walletAddress = wallet.address;
 
-    // --- 异步获取/更新余额 (现在直接操作 balanceElement) --- 
+    const linkedSocialsContainer = document.createElement('span');
+    linkedSocialsContainer.id = `linked-socials-${wallet.id}`;
+    linkedSocialsContainer.className = 'linked-socials-icons text-muted';
+    linkedSocialsContainer.textContent = '加载中...';
+    linkedSocialsTd.appendChild(linkedSocialsContainer);
+
+    tr.insertBefore(linkedSocialsTd, tr.cells[5].nextSibling);
+
+    // --- 修改：添加点击事件监听器，调用模态框函数 --- 
+    linkedSocialsTd.addEventListener('click', (event) => {
+        const targetCell = event.currentTarget;
+        const walletId = targetCell.dataset.walletId;
+        const walletAddress = targetCell.dataset.walletAddress;
+        // 调用 modals.js 中的函数来显示模态框
+        showLinkSocialsModal(walletId, walletAddress);
+    });
+
+    // --- 异步获取/更新余额 (保持不变) --- 
     (async (elementToUpdate) => {
         const address = wallet.address;
         const now = Date.now();
@@ -337,6 +379,56 @@ function createWalletRowElement(wallet, index, offset) {
             elementToUpdate.title = error.message;
         }
     })(balanceElement);
+
+    // --- 新增：异步获取/更新关联账户图标 --- 
+    (async (containerElement) => {
+        const walletId = wallet.id;
+        try {
+            const linkedSocials = await window.dbAPI.getLinkedSocialsForWallet(walletId);
+            
+            containerElement.innerHTML = ''; // 清空加载提示
+            containerElement.classList.remove('text-muted'); 
+
+            if (linkedSocials && linkedSocials.length > 0) {
+                // *** 新增：统计平台数量 ***
+                const platformCounts = linkedSocials.reduce((counts, social) => {
+                    const platform = social.platform || 'Other';
+                    counts[platform] = (counts[platform] || 0) + 1;
+                    return counts;
+                }, {});
+
+                // *** 修改：根据平台数量渲染图标和徽章 ***
+                Object.entries(platformCounts).sort().forEach(([platform, count]) => {
+                    // 图标容器，方便间距控制
+                    const platformGroup = document.createElement('span');
+                    platformGroup.style.marginRight = '8px'; // 组间距
+                    platformGroup.style.whiteSpace = 'nowrap'; // 防止图标和数字换行
+
+                    const icon = document.createElement('i');
+                    icon.className = getPlatformIconClass(platform); 
+                    icon.style.marginRight = '3px'; // 图标和数字间距
+                    icon.title = platform; // 鼠标悬停提示平台名称
+                    
+                    const countBadge = document.createElement('span');
+                    countBadge.className = 'platform-count-badge'; // 添加 CSS 类
+                    countBadge.textContent = count;
+                    
+                    platformGroup.appendChild(icon);
+                    platformGroup.appendChild(countBadge);
+                    containerElement.appendChild(platformGroup);
+                });
+                 containerElement.classList.remove('text-muted');
+            } else {
+                containerElement.textContent = '-';
+                containerElement.classList.add('text-muted'); 
+            }
+        } catch (error) {
+            console.error(`[Table] Error fetching linked socials for wallet ${walletId}:`, error);
+            containerElement.textContent = '错误';
+            containerElement.className = 'linked-socials-icons text-danger'; // 显示错误状态
+            containerElement.title = error.message;
+        }
+    })(linkedSocialsContainer); // 立即执行
 
     return tr;
 }

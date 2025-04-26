@@ -59,4 +59,30 @@
 
 .social-table th, .social-table td {
     vertical-align: middle;
-} 
+}
+
+/* --- 新增：关联账户平台数量徽章样式 --- */
+.platform-count-badge {
+    display: inline-block;
+    background-color: #e9ecef; /* Light grey background */
+    color: #495057; /* Darker text */
+    font-size: 0.75em; /* Smaller font size */
+    font-weight: 600;
+    padding: 2px 5px; /* Small padding */
+    border-radius: 4px; /* Rounded corners */
+    line-height: 1; /* Ensure consistent height */
+    vertical-align: middle; /* Align vertically with icon */
+    margin-left: 2px; /* Small space after icon */
+}
+
+/* 可选：为特定平台徽章添加不同颜色？ */
+/* Example:
+.fa-twitter + .platform-count-badge {
+    background-color: #e7f5ff;
+    color: #1d9bf0;
+}
+.fa-discord + .platform-count-badge {
+    background-color: #ede7ff;
+    color: #5865f2;
+}
+*/ 

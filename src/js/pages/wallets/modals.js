@@ -1,7 +1,9 @@
 import { showModal, hideModal } from '../../components/modal.js';
 import { showToast } from '../../components/toast.js';
 // 导入 table 模块中的函数，用于刷新
-import { loadAndRenderWallets, loadGroupFilters } from './table.js'; 
+import { loadAndRenderWallets, loadGroupFilters, getPlatformIconClass } from './table.js'; 
+import { truncateAddress } from '../../utils/index.js';
+import { debounce } from '../../utils/index.js'; // *** 新增：导入 debounce ***
 
 // --- 新增：缓存用于新增钱包模态框的状态 ---
 let deriveAddressTimeout = null;
@@ -795,4 +797,463 @@ function setupCopyButtons(containerElement) {
             }
         });
     });
+}
+
+const ALL_SOCIALS_ROWS_PER_PAGE = 8; // *** 新增：设置每页显示数量 ***
+const LINKED_SOCIALS_ROWS_PER_PAGE = 8; // *** 可以设置不同的分页大小 ***
+
+/**
+ * 显示用于管理钱包关联社交账户的模态框 (带标签页、搜索和分页)
+ */
+export async function showLinkSocialsModal(walletId, walletAddress) {
+    const template = document.getElementById('tpl-link-socials-modal');
+    if (!template) {
+        showToast('无法找到关联社交账户模态框模板', 'error');
+        return;
+    }
+
+    const modalClone = template.content.cloneNode(true);
+    const modalOverlay = modalClone.querySelector('.modal-overlay');
+    const modalBox = modalClone.querySelector('.modal-box');
+    const closeButton = modalClone.querySelector('.modal-close-btn');
+    const cancelButton = modalClone.querySelector('.modal-cancel-btn');
+    const saveButton = modalClone.querySelector('.modal-save-btn');
+    const addressPlaceholder = modalClone.querySelector('.wallet-address-placeholder');
+    const searchInput = modalClone.querySelector('.search-social-input');
+    const tabsContainer = modalClone.querySelector('.tabs-container');
+    const tabContentContainer = modalClone.querySelector('.tab-content-container');
+    const initialLoadingMessage = tabContentContainer.querySelector('#pane-all .loading-socials-message'); // 定位到 all pane 内的加载消息
+    const allPanePaginationContainer = tabContentContainer.querySelector('#pane-all .all-pane-pagination'); // 获取分页容器
+    
+    addressPlaceholder.textContent = truncateAddress(walletAddress);
+
+    const closeModal = () => modalOverlay.remove();
+    closeButton.addEventListener('click', closeModal);
+    cancelButton.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+
+    document.body.appendChild(modalClone);
+    requestAnimationFrame(() => {
+        modalOverlay.classList.add('visible');
+        modalBox.classList.add('visible');
+    });
+
+    let allSocialsData = []; // *** 存储从 API 获取的完整列表 ***
+    let filteredAllSocialsData = []; // *** 存储搜索过滤后的列表 ***
+    let allSocialsCurrentPage = 1;
+    
+    let filteredLinkedSocialsData = []; // *** 新增：已关联过滤后数据 ***
+    let linkedSocialsCurrentPage = 1; // *** 新增：已关联当前页码 ***
+    let selectedSocialIdsSet = new Set(); // *** 新增：用于存储选中的 ID ***
+
+    // --- 渲染函数：创建单个社交账户列表项 ---
+    function createSocialItemElement(social) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'social-link-item';
+        itemDiv.style.cssText = 'display: flex; align-items: center; padding: 8px 5px; border-bottom: 1px solid #eee;';
+        itemDiv.dataset.searchableContent = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `social-link-${social.id}`;
+        checkbox.value = social.id;
+        checkbox.checked = social.isLinked; // 初始状态基于数据库
+        checkbox.style.marginRight = '10px';
+        checkbox.style.flexShrink = '0';
+
+        // *** 新增：监听 Checkbox 变化，更新 Set ***
+        checkbox.addEventListener('change', (event) => {
+            const socialId = parseInt(event.target.value);
+            if (event.target.checked) {
+                selectedSocialIdsSet.add(socialId);
+            } else {
+                selectedSocialIdsSet.delete(socialId);
+            }
+            // console.log('Updated selection set:', selectedSocialIdsSet); // Optional debug log
+        });
+
+        const icon = document.createElement('i');
+        icon.className = getPlatformIconClass(social.platform);
+        icon.style.marginRight = '8px';
+        icon.style.width = '16px';
+        icon.style.flexShrink = '0';
+
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.style.cursor = 'pointer';
+        label.style.display = 'flex';
+        label.style.flexDirection = 'column'; // Stack username and binding/notes
+        label.style.flexGrow = '1';
+        label.style.overflow = 'hidden'; // Prevent long text overflow
+
+        const usernameSpan = document.createElement('span');
+        usernameSpan.textContent = `${social.platform}: ${social.username}`;
+        usernameSpan.style.fontWeight = '500';
+        usernameSpan.style.whiteSpace = 'nowrap';
+        usernameSpan.style.overflow = 'hidden';
+        usernameSpan.style.textOverflow = 'ellipsis';
+
+        const detailsSpan = document.createElement('span');
+        const detailsText = social.binding || social.notes || '';
+        detailsSpan.textContent = detailsText;
+        detailsSpan.style.fontSize = '0.85em';
+        detailsSpan.style.color = '#666';
+        detailsSpan.style.whiteSpace = 'nowrap';
+        detailsSpan.style.overflow = 'hidden';
+        detailsSpan.style.textOverflow = 'ellipsis';
+        if (detailsText) label.title = detailsText; // Add title for full text
+
+        label.appendChild(usernameSpan);
+        if (detailsText) label.appendChild(detailsSpan);
+        
+        itemDiv.appendChild(checkbox);
+        itemDiv.appendChild(icon);
+        itemDiv.appendChild(label);
+        return itemDiv;
+    }
+
+    // --- *** 修改：渲染"所有"标签页的分页控件 *** ---
+    function renderAllPaginationControls(totalItems, currentPage) {
+        if (!allPanePaginationContainer) return;
+        allPanePaginationContainer.innerHTML = ''; // 清空旧控件
+        const totalPages = Math.ceil(totalItems / ALL_SOCIALS_ROWS_PER_PAGE);
+
+        if (totalPages <= 1) return; // 只有一页或没有数据则不显示
+
+        const prevButton = document.createElement('button');
+        prevButton.innerHTML = '&laquo; 上一页';
+        prevButton.disabled = currentPage === 1;
+        prevButton.addEventListener('click', () => {
+            if (allSocialsCurrentPage > 1) {
+                allSocialsCurrentPage--;
+                renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage); // 使用过滤后的数据渲染
+            }
+        });
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'page-info';
+        pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
+
+        const nextButton = document.createElement('button');
+        nextButton.innerHTML = '下一页 &raquo;';
+        nextButton.disabled = currentPage === totalPages;
+        nextButton.addEventListener('click', () => {
+            if (allSocialsCurrentPage < totalPages) {
+                allSocialsCurrentPage++;
+                renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage); // 使用过滤后的数据渲染
+            }
+        });
+
+        allPanePaginationContainer.appendChild(prevButton);
+        allPanePaginationContainer.appendChild(pageInfo);
+        allPanePaginationContainer.appendChild(nextButton);
+    }
+    
+    // --- *** 新增：渲染"所有"标签页指定页码的内容 *** ---
+    function renderAllSocialsPaneContent(socialsToRender, page) {
+        const allPane = tabContentContainer.querySelector('#pane-all');
+        if (!allPane) return;
+        
+        // 清空现有列表项 (保留分页容器)
+        allPane.querySelectorAll('.social-link-item, .no-search-result').forEach(el => el.remove());
+
+        const startIndex = (page - 1) * ALL_SOCIALS_ROWS_PER_PAGE;
+        const endIndex = startIndex + ALL_SOCIALS_ROWS_PER_PAGE;
+        const pageItems = socialsToRender.slice(startIndex, endIndex);
+
+        if (pageItems.length === 0 && socialsToRender.length > 0) {
+             // 当前页无项目，但总列表有项目（可能发生在删除或过滤后）
+             // 可以在这里显示"此页无项目"或尝试跳回第一页
+             console.warn("Rendered page has no items, but total list is not empty.");
+        }
+
+        pageItems.forEach(social => {
+            allPane.insertBefore(createSocialItemElement(social), allPanePaginationContainer); // 插入到分页控件之前
+        });
+        
+        // 渲染分页控件
+        renderAllPaginationControls(socialsToRender.length, page);
+        
+        // 检查是否需要显示"无匹配结果"（在搜索后）
+        let noResultMessage = allPane.querySelector('.no-search-result');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        if (socialsToRender.length === 0 && searchTerm) {
+            if (!noResultMessage) {
+                noResultMessage = document.createElement('p');
+                noResultMessage.className = 'text-muted text-center no-search-result';
+                noResultMessage.textContent = '没有匹配的账户。';
+                allPane.insertBefore(noResultMessage, allPanePaginationContainer);
+            }
+             noResultMessage.style.display = 'block';
+         } else if (noResultMessage) {
+             noResultMessage.style.display = 'none';
+         }
+    }
+
+    // --- *** 新增：渲染"已关联"标签页的分页控件 *** ---
+    function renderLinkedPaginationControls(totalItems, currentPage) {
+        const linkedPaginationContainer = tabContentContainer.querySelector('#pane-linked .linked-pane-pagination');
+        if (!linkedPaginationContainer) return;
+        linkedPaginationContainer.innerHTML = ''; // 清空旧控件
+        const totalPages = Math.ceil(totalItems / LINKED_SOCIALS_ROWS_PER_PAGE);
+
+        if (totalPages <= 1) return; 
+
+        const prevButton = document.createElement('button');
+        prevButton.innerHTML = '&laquo; 上一页';
+        prevButton.disabled = currentPage === 1;
+        prevButton.addEventListener('click', () => {
+            if (linkedSocialsCurrentPage > 1) {
+                linkedSocialsCurrentPage--;
+                renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
+            }
+        });
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'page-info';
+        pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
+
+        const nextButton = document.createElement('button');
+        nextButton.innerHTML = '下一页 &raquo;';
+        nextButton.disabled = currentPage === totalPages;
+        nextButton.addEventListener('click', () => {
+            if (linkedSocialsCurrentPage < totalPages) {
+                linkedSocialsCurrentPage++;
+                renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
+            }
+        });
+
+        linkedPaginationContainer.appendChild(prevButton);
+        linkedPaginationContainer.appendChild(pageInfo);
+        linkedPaginationContainer.appendChild(nextButton);
+    }
+
+    // --- *** 新增：渲染"已关联"标签页指定页码的内容 *** ---
+    function renderLinkedSocialsPaneContent(socialsToRender, page) {
+        const linkedPane = tabContentContainer.querySelector('#pane-linked');
+        if (!linkedPane) return;
+        
+        linkedPane.querySelectorAll('.social-link-item, .no-search-result').forEach(el => el.remove());
+        const paginationContainer = linkedPane.querySelector('.linked-pane-pagination'); // 获取分页容器
+
+        const startIndex = (page - 1) * LINKED_SOCIALS_ROWS_PER_PAGE;
+        const endIndex = startIndex + LINKED_SOCIALS_ROWS_PER_PAGE;
+        const pageItems = socialsToRender.slice(startIndex, endIndex);
+
+        if (pageItems.length === 0) {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'text-muted text-center no-search-result';
+            emptyMessage.textContent = searchTerm ? '没有匹配的账户。' : '当前没有已关联的账户。';
+             if (paginationContainer) linkedPane.insertBefore(emptyMessage, paginationContainer);
+             else linkedPane.appendChild(emptyMessage);
+        }
+
+        pageItems.forEach(social => {
+             if (paginationContainer) linkedPane.insertBefore(createSocialItemElement(social), paginationContainer);
+             else linkedPane.appendChild(createSocialItemElement(social));
+        });
+
+        renderLinkedPaginationControls(socialsToRender.length, page);
+        if (paginationContainer) paginationContainer.style.display = socialsToRender.length > LINKED_SOCIALS_ROWS_PER_PAGE ? 'flex' : 'none';
+    }
+
+    // --- *** 修改：渲染指定列表到指定面板 (通用) *** ---
+    function renderPaneContent(paneElement, socialsList, options = {}) {
+        const { isPaginated = false, currentPage = 1, totalItems = socialsList.length } = options;
+        
+        paneElement.querySelectorAll('.social-link-item, .no-search-result').forEach(el => el.remove());
+        
+        const itemsToDisplay = isPaginated 
+            ? socialsList.slice((currentPage - 1) * ALL_SOCIALS_ROWS_PER_PAGE, currentPage * ALL_SOCIALS_ROWS_PER_PAGE)
+            : socialsList;
+
+        const paginationContainer = paneElement.querySelector('.all-pane-pagination'); // Only relevant for #pane-all
+
+        if (itemsToDisplay.length === 0) {
+            // If filtered list is empty, show appropriate message
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'text-muted text-center no-search-result';
+            emptyMessage.textContent = searchTerm ? '没有匹配的账户。' : (paneElement.id === 'pane-linked' ? '当前没有已关联的账户。' : '此分类下无账户。');
+            // Insert before pagination if it exists, otherwise just append
+            if (paginationContainer) paneElement.insertBefore(emptyMessage, paginationContainer);
+            else paneElement.appendChild(emptyMessage);
+        }
+        
+        itemsToDisplay.forEach(social => {
+            // Insert before pagination if it exists, otherwise just append
+            if (paginationContainer) paneElement.insertBefore(createSocialItemElement(social), paginationContainer);
+            else paneElement.appendChild(createSocialItemElement(social));
+        });
+
+        // Handle pagination for the 'all' pane
+        if (paneElement.id === 'pane-all') {
+            if (isPaginated) {
+                renderAllPaginationControls(totalItems, currentPage);
+                paginationContainer.style.display = ''; // Show pagination
+            } else if (paginationContainer) {
+                paginationContainer.style.display = 'none'; // Hide pagination if not paginated
+            }
+        } 
+    }
+
+    // --- *** 修改：搜索过滤函数 *** ---
+    const filterSocials = debounce(() => {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const activeTabButton = tabsContainer.querySelector('.tab-link.active');
+        const activeTab = activeTabButton ? activeTabButton.dataset.tab : 'all';
+
+        if (activeTab === 'all') {
+            filteredAllSocialsData = allSocialsData.filter(social => {
+                const content = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+                return !searchTerm || content.includes(searchTerm);
+            });
+            allSocialsCurrentPage = 1; 
+            renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage);
+        } else if (activeTab === 'linked') {
+            // *** 修改：过滤"已关联"并渲染分页 ***
+            filteredLinkedSocialsData = allSocialsData.filter(social => 
+                selectedSocialIdsSet.has(social.id) && 
+                (!searchTerm || `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
+            );
+            linkedSocialsCurrentPage = 1; // 重置页码
+            renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
+        } else {
+            // 过滤当前激活的其他平台标签页
+            const activePane = tabContentContainer.querySelector(`.tab-pane.active`);
+            if (!activePane) return;
+            const items = activePane.querySelectorAll('.social-link-item');
+            items.forEach(item => {
+                const content = item.dataset.searchableContent || '';
+                item.style.display = !searchTerm || content.includes(searchTerm) ? 'flex' : 'none';
+            });
+            // Handle no results message specifically for platform tabs after filtering
+            const visibleItems = Array.from(items).filter(item => item.style.display !== 'none');
+            let noResultMessage = activePane.querySelector('.no-search-result');
+            if (visibleItems.length === 0 && searchTerm) {
+                 if (!noResultMessage) {
+                     noResultMessage = document.createElement('p');
+                     noResultMessage.className = 'text-muted text-center no-search-result';
+                     noResultMessage.textContent = '没有匹配的账户。';
+                     activePane.appendChild(noResultMessage);
+                 }
+                 noResultMessage.style.display = 'block';
+            } else if (noResultMessage) {
+                noResultMessage.style.display = 'none';
+            }
+        }
+    }, 250);
+    searchInput.addEventListener('input', filterSocials);
+
+    // --- *** 修改：加载和渲染逻辑 *** ---
+    try {
+        allSocialsData = await window.dbAPI.getAllSocialsWithLinkStatus(walletId);
+        selectedSocialIdsSet = new Set(allSocialsData.filter(s => s.isLinked).map(s => s.id));
+        if(initialLoadingMessage) initialLoadingMessage.remove();
+
+        if (!allSocialsData || allSocialsData.length === 0) {
+             tabContentContainer.innerHTML = '<p class="text-muted text-center">没有找到可用的社交账户。</p>';
+             saveButton.disabled = true;
+             searchInput.disabled = true;
+             return;
+        }
+
+        const groupedSocials = allSocialsData.reduce((acc, social) => {
+            const platform = social.platform || 'Other';
+            if (!acc[platform]) acc[platform] = [];
+            acc[platform].push(social);
+            return acc;
+        }, {});
+
+        const allPane = tabContentContainer.querySelector('#pane-all');
+        const linkedPane = document.createElement('div'); // *** 创建"已关联"面板 ***
+        linkedPane.className = 'tab-pane';
+        linkedPane.id = 'pane-linked';
+        // *** 新增：在创建面板时添加分页容器 ***
+        const linkedPaginationDiv = document.createElement('div');
+        linkedPaginationDiv.className = 'linked-pane-pagination all-pane-pagination'; // 复用现有样式
+        linkedPane.appendChild(linkedPaginationDiv);
+        tabContentContainer.appendChild(linkedPane);
+
+        // 初始渲染"所有"标签页
+        renderAllSocialsPaneContent(allSocialsData, 1);
+
+        // 渲染平台标签和对应面板 (无分页) 
+        Object.entries(groupedSocials).sort().forEach(([platform, socials]) => {
+            const tabButton = document.createElement('button');
+            tabsContainer.appendChild(tabButton);
+            const pane = document.createElement('div');
+            pane.className = 'tab-pane';
+            pane.id = `pane-${platform.toLowerCase()}`;
+            socials.forEach(s => pane.appendChild(createSocialItemElement(s))); // 直接渲染所有项
+            tabContentContainer.appendChild(pane);
+        });
+        
+        // *** 修改：标签切换逻辑 ***
+        tabsContainer.addEventListener('click', (e) => {
+            if (e.target.matches('.tab-link')) {
+                const targetTab = e.target.dataset.tab;
+                tabsContainer.querySelectorAll('.tab-link').forEach(tab => tab.classList.remove('active'));
+                tabContentContainer.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                
+                e.target.classList.add('active');
+                const targetPaneId = `pane-${targetTab}`;
+                const targetPane = tabContentContainer.querySelector(`#${targetPaneId}`);
+                if (targetPane) targetPane.classList.add('active');
+                
+                searchInput.value = ''; // 清空搜索
+
+                // 根据激活的标签页，调用合适的渲染/过滤逻辑
+                if (targetTab === 'all') {
+                    filteredAllSocialsData = [...allSocialsData]; 
+                    allSocialsCurrentPage = 1; 
+                    renderAllSocialsPaneContent(filteredAllSocialsData, allSocialsCurrentPage);
+                } else if (targetTab === 'linked') {
+                    // *** 修改：渲染"已关联"的第一页 ***
+                    filteredLinkedSocialsData = allSocialsData.filter(social => selectedSocialIdsSet.has(social.id));
+                    linkedSocialsCurrentPage = 1;
+                    renderLinkedSocialsPaneContent(filteredLinkedSocialsData, linkedSocialsCurrentPage);
+                } else {
+                    // 平台标签页，只需触发一次过滤（无搜索词 = 显示所有）
+                     filterSocials(); 
+                }
+            }
+        });
+
+        // 初始显示"所有"标签页 (不变)
+        tabsContainer.querySelector('[data-tab="all"]').classList.add('active');
+        tabContentContainer.querySelector('#pane-all').classList.add('active');
+
+        // *** 修改：保存按钮逻辑 ***
+        saveButton.disabled = false;
+        saveButton.addEventListener('click', async () => {
+            console.log('[Link Modal] Save button clicked.'); 
+            saveButton.disabled = true;
+            saveButton.textContent = '保存中...';
+
+            // *** 修改：从 Set 获取最终 ID ***
+            const finalSelectedIds = Array.from(selectedSocialIdsSet); 
+            console.log('[Link Modal] Final Selected Social IDs from Set:', finalSelectedIds); 
+
+            try {
+                console.log(`[Link Modal] Calling dbAPI.linkSocialsToWallet for wallet ${walletId}...`); 
+                await window.dbAPI.linkSocialsToWallet(walletId, finalSelectedIds); // 使用从 Set 获取的 ID
+                console.log('[Link Modal] dbAPI.linkSocialsToWallet call successful.'); 
+                showToast('关联关系已更新', 'success');
+                closeModal();
+                console.log('[Link Modal] Refreshing wallet table...'); 
+                await loadAndRenderWallets();
+                 console.log('[Link Modal] Wallet table refreshed.'); 
+            } catch (error) {
+                console.error('[Link Modal] Error linking socials to wallet:', error); 
+                showToast(`更新关联失败: ${error.message}`, 'error');
+                saveButton.disabled = false;
+                saveButton.textContent = '保存关联';
+            }
+        });
+
+    } catch (error) {
+        // ... (错误处理) ...
+    }
 } 

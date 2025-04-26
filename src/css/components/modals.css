@@ -26,9 +26,9 @@
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
     width: 90%;
     max-width: 600px; /* Default max width */
-    max-height: 90vh;
+    max-height: 85vh; /* Limit modal height */
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Allow content to scroll */
     position: relative;
     transform: scale(0.95);
     transition: transform 0.3s ease;
@@ -101,8 +101,8 @@
 
 .modal-content {
     padding: 25px;
-    overflow-y: auto;
-    flex-grow: 1;
+    overflow-y: auto; /* Make content area scrollable */
+    flex-grow: 1; /* Allow content to take available space */
 }
 
 .modal-actions {
@@ -410,4 +410,197 @@
 .modal-box .derived-address-display .address-text {
     word-break: break-all;
 }
-/* ====================================================================== */ 
+/* ====================================================================== */
+
+/* === Specific Styles for Link Socials Modal === */
+
+.link-socials-modal-box {
+    min-width: 450px; /* Give it a decent minimum width */
+    max-width: 600px;
+}
+
+.link-socials-modal-box .modal-subtitle code {
+    font-size: 0.9em;
+    background-color: #eee;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* --- Controls: Search + Tabs --- */
+.modal-controls {
+    display: flex;
+    align-items: center; 
+    gap: 15px; /* Re-confirm gap */
+    padding: 10px 15px; /* Revert padding */
+    border-bottom: 1px solid #dee2e6; 
+    background-color: #f8f9fa; 
+    flex-shrink: 0; 
+}
+
+.modal-controls .search-social-input {
+    flex-grow: 0;
+    flex-basis: 200px; /* Slightly narrower base width */
+    padding: 8px 12px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ced4da; /* Explicit border */
+    height: 34px; /* Adjust height slightly */
+    box-sizing: border-box;
+    flex-shrink: 0; /* Prevent search from shrinking too much */
+}
+
+.tabs-container {
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 5px; /* Gap between links inside */
+    flex-grow: 1; 
+    align-items: center; 
+    /* *** Restore background styling *** */
+    background-color: #e9ecef; 
+    border-radius: 6px; 
+    padding: 5px; /* Padding inside the container */
+}
+
+.tab-link {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 6px 10px; 
+    border-radius: 5px; /* Keep slightly rounded corners for active state */
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057; 
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    display: inline-flex; 
+    align-items: center;
+    line-height: 1.2;
+    white-space: nowrap; 
+}
+.tab-link i {
+    margin-right: 5px; 
+    font-size: 1em; 
+    color: #6c757d;
+    transition: color 0.2s ease;
+}
+
+.tab-link:hover {
+    background-color: rgba(255, 255, 255, 0.6); /* Lighter hover inside grey box */
+    color: #212529;
+}
+.tab-link:hover i {
+    color: #495057;
+}
+
+.tab-link.active {
+    background-color: #fff; /* White background for active tab */
+    color: #0d6efd; /* Active text color */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Subtle shadow for active tab */
+}
+.tab-link.active i {
+    color: #0d6efd !important; /* Active icon color */
+}
+
+/* --- Tab Content --- */
+.tab-content-container {
+    padding: 10px 20px 20px 20px; /* Add bottom padding */
+    min-height: 250px; 
+}
+
+.tab-pane {
+    display: none; /* Hide inactive panes by default */
+}
+
+.tab-pane.active {
+    display: block; /* Show active pane */
+}
+
+/* --- Social Item Styling --- */
+.social-link-item {
+    display: flex; 
+    align-items: center; /* Center vertically */
+    padding: 12px 5px; /* Increase vertical padding */
+    border-bottom: 1px solid #f1f3f5; 
+    gap: 15px; /* Wider gap */
+}
+.social-link-item:last-child {
+    border-bottom: none;
+}
+
+.social-link-item input[type="checkbox"] {
+   margin: 0;
+   flex-shrink: 0;
+   transform: scale(1.1); /* Slightly larger checkbox */
+}
+
+.social-link-item i {
+    margin: 0;
+    flex-shrink: 0;
+    width: 20px; /* Wider icon area */
+    text-align: center;
+    font-size: 1.1em; /* Slightly larger icon */
+}
+
+.social-link-item label {
+    display: flex; 
+    flex-direction: column; 
+    flex-grow: 1; 
+    overflow: hidden; 
+    cursor: pointer;
+    line-height: 1.4; /* Increase line height slightly */
+}
+
+.social-link-item label span:first-child { /* Username */
+    font-weight: 500; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    display: block; 
+    font-size: 14px; /* Base font size */
+}
+
+.social-link-item label span:last-child { /* Details */
+    font-size: 11px; /* Smaller details */
+    color: #6c757d; /* Slightly different grey */
+    margin-top: 1px; /* Minimal space */
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    display: block; 
+}
+
+.no-search-result {
+    padding: 20px;
+    text-align: center;
+}
+
+/* --- Pagination for 'All' Tab (Basic) --- */
+.all-pane-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px 0 5px 0; /* Spacing */
+    gap: 5px;
+    border-top: 1px solid #eee;
+    margin-top: 10px;
+}
+
+.all-pane-pagination button {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.all-pane-pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.all-pane-pagination .page-info {
+    font-size: 12px;
+    color: #666;
+    padding: 0 10px;
+} 

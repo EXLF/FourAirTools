@@ -130,6 +130,44 @@ function setupDatabaseIpcHandlers() {
         }
     });
 
+    // --- *** 新增：钱包-社交账户关联 Links *** ---
+
+    /**
+     * 获取指定钱包关联的所有社交账户信息
+     */
+    ipcMain.handle('db:getLinkedSocialsForWallet', async (event, walletId) => {
+        if (!walletId) {
+            throw new Error('查询关联社交账户需要提供 walletId。');
+        }
+        return db.getLinkedSocialsForWallet(db.db, walletId);
+    });
+
+    /**
+     * 更新指定钱包的社交账户关联
+     * @param {number} walletId - 钱包 ID
+     * @param {Array<number>} socialIds - 要关联的社交账户 ID 数组
+     */
+    ipcMain.handle('db:linkSocialsToWallet', async (event, walletId, socialIds) => {
+        if (!walletId) {
+            throw new Error('关联社交账户需要提供 walletId。');
+        }
+        // socialIds 可以是空数组，表示清除所有关联
+        if (!Array.isArray(socialIds)) {
+            throw new Error('socialIds 必须是一个数组。');
+        }
+        return db.linkSocialsToWallet(db.db, walletId, socialIds);
+    });
+
+    /**
+     * 获取所有社交账户列表，并标记哪些已与指定钱包关联
+     */
+    ipcMain.handle('db:getAllSocialsWithLinkStatus', async (event, walletId) => {
+        if (!walletId) {
+            throw new Error('查询社交账户关联状态需要提供 walletId。');
+        }
+        return db.getAllSocialsWithLinkStatus(db.db, walletId);
+    });
+
     console.log('[IPC] Database IPC handlers ready.');
 }
 

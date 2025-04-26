@@ -17,7 +17,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 /**
- * 初始化数据库，创建所有必要的表结构（分组、钱包、社交账户）
+ * 初始化数据库，创建所有必要的表结构（分组、钱包、社交账户、关联链接）
  * 并插入初始分组数据
  */
 function initializeDatabase() {
@@ -36,7 +36,7 @@ function initializeDatabase() {
             } else {
                 // 插入默认分组
                 const groupsStmt = db.prepare('INSERT OR IGNORE INTO groups (name) VALUES (?)');
-                const groupsToInsert = ['默认分组']; 
+                const groupsToInsert = ['默认分组'];
                 groupsToInsert.forEach(name => groupsStmt.run(name, (errInsert) => {
                     if (errInsert) console.error(`Error inserting group ${name}:`, errInsert.message);
                 }));
@@ -46,7 +46,9 @@ function initializeDatabase() {
                     // 2. 创建钱包表
                     createWalletsTableAndTestData();
                     // 3. 创建社交账户表
-                    createSocialAccountsTable(); 
+                    createSocialAccountsTable();
+                    // *** 4. 新增：创建钱包-社交账户关联表 ***
+                    createWalletSocialLinksTable();
                 });
             }
         });
@@ -138,6 +140,44 @@ function createSocialAccountsTable() {
 }
 
 /**
+ * 新增：创建钱包-社交账户关联表 (wallet_social_links)
+ */
+function createWalletSocialLinksTable() {
+    const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS wallet_social_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            walletId INTEGER NOT NULL,
+            socialId INTEGER NOT NULL,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (walletId) REFERENCES wallets(id) ON DELETE CASCADE,
+            FOREIGN KEY (socialId) REFERENCES social_accounts(id) ON DELETE CASCADE,
+            UNIQUE(walletId, socialId)
+        );
+    `;
+    const createWalletIdIndexSQL = `CREATE INDEX IF NOT EXISTS idx_wallet_social_links_walletId ON wallet_social_links(walletId);`;
+    const createSocialIdIndexSQL = `CREATE INDEX IF NOT EXISTS idx_wallet_social_links_socialId ON wallet_social_links(socialId);`;
+
+    db.serialize(() => {
+        db.run(createTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating wallet_social_links table:', err.message);
+            } else {
+                console.log('Wallet-Social Links 表已准备好。');
+                // 创建索引
+                db.run(createWalletIdIndexSQL, (errIndex1) => {
+                    if (errIndex1) console.error('Error creating index on walletId for links table:', errIndex1.message);
+                    else console.log('Index on walletId created for links table.');
+                });
+                db.run(createSocialIdIndexSQL, (errIndex2) => {
+                    if (errIndex2) console.error('Error creating index on socialId for links table:', errIndex2.message);
+                    else console.log('Index on socialId created for links table.');
+                });
+            }
+        });
+    });
+}
+
+/**
  * 关闭数据库连接（应用退出时调用）
  */
 function closeDatabase() {
@@ -154,6 +194,7 @@ function closeDatabase() {
 const group = require('./group');
 const wallet = require('./wallet');
 const social = require('./social');
+const links = require('./links');
 
 // 导出数据库实例、关闭方法和所有模块接口
 module.exports = {
@@ -161,5 +202,6 @@ module.exports = {
     closeDatabase,
     ...group,
     ...wallet,
-    ...social
+    ...social,
+    ...links
 }; 

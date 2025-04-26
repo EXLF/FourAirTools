@@ -30,6 +30,7 @@
                 <th>私钥</th>
                 <th>助记词</th>
                 <th>余额</th>
+                <th>关联账户</th>
                 <th>备注</th>
                 <th class="group-header">分组</th>
                 <th class="actions-header">操作</th>
@@ -112,6 +113,42 @@
                         <button type="submit" class="btn btn-primary modal-save-btn">保存钱包</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- *** 修改：关联社交账户模态框模板 (带标签页和搜索) *** -->
+<template id="tpl-link-socials-modal">
+    <div class="modal-overlay link-socials-overlay">
+        <div class="modal-box link-socials-modal-box">
+            <button class="modal-close-btn" title="关闭">&times;</button>
+            <h3 class="modal-title">管理关联账户</h3>
+            <p class="modal-subtitle">为钱包 <code class="wallet-address-placeholder"></code> 关联社交账户</p>
+            
+            <!-- 新增：搜索和标签页控制 -->
+            <div class="modal-controls">
+                <input type="search" class="form-control search-social-input" placeholder="搜索用户名/备注...">
+                <div class="tabs-container">
+                    <!-- Tabs will be dynamically inserted here -->
+                    <button class="tab-link active" data-tab="all"><i class="fas fa-list-ul" style="margin-right: 4px;"></i> 所有</button>
+                    <button class="tab-link" data-tab="linked"> <i class="fas fa-link" style="margin-right: 4px;"></i> 已关联</button>
+                </div>
+            </div>
+
+            <div class="modal-content link-socials-modal-content">
+                <div class="tab-content-container">
+                    <!-- Tab panes will be dynamically inserted here -->
+                    <div class="tab-pane active" id="pane-all">
+                        <p class="text-muted loading-socials-message">正在加载社交账户列表...</p>
+                        <!-- 新增：分页控件占位符 -->
+                        <div class="all-pane-pagination"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary modal-cancel-btn">取消</button>
+                <button type="button" class="btn btn-primary modal-save-btn">保存关联</button>
             </div>
         </div>
     </div>

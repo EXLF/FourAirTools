@@ -4,29 +4,26 @@ console.log('Preload script loaded.');
 
 // 向渲染进程暴露数据库操作API
 contextBridge.exposeInMainWorld('dbAPI', {
-    // 分组管理
-    addGroup: (name) => ipcRenderer.invoke('db:addGroup', name),
+    // Groups
     getGroups: () => ipcRenderer.invoke('db:getGroups'),
-    updateGroup: (id, newName) => ipcRenderer.invoke('db:updateGroup', id, newName),
+    addGroup: (name) => ipcRenderer.invoke('db:addGroup', name),
+    updateGroup: (id, name) => ipcRenderer.invoke('db:updateGroup', id, name),
     deleteGroup: (id) => ipcRenderer.invoke('db:deleteGroup', id),
-
-    // 钱包管理
+    // Wallets
     addWallet: (walletData) => ipcRenderer.invoke('db:addWallet', walletData),
     getWallets: (options) => ipcRenderer.invoke('db:getWallets', options),
-    getWalletById: (id) => ipcRenderer.invoke('db:getWalletById', id),
-    getWalletsByIds: (ids) => ipcRenderer.invoke('db:getWalletsByIds', ids),
-    updateWallet: (id, walletData) => ipcRenderer.invoke('db:updateWallet', id, walletData),
-    deleteWallet: (id) => ipcRenderer.invoke('db:deleteWallet', id),
-    deleteWalletsByIds: (ids) => ipcRenderer.invoke('db:deleteWalletsByIds', ids),
     getWalletDetails: (id) => ipcRenderer.invoke('db:getWalletDetails', id),
-
-    // 社交账户管理
+    updateWallet: (id, updates) => ipcRenderer.invoke('db:updateWallet', id, updates),
+    deleteWallets: (ids) => ipcRenderer.invoke('db:deleteWallets', ids),
+    // Social Accounts
     addSocialAccount: (accountData) => ipcRenderer.invoke('db:addSocialAccount', accountData),
     getSocialAccounts: (options) => ipcRenderer.invoke('db:getSocialAccounts', options),
-    getSocialAccountById: (id) => ipcRenderer.invoke('db:getSocialAccountById', id),
-    updateSocialAccount: (id, accountData) => ipcRenderer.invoke('db:updateSocialAccount', id, accountData),
-    deleteSocialAccount: (id) => ipcRenderer.invoke('db:deleteSocialAccount', id),
-    deleteSocialAccountsByIds: (ids) => ipcRenderer.invoke('db:deleteSocialAccountsByIds', ids),
+    updateSocialAccount: (id, updates) => ipcRenderer.invoke('db:updateSocialAccount', id, updates),
+    deleteSocialAccounts: (ids) => ipcRenderer.invoke('db:deleteSocialAccounts', ids),
+    // *** Wallet-Social Links (New) ***
+    getLinkedSocialsForWallet: (walletId) => ipcRenderer.invoke('db:getLinkedSocialsForWallet', walletId),
+    linkSocialsToWallet: (walletId, socialIds) => ipcRenderer.invoke('db:linkSocialsToWallet', walletId, socialIds),
+    getAllSocialsWithLinkStatus: (walletId) => ipcRenderer.invoke('db:getAllSocialsWithLinkStatus', walletId),
 
     // 应用级功能
     // 批量生成钱包: {count: 生成数量, groupId?: 分组ID}
