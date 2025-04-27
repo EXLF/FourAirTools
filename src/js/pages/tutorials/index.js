@@ -100,7 +100,7 @@ function renderTutorialList(tutorials, container) {
 
         // 根据 Notion URL 判断是否可点击
         const isClickable = tutorial.url && tutorial.url.startsWith('http');
-        const buttonText = isClickable ? "开始学习" : "敬请期待";
+        const buttonText = isClickable ? "查看教程" : "敬请期待";
         const buttonClass = isClickable ? "btn-primary" : "btn-disabled"; // 可以添加不同样式
 
         item.innerHTML = `
@@ -127,15 +127,18 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
     categoryLinks.forEach(l => l.closest('li').classList.remove('active'));
     clickedLink.closest('li').classList.add('active');
 
-    const selectedCategory = clickedLink.textContent.trim();
-    console.log(`切换到分类: ${selectedCategory}`);
+    const selectedCategoryText = clickedLink.textContent.trim();
+    // 添加对"所有教程"的判断逻辑
+    const isAllCategory = clickedLink.dataset.category === 'all' || selectedCategoryText === '所有教程'; 
+    
+    console.log(`切换到分类: ${isAllCategory ? '所有教程' : selectedCategoryText}`);
 
     // 筛选教程
     let filteredTutorials;
-    if (selectedCategory === '全部教程' || clickedLink.closest('li').classList.contains('category-all')) { // 假设有一个"全部"分类
+    if (isAllCategory) { // 如果点击的是"所有教程"
         filteredTutorials = tutorialsData;
     } else {
-        filteredTutorials = tutorialsData.filter(t => t.category === selectedCategory);
+        filteredTutorials = tutorialsData.filter(t => t.category === selectedCategoryText);
     }
     
     renderTutorialList(filteredTutorials, listContainer);
@@ -323,12 +326,11 @@ function closeWebview(webviewContainer, listContainer) {
 function getIconForCategory(category) {
     switch (category) {
         case '新手入门': return 'fa-star';
-        case '钱包使用': return 'fa-google-wallet'; // 需要确认是否为 fab
-        case '安全防范': return 'fa-shield-alt'; // 可能需要 'fa-shield-halved'
         case '工具技巧': return 'fa-cogs';
-        case '特定项目教程': return 'fa-rocket';
-        case '进阶策略': return 'fa-level-up-alt'; // 可能需要 'fa-arrow-up-right-dots'
-        default: return 'fa-file-alt'; // 默认图标 (可能需要 'fa-file-lines')
+        case '项目教程': return 'fa-rocket';
+        case '脚本教程': return 'fa-code';
+        case '投研教程': return 'fa-chart-line';
+        default: return 'fa-file-alt'; // 默认图标
     }
 }
 
