@@ -8,7 +8,7 @@ let currentWebview = null; // 存储当前活动的 webview 元素
 
 // 新增：从服务器获取教程数据的函数
 async function fetchTutorialsFromServer() {
-    const apiUrl = 'http://localhost:3000/api/tutorials'; // 本地 API 地址
+    const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; // 服务器API地址
     console.log(`Fetching tutorials from: ${apiUrl}`);
     try {
         const response = await fetch(apiUrl);
@@ -21,8 +21,17 @@ async function fetchTutorialsFromServer() {
             } catch (e) { /* 忽略解析错误 */ }
             throw new Error(errorMsg);
         }
-        const tutorials = await response.json();
-        console.log("Successfully fetched tutorials:", tutorials);
+        const data = await response.json();
+        console.log("Successfully fetched data:", data);
+        
+        // 从响应中获取教程数组
+        const tutorials = data.tutorials || [];
+        if (!Array.isArray(tutorials)) {
+            console.error("获取的教程数据不是数组格式:", tutorials);
+            return [];
+        }
+        
+        console.log(`成功获取 ${tutorials.length} 个教程`);
         return tutorials;
     } catch (error) {
         console.error("无法从服务器获取教程:", error);

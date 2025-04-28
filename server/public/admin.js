@@ -10,8 +10,12 @@ const closeModalBtn = document.getElementById('close-modal-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 const editIdInput = document.getElementById('edit-id'); // Hidden input in modal
 const toastMessage = document.getElementById('toast-message');
+const paginationControlsDiv = document.getElementById('pagination-controls'); // 获取分页容器
 
-let allTutorials = []; // Store all fetched tutorials for filtering
+let allTutorials = []; // 这个变量现在不再需要存储所有数据
+let currentPage = 1;
+const itemsPerPage = 5; // 每页显示多少条，可以按需调整
+let currentSearchTerm = ''; // 存储当前搜索词，以便分页时保持搜索状态
 let toastTimeout = null; // For clearing toast message timeout
 
 // --- Toast Message Function ---
@@ -61,40 +65,41 @@ function closeModal() {
     // setTimeout(() => { modalForm.reset(); }, 300); 
 }
 
-// --- Data Fetching and Rendering ---
-async function fetchAndRenderTutorials(searchTerm = '') {
-    console.log("Fetching existing tutorials...");
+// --- Data Fetching and Rendering (包含分页) ---
+async function fetchAndRenderTutorials(page = 1, limit = itemsPerPage, searchTerm = currentSearchTerm) {
+    console.log(`Fetching tutorials: page ${page}, limit ${limit}, search '${searchTerm}'`);
     tutorialListDiv.innerHTML = '<p>正在加载教程列表...</p>';
+    paginationControlsDiv.innerHTML = ''; // 清空旧的分页控件
+    currentPage = page; // 更新当前页码
+    currentSearchTerm = searchTerm; // 更新当前搜索词
+
+    // 构建 API URL
+    const apiUrl = `/api/tutorials?page=${page}&limit=${limit}&search=${encodeURIComponent(searchTerm)}`;
+
     try {
-        const response = await fetch('/api/tutorials');
+        const response = await fetch(apiUrl);
         if (!response.ok) {
             throw new Error(`获取教程列表失败: ${response.statusText}`);
         }
-        allTutorials = await response.json(); // Store all data
-        filterAndRenderList(searchTerm);
+        const result = await response.json(); // API 现在返回 { tutorials, totalPages, ... }
+        
+        renderTutorialsAdminList(result.tutorials);
+        renderPaginationControls(result.totalPages, result.currentPage);
+
     } catch (error) {
         console.error("获取教程列表错误:", error);
         tutorialListDiv.innerHTML = `<p class="error">无法加载教程列表: ${error.message}</p>`;
-        allTutorials = []; // Reset data on error
     }
-}
-
-function filterAndRenderList(searchTerm) {
-    const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
-    const filteredTutorials = allTutorials.filter(tutorial => {
-        return (
-            tutorial.title.toLowerCase().includes(lowerCaseSearchTerm) ||
-            tutorial.description.toLowerCase().includes(lowerCaseSearchTerm) ||
-            tutorial.id.toLowerCase().includes(lowerCaseSearchTerm)
-        );
-    });
-    renderTutorialsAdminList(filteredTutorials);
 }
 
 function renderTutorialsAdminList(tutorials) {
     tutorialListDiv.innerHTML = ''; // Clear list
     if (!tutorials || tutorials.length === 0) {
-        tutorialListDiv.innerHTML = '<p>没有找到匹配的教程。</p>';
+        if (currentSearchTerm) {
+             tutorialListDiv.innerHTML = '<p>没有找到匹配的教程。</p>';
+        } else {
+             tutorialListDiv.innerHTML = '<p>暂无教程。</p>';
+        }
         return;
     }
 
@@ -135,6 +140,44 @@ function renderTutorialsAdminList(tutorials) {
     tutorialListDiv.appendChild(listElement);
 }
 
+// --- Pagination Control Rendering ---
+function renderPaginationControls(totalPages, currentPage) {
+    paginationControlsDiv.innerHTML = ''; // Clear existing controls
+    if (totalPages <= 1) return; // Don't show controls if only one page
+
+    const createPageButton = (page, text, isDisabled = false, isActive = false) => {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.className = 'button pagination-btn';
+        button.disabled = isDisabled;
+        if (isActive) {
+            button.classList.add('active');
+            button.style.backgroundColor = '#0056b3'; // Active page style
+            button.style.cursor = 'default';
+        }
+        button.onclick = () => fetchAndRenderTutorials(page);
+        return button;
+    };
+
+    // Previous Button
+    paginationControlsDiv.appendChild(
+        createPageButton(currentPage - 1, '上一页', currentPage === 1)
+    );
+
+    // Page Number Buttons (simple version: show all page numbers)
+    // For many pages, you'd implement logic to show only a range (e.g., first, last, current +/- 2)
+    for (let i = 1; i <= totalPages; i++) {
+        paginationControlsDiv.appendChild(
+            createPageButton(i, i, false, i === currentPage)
+        );
+    }
+
+    // Next Button
+    paginationControlsDiv.appendChild(
+        createPageButton(currentPage + 1, '下一页', currentPage === totalPages)
+    );
+}
+
 // --- Form Submission (Modal) ---
 modalForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -142,7 +185,6 @@ modalForm.addEventListener('submit', async (event) => {
     const formData = new FormData(modalForm);
     const tutorialData = {};
     formData.forEach((value, key) => {
-        // Don't include the hidden editId field in the actual data sent
         if (key !== 'editId') {
             tutorialData[key] = value;
         }
@@ -155,7 +197,7 @@ modalForm.addEventListener('submit', async (event) => {
     const actionText = isEditing ? '更新' : '添加';
 
     console.log(`准备${actionText}数据 (${method}):`, tutorialData);
-    modalSubmitBtn.disabled = true; // Disable button during request
+    modalSubmitBtn.disabled = true; 
 
     try {
         const response = await fetch(apiUrl, {
@@ -165,13 +207,13 @@ modalForm.addEventListener('submit', async (event) => {
             },
             body: JSON.stringify(tutorialData),
         });
-
         const result = await response.json();
-
         if (response.ok) {
             showToast(`教程${actionText}成功!`, 'success');
             closeModal();
-            fetchAndRenderTutorials(searchInput.value); // Refresh list with current search term
+            // 刷新时回到第一页还是当前页？通常回到第一页，或者根据操作决定
+            // 这里我们刷新当前页，但如果是新增，回到第一页可能更好
+            fetchAndRenderTutorials(isEditing ? currentPage : 1); 
         } else {
             showToast(`${actionText}失败: ${result.error || response.statusText}`, 'error');
             console.error(`${actionText}失败:`, result);
@@ -180,11 +222,11 @@ modalForm.addEventListener('submit', async (event) => {
         showToast(`${actionText}请求失败，请检查网络或服务器状态。`, 'error');
         console.error(`${actionText}请求错误:`, error);
     } finally {
-         modalSubmitBtn.disabled = false; // Re-enable button
+         modalSubmitBtn.disabled = false; 
     }
 });
 
-// --- Delete Handler (remains mostly the same, uses toast) ---
+// --- Delete Handler ---
 async function handleDeleteTutorial(id) {
     if (!confirm(`确定要删除教程 ID 为 "${id}" 的教程吗？`)) {
         return;
@@ -197,7 +239,8 @@ async function handleDeleteTutorial(id) {
         const result = await response.json(); 
         if (response.ok) {
             showToast(result.message || '删除成功!', 'success');
-            fetchAndRenderTutorials(searchInput.value); // Refresh list
+            // 删除后刷新当前页
+            fetchAndRenderTutorials(currentPage); 
         } else {
             showToast(`删除失败: ${result.error || response.statusText}`, 'error');
             console.error('删除失败:', result);
@@ -222,9 +265,10 @@ modal.addEventListener('click', (event) => {
     }
 });
 
-// Search input handler
+// Search input handler (fetch on input change, reset to page 1)
 searchInput.addEventListener('input', (event) => {
-    filterAndRenderList(event.target.value);
+    // 使用 debounce 优化会更好，这里简单实现
+    fetchAndRenderTutorials(1, itemsPerPage, event.target.value); 
 });
 
 // --- Initial Load ---

@@ -4,7 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid'); // 引入 uuid
 
 const app = express();
-const PORT = 3000; // API 服务器端口
+const PORT = 3001; // API 服务器端口
 
 // --- 中间件 ---
 // 托管 public 目录下的静态文件 (如 admin.html)
@@ -15,34 +15,116 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 定义教程数据文件路径
-// 注意：路径是相对于 server.js 文件的
+// 使用相对路径
 const tutorialsFilePath = path.join(__dirname, '../src/data/tutorials.json');
+
+// 确保数据目录和文件存在
+function ensureDirectoryAndFileExist() {
+  const dirPath = path.dirname(tutorialsFilePath);
+  
+  // 检查并创建目录
+  if (!fs.existsSync(dirPath)) {
+    try {
+      fs.mkdirSync(dirPath, { recursive: true });
+      console.log(`创建目录成功: ${dirPath}`);
+    } catch (err) {
+      console.error(`创建目录失败: ${dirPath}`, err);
+      return false;
+    }
+  }
+  
+  // 检查并创建文件(如果不存在)
+  if (!fs.existsSync(tutorialsFilePath)) {
+    try {
+      fs.writeFileSync(tutorialsFilePath, '[]', 'utf8');
+      console.log(`创建文件成功: ${tutorialsFilePath}`);
+    } catch (err) {
+      console.error(`创建文件失败: ${tutorialsFilePath}`, err);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// 启动时确保数据目录和文件存在
+ensureDirectoryAndFileExist();
 
 // --- API 端点 --- 
 
-// GET /api/tutorials: 获取教程列表
+// GET /api/tutorials: 获取教程列表 (支持分页和搜索)
 app.get('/api/tutorials', (req, res) => {
+  // 确保目录和文件存在
+  if (!ensureDirectoryAndFileExist()) {
+    return res.status(500).json({ error: '无法创建或访问教程数据文件' });
+  }
+
+  // 分页参数 (来自查询字符串)
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10; // 默认每页 10 条
+  const searchTerm = (req.query.search || '').toLowerCase().trim();
+
   fs.readFile(tutorialsFilePath, 'utf8', (err, data) => {
     if (err) {
       console.error("读取教程文件失败:", err);
-      // 检查文件是否存在
       if (err.code === 'ENOENT') {
-        return res.status(404).json({ error: '教程数据文件未找到' });
+        // 如果文件不存在，返回空列表和分页信息
+        return res.json({ tutorials: [], totalItems: 0, totalPages: 0, currentPage: 1, limit });
       }
       return res.status(500).json({ error: '无法读取教程数据' });
     }
+    
+    let allTutorials = [];
     try {
-      const tutorials = JSON.parse(data);
-      res.json(tutorials);
+      allTutorials = JSON.parse(data);
+      if (!Array.isArray(allTutorials)) {
+          console.error("教程数据文件格式错误，不是一个数组。");
+          // 即使格式错误，也尝试返回空列表
+          return res.json({ tutorials: [], totalItems: 0, totalPages: 0, currentPage: 1, limit });
+      }
     } catch (parseErr) {
       console.error("解析 JSON 数据失败:", parseErr);
-      res.status(500).json({ error: '教程数据格式错误' });
+       // 即使解析错误，也尝试返回空列表
+      return res.json({ tutorials: [], totalItems: 0, totalPages: 0, currentPage: 1, limit });
     }
+
+    // 搜索过滤 (如果提供了 searchTerm)
+    let filteredTutorials = allTutorials;
+    if (searchTerm) {
+        filteredTutorials = allTutorials.filter(tutorial => {
+            return (
+                tutorial.title.toLowerCase().includes(searchTerm) ||
+                tutorial.description.toLowerCase().includes(searchTerm) ||
+                tutorial.id.toLowerCase().includes(searchTerm)
+            );
+        });
+    }
+
+    // 计算分页
+    const totalItems = filteredTutorials.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedTutorials = filteredTutorials.slice(startIndex, endIndex);
+
+    // 返回分页结果
+    res.json({
+      tutorials: paginatedTutorials,
+      totalItems: totalItems,
+      totalPages: totalPages,
+      currentPage: page,
+      limit: limit
+    });
   });
 });
 
 // POST /api/tutorials: 新增教程 (自动生成 ID)
 app.post('/api/tutorials', (req, res) => {
+  // 确保目录和文件存在
+  if (!ensureDirectoryAndFileExist()) {
+    return res.status(500).json({ error: '无法创建或访问教程数据文件' });
+  }
+
   const tutorialData = req.body; // 获取请求体
 
   // 基本验证 (移除对 id 的验证)
@@ -108,6 +190,11 @@ app.post('/api/tutorials', (req, res) => {
 
 // DELETE /api/tutorials/:id : 删除教程
 app.delete('/api/tutorials/:id', (req, res) => {
+  // 确保目录和文件存在
+  if (!ensureDirectoryAndFileExist()) {
+    return res.status(500).json({ error: '无法创建或访问教程数据文件' });
+  }
+
   const tutorialIdToDelete = req.params.id;
   console.log('请求删除教程 ID:', tutorialIdToDelete);
 
@@ -152,6 +239,11 @@ app.delete('/api/tutorials/:id', (req, res) => {
 
 // PUT /api/tutorials/:id : 更新教程
 app.put('/api/tutorials/:id', (req, res) => {
+    // 确保目录和文件存在
+    if (!ensureDirectoryAndFileExist()) {
+      return res.status(500).json({ error: '无法创建或访问教程数据文件' });
+    }
+    
     const tutorialIdToUpdate = req.params.id;
     const updatedData = req.body;
     console.log(`请求更新教程 ID '${tutorialIdToUpdate}' 的数据为:`, updatedData);
@@ -209,6 +301,6 @@ app.put('/api/tutorials/:id', (req, res) => {
 });
 
 // --- 启动服务器 ---
-app.listen(PORT, () => {
-  console.log(`API 服务器正在运行在 http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`API 服务器正在运行在 http://0.0.0.0:${PORT}`);
 }); 
