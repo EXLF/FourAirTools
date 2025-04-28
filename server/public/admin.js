@@ -55,6 +55,7 @@ function openModal(mode = 'add', tutorial = null) {
         modalForm.elements['category'].value = tutorial.category;
         modalForm.elements['description'].value = tutorial.description;
         modalForm.elements['url'].value = tutorial.url;
+        modalForm.elements['imageUrl'].value = tutorial.imageUrl || ''; // 添加对imageUrl字段的支持
     }
     modal.classList.add('show');
 }
@@ -115,6 +116,7 @@ function renderTutorialsAdminList(tutorials) {
             <small>分类: ${tutorial.category}</small>
             <small class="desc">描述: ${tutorial.description.substring(0, 80)}${tutorial.description.length > 80 ? '...' : ''}</small>
             <small class="url">URL: ${tutorial.url ? `<a href="${tutorial.url}" target="_blank">${tutorial.url}</a>` : '无'}</small>
+            <small class="img-url">图片URL: ${tutorial.imageUrl ? `<a href="${tutorial.imageUrl}" target="_blank">${tutorial.imageUrl}</a>` : '默认图片'}</small>
         `;
 
         const actionsDiv = document.createElement('div');
