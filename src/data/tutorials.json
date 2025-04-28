@@ -1,12 +1,5 @@
 [
   {
-    "id": "baidu-test",
-    "title": "【测试】百度首页测试",
-    "category": "项目教程",
-    "description": "这是一个测试链接，用于验证 WebView 是否能正常加载。",
-    "url": "https://www.baidu.com"
-  },
-  {
     "id": "grass-tutorial",
     "title": "【项目】Grass 挖矿参与教程",
     "category": "项目教程",
@@ -26,19 +19,5 @@
     "category": "项目教程",
     "description": "探索 Sogni AI，一个结合 AI 与 Web3 的项目，及其参与方式。",
     "url": "https://www.notion.so/eie/Sogni-AI-1ce85e5dc314802ea298f5eafd71b0f5?pvs=4"
-  },
-  {
-    "id": "getting-started-1",
-    "title": "【新手】工具箱快速上手指南",
-    "category": "新手入门",
-    "description": "一步步教你如何安装、设置和使用本工具箱的核心功能。",
-    "url": "" 
-  },
-  {
-    "id": "wallet-security-basics",
-    "title": "【安全】Web3钱包安全基础必读",
-    "category": "工具技巧",
-    "description": "了解常见的钱包风险以及保护你资产的最佳实践。",
-    "url": "" 
   }
-] 
+]

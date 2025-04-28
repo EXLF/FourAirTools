@@ -3,8 +3,33 @@
 // import * as modals from './modals.js';
 // import * as actions from './actions.js';
 
-let tutorialsData = []; // 存储从 JSON 加载的教程数据
+let tutorialsData = []; // 存储从服务器获取的教程数据
 let currentWebview = null; // 存储当前活动的 webview 元素
+
+// 新增：从服务器获取教程数据的函数
+async function fetchTutorialsFromServer() {
+    const apiUrl = 'http://localhost:3000/api/tutorials'; // 本地 API 地址
+    console.log(`Fetching tutorials from: ${apiUrl}`);
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            // 尝试解析错误信息，如果服务器返回了 JSON 格式的错误
+            let errorMsg = `HTTP error! status: ${response.status}`;
+            try {
+                 const errorData = await response.json();
+                 errorMsg = errorData.error || errorMsg;
+            } catch (e) { /* 忽略解析错误 */ }
+            throw new Error(errorMsg);
+        }
+        const tutorials = await response.json();
+        console.log("Successfully fetched tutorials:", tutorials);
+        return tutorials;
+    } catch (error) {
+        console.error("无法从服务器获取教程:", error);
+        // 返回空数组，让调用者处理 UI
+        return []; 
+    }
+}
 
 /**
  * 初始化教程中心页面。
@@ -26,20 +51,18 @@ export async function initTutorialsPage(contentArea) {
         return;
     }
 
-    // --- 加载教程数据 --- 
-    try {
-        // 使用 preload 暴露的 API
-        const data = await window.tutorialAPI.loadTutorials(); 
-        if (data && Array.isArray(data)) {
-            tutorialsData = data;
-            renderTutorialList(tutorialsData, tutorialListContainer); // 初始渲染所有教程
-        } else {
-            console.error("Loaded tutorials data is invalid or empty.");
-            tutorialListContainer.innerHTML = '<p style="color: orange; padding: 20px;">无法加载教程列表。</p>';
-        }
-    } catch (error) {
-        console.error("Error loading tutorials data:", error);
-        tutorialListContainer.innerHTML = '<p style="color: red; padding: 20px;">加载教程数据时出错。</p>';
+    // --- 显示加载提示 ---
+    tutorialListContainer.innerHTML = '<p style="padding: 20px; text-align: center;">正在加载教程列表...</p>';
+
+    // --- 从服务器加载教程数据 --- 
+    tutorialsData = await fetchTutorialsFromServer();
+
+    // --- 渲染列表或错误信息 ---
+    if (tutorialsData && tutorialsData.length > 0) {
+        renderTutorialList(tutorialsData, tutorialListContainer); // 初始渲染所有教程
+    } else {
+        // fetchTutorialsFromServer 内部已打印错误，这里只显示用户提示
+        tutorialListContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">无法加载教程列表或列表为空。</p>';
     }
 
     // --- 事件监听 --- 
@@ -325,12 +348,16 @@ function closeWebview(webviewContainer, listContainer) {
  */
 function getIconForCategory(category) {
     switch (category) {
-        case '新手入门': return 'fa-star';
-        case '工具技巧': return 'fa-cogs';
-        case '项目教程': return 'fa-rocket';
-        case '脚本教程': return 'fa-code';
-        case '投研教程': return 'fa-chart-line';
-        default: return 'fa-file-alt'; // 默认图标
+        case '项目教程':
+            return 'fas fa-project-diagram'; // Font Awesome 图标
+        case '新手入门':
+            return 'fas fa-rocket';
+        case '工具技巧':
+            return 'fas fa-tools';
+        case '安全知识':
+            return 'fas fa-shield-alt';
+        default:
+            return 'fas fa-book-open'; // 默认图标
     }
 }
 
