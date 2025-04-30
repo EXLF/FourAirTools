@@ -19,6 +19,7 @@ let addProxyBtn = null;
 let bulkTestBtn = null;
 let bulkDeleteBtn = null; // 新增：批量删除按钮
 let importProxiesBtn = null; // 新增：导入代理按钮
+let exportProxiesBtn = null; // 新增：导出代理按钮
 let filterElements = {};
 let isLoading = false;
 let currentPage = 1;
@@ -57,6 +58,7 @@ export function initNetworkPage(pageElement) {
     bulkTestBtn = contentArea.querySelector('.bulk-test-proxies-btn');
     bulkDeleteBtn = contentArea.querySelector('.bulk-delete-proxies-btn'); // 获取删除按钮
     importProxiesBtn = contentArea.querySelector('.import-proxies-btn'); // 获取导入按钮
+    exportProxiesBtn = contentArea.querySelector('.export-proxies-btn'); // 获取导出按钮
     
     // 分页相关元素 (从 wrapper 内部查找)
     if (paginationWrapper) {
@@ -106,6 +108,7 @@ function validateRequiredElements() {
         bulkTestBtn,
         bulkDeleteBtn,      // 验证删除按钮
         importProxiesBtn,   // 验证导入按钮
+        exportProxiesBtn,   // 验证导出按钮
         pageSizeSelect,
         prevPageBtn, 
         nextPageBtn, 
@@ -142,6 +145,9 @@ function setupEventListeners() {
 
     // 导入代理按钮
     importProxiesBtn.addEventListener('click', handleImportClick); // 添加导入监听器
+
+    // 导出代理按钮
+    exportProxiesBtn.addEventListener('click', handleExportClick); // 添加导出监听器
 
     // 筛选器变化
     Object.values(filterElements).forEach(select => {
@@ -619,8 +625,8 @@ function openProxyModal(proxyData = null) {
             form.elements['host'].value = proxyData.host || '';
             form.elements['port'].value = proxyData.port || '';
             form.elements['username'].value = proxyData.username || '';
-            // 密码字段留空，表示不修改
-            form.elements['password'].value = ''; // 清空密码输入框
+            // 使用原始密码字段，不再需要特殊处理
+            form.elements['password'].value = proxyData.password || '';
             form.elements['password'].placeholder = '留空则不修改密码';
             groupSelect.value = proxyData.group_id || '';
         } else {
@@ -662,12 +668,12 @@ function openProxyModal(proxyData = null) {
             const isEditing = !!data.id;
 
             try {
-                 // 添加检查加密服务是否解锁的逻辑（仅在有密码时）
-                if (hasPassword && !(await window.electron.ipcRenderer.invoke('auth:isUnlocked'))) {
-                     showToast('请先解锁应用以保存密码！', 'error');
-                     // 可能需要触发解锁流程
-                     return;
-                 }
+                 // 不再需要检查加密服务
+                 // if (hasPassword && !(await window.electron.ipcRenderer.invoke('auth:isUnlocked'))) {
+                 //      showToast('请先解锁应用以保存密码！', 'error');
+                 //     // 可能需要触发解锁流程
+                 //      return;
+                 //  }
 
                 if (isEditing) {
                     data.id = parseInt(data.id, 10); // 确保 ID 是数字
@@ -1101,6 +1107,203 @@ function isValidIP(ip) {
  */
 function isValidPort(port) {
     return Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
+// --- 新增导出代理功能的处理函数 ---
+
+/**
+ * 处理导出代理按钮点击事件。
+ */
+async function handleExportClick() {
+    // 检查是否有选中的代理
+    const selectedIds = getSelectedProxyIds();
+    let proxies = [];
+
+    try {
+        // 确认是否需要导出加密信息（如密码）
+        let needDecryption = false;
+        let exportAll = false;
+
+        // 显示确认对话框
+        showModal('tpl-confirm-dialog', (modalElement) => {
+            const messageElement = modalElement.querySelector('.confirm-message');
+            const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+            const titleElement = modalElement.querySelector('.modal-title');
+            const modalContent = modalElement.querySelector('.modal-content');
+
+            if (!messageElement || !confirmBtn || !titleElement || !modalContent) {
+                console.error("确认对话框元素缺失");
+                hideModal();
+                return;
+            }
+
+            // 设置对话框内容
+            titleElement.textContent = '导出代理配置';
+            
+            // 创建额外选项
+            const exportOptions = document.createElement('div');
+            exportOptions.className = 'export-options';
+            exportOptions.style.marginTop = '15px';
+            
+            const exportSelection = document.createElement('div');
+            exportSelection.className = 'form-group';
+            exportSelection.innerHTML = `
+                <label>
+                    <input type="radio" name="export-selection" value="selected" ${selectedIds.length > 0 ? 'checked' : ''} ${selectedIds.length === 0 ? 'disabled' : ''}>
+                    导出选中的代理 (${selectedIds.length}个)
+                </label><br>
+                <label>
+                    <input type="radio" name="export-selection" value="all" ${selectedIds.length === 0 ? 'checked' : ''}>
+                    导出全部代理
+                </label>
+            `;
+
+            const decryptionOption = document.createElement('div');
+            decryptionOption.className = 'form-group';
+            decryptionOption.style.marginTop = '10px';
+            decryptionOption.innerHTML = `
+                <label>
+                    <input type="checkbox" name="decrypt-passwords" checked>
+                    解密并导出密码（需要应用已解锁）
+                </label>
+            `;
+
+            exportOptions.appendChild(exportSelection);
+            exportOptions.appendChild(decryptionOption);
+            
+            // 在原有消息后面添加选项
+            messageElement.textContent = '请选择导出选项:';
+            modalContent.appendChild(exportOptions);
+
+            // 调整按钮样式
+            confirmBtn.textContent = '确认导出';
+            confirmBtn.classList.remove('btn-danger');
+            confirmBtn.classList.add('btn-primary');
+
+            const handleConfirm = async () => {
+                // 获取用户选择的选项
+                const exportSelectionValue = modalElement.querySelector('input[name="export-selection"]:checked').value;
+                exportAll = exportSelectionValue === 'all';
+                needDecryption = modalElement.querySelector('input[name="decrypt-passwords"]').checked;
+
+                confirmBtn.removeEventListener('click', handleConfirm);
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 处理中...';
+
+                try {
+                    // 获取代理数据
+                    if (exportAll) {
+                        // 获取所有代理
+                        const result = await window.dbAPI.getProxies({
+                            sortBy: 'id', 
+                            sortOrder: 'asc',
+                            limit: 99999 // 设置一个很大的值以获取所有代理
+                        });
+                        proxies = result.proxies;
+                    } else {
+                        // 获取选中的代理
+                        proxies = [];
+                        for (const id of selectedIds) {
+                            const proxy = await window.dbAPI.getProxyById(id);
+                            if (proxy) {
+                                proxies.push(proxy);
+                            }
+                        }
+                    }
+
+                    // 不再需要特殊处理密码解密
+                    if (needDecryption) {
+                        console.log('用户选择导出密码，但不再需要解密');
+                        // 所有密码都是明文存储，无需任何处理
+                    } else {
+                        // 用户选择不导出密码，清空所有代理的密码字段
+                        for (const proxy of proxies) {
+                            proxy.password = null;
+                        }
+                    }
+
+                    // 打印调试信息
+                    console.log('导出前的代理数据:', JSON.stringify(proxies, null, 2));
+
+                    // 导出为文本文件
+                    const content = formatProxiesForExport(proxies, needDecryption);
+                    console.log('导出内容:', content);
+                    downloadTextFile(content, 'proxies_export.txt');
+                    hideModal();
+                    showToast(`成功导出 ${proxies.length} 个代理配置`, 'success');
+                } catch (error) {
+                    console.error('导出代理失败:', error);
+                    showToast(`导出失败: ${error.message}`, 'error');
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = '重试导出';
+                }
+            };
+
+            confirmBtn.addEventListener('click', handleConfirm);
+        });
+    } catch (error) {
+        console.error('导出操作失败:', error);
+        showToast(`导出失败: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * 将代理数据格式化为导出格式。
+ * @param {Array<object>} proxies - 代理数据数组
+ * @param {boolean} includeAuth - 是否包含认证信息
+ * @returns {string} 格式化后的文本内容
+ */
+function formatProxiesForExport(proxies, includeAuth) {
+    let content = '# FourAir IP代理导出\n';
+    content += `# 导出时间: ${new Date().toLocaleString()}\n`;
+    content += '# 格式: ip:端口:用户名:密码\n';
+    content += '#\n\n';
+
+    proxies.forEach(proxy => {
+        // 基本格式: ip:端口
+        let line = `${proxy.host}:${proxy.port}`;
+        
+        // 如果包含认证信息，则添加用户名和密码
+        if (includeAuth) {
+            // 优先使用已解密的密码字段
+            const username = proxy.username || '';
+            let password = proxy.password || '';
+            
+            // 添加用户名和密码（即使为空，也保留冒号作为占位符）
+            line += `:${username}:${password}`;
+        }
+        
+        content += line + '\n';
+    });
+
+    return content;
+}
+
+/**
+ * 下载文本内容为文件。
+ * @param {string} content - 要下载的文本内容
+ * @param {string} filename - 文件名
+ */
+function downloadTextFile(content, filename) {
+    // 创建Blob对象
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // 添加到文档中并触发点击
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, 100);
 }
 
 // --- 导出初始化函数 ---

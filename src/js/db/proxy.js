@@ -16,20 +16,6 @@ async function addProxy(db, proxyData) {
             return reject(new Error('缺少必要的代理信息 (type, host, port)'));
         }
 
-        // 加密密码（如果存在）
-        let encryptedPassword = null;
-        if (password) {
-            try {
-                if (!cryptoService.isUnlocked()) {
-                    return reject(new Error('加密服务未解锁，无法添加带密码的代理'));
-                }
-                encryptedPassword = await cryptoService.encryptWithSessionKey(password);
-            } catch (error) {
-                console.error('加密代理密码失败:', error);
-                return reject(new Error('加密代理密码失败'));
-            }
-        }
-
         // 获取当前最大ID，用于生成新的name
         db.get('SELECT MAX(id) as maxId FROM proxies', [], function(err, row) {
             if (err) {
@@ -41,7 +27,7 @@ async function addProxy(db, proxyData) {
 
             const sql = `INSERT INTO proxies (name, type, host, port, username, password, group_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?)`;
-            const params = [name, type, host, port, username || null, encryptedPassword, group_id || null];
+            const params = [name, type, host, port, username || null, password || null, group_id || null];
 
             db.run(sql, params, function(err) {
                 if (err) {
@@ -155,15 +141,14 @@ async function getProxies(db, options = {}) {
 }
 
 /**
- * 根据 ID 获取单个代理的详细信息，包括解密后的密码。
+ * 根据 ID 获取单个代理的详细信息。
  * @param {sqlite3.Database} db - 数据库实例。
  * @param {number} id - 代理 ID。
  * @returns {Promise<object|null>} 代理数据对象或 null。
- * @throws {Error} 如果查询失败或密码解密失败。
+ * @throws {Error} 如果查询失败。
  */
 async function getProxyById(db, id) {
     return new Promise((resolve, reject) => {
-        // 查询时包含加密的密码字段
         const sql = `SELECT p.*, g.name as group_name
                      FROM proxies p
                      LEFT JOIN groups g ON p.group_id = g.id
@@ -177,20 +162,10 @@ async function getProxyById(db, id) {
                 return resolve(null); // 未找到
             }
 
-            // 解密密码（如果存在且加密服务已解锁）
-            if (proxy.password && cryptoService.isUnlocked()) {
-                try {
-                    proxy.decryptedPassword = await cryptoService.decryptWithSessionKey(proxy.password);
-                } catch (error) {
-                    console.error(`解密代理 ID ${id} 的密码失败:`, error);
-                    // 不应直接拒绝，可能只是解密服务问题，返回不带解密密码的数据
-                    // return reject(new Error('解密代理密码失败'));
-                    console.warn(`代理 ID ${id} 的密码无法解密，可能加密服务未正确初始化或密码已损坏`);
-                    proxy.decryptedPassword = null; // 或标记为解密失败
-                }
-            } else if (proxy.password && !cryptoService.isUnlocked()) {
-                 console.warn(`加密服务未解锁，无法解密代理 ID ${id} 的密码`);
-                 proxy.decryptedPassword = null;
+            // 不再需要解密，直接返回数据库中的密码
+            // 为兼容旧代码，添加decryptedPassword属性
+            if (proxy.password) {
+                proxy.decryptedPassword = proxy.password;
             }
 
             resolve(proxy);
@@ -218,28 +193,19 @@ async function updateProxy(db, id, updates) {
         let setClauses = [];
         let params = [];
 
-        // 处理密码加密
-        if (updates.password !== undefined) {
-            if (updates.password === null || updates.password === '') {
+        // 处理密码字段的特殊情况：如果密码是 null、空字符串或 'null' 字符串，则设为 NULL
+        if (updates.hasOwnProperty('password')) {
+            if (updates.password === null || updates.password === '' || updates.password === 'null') {
                 // 清除密码
-                 updates.password = null; // 确保存储的是 NULL
+                updates.password = null; // 确保存储的是 NULL
             } else if (typeof updates.password === 'string' && updates.password.length > 0) {
-                // 加密新密码
-                try {
-                    if (!cryptoService.isUnlocked()) {
-                         return reject(new Error('加密服务未解锁，无法更新密码'));
-                    }
-                    updates.password = await cryptoService.encryptWithSessionKey(updates.password);
-                } catch (error) {
-                    console.error(`加密代理 ID ${id} 的新密码失败:`, error);
-                    return reject(new Error('加密代理密码失败'));
-                }
+                // 直接使用明文密码，不再加密
+                // 密码已经设置在updates.password中，不需要额外处理
             } else {
                 // 如果密码字段存在但不是有效字符串或null/空，则忽略该更新
                 delete updates.password;
             }
         }
-
 
         for (const key of allowedUpdates) {
             if (updates.hasOwnProperty(key)) {
@@ -247,11 +213,7 @@ async function updateProxy(db, id, updates) {
                  if (key === 'group_id' && (updates[key] === '' || updates[key] === null)) {
                     setClauses.push('group_id = ?');
                     params.push(null);
-                 } else if (key === 'password') {
-                    setClauses.push('password = ?');
-                    params.push(updates.password); // 使用上面处理过的加密密码或 null
-                 }
-                 else {
+                 } else {
                      setClauses.push(`${key} = ?`);
                      params.push(updates[key]);
                  }
