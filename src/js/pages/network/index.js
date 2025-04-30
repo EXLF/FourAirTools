@@ -17,6 +17,8 @@ let searchInput = null;
 let selectAllCheckbox = null;
 let addProxyBtn = null;
 let bulkTestBtn = null;
+let bulkDeleteBtn = null; // 新增：批量删除按钮
+let importProxiesBtn = null; // 新增：导入代理按钮
 let filterElements = {};
 let isLoading = false;
 let currentPage = 1;
@@ -53,6 +55,8 @@ export function initNetworkPage(pageElement) {
     selectAllCheckbox = contentArea.querySelector('.select-all-checkbox');
     addProxyBtn = contentArea.querySelector('.add-proxy-btn');
     bulkTestBtn = contentArea.querySelector('.bulk-test-proxies-btn');
+    bulkDeleteBtn = contentArea.querySelector('.bulk-delete-proxies-btn'); // 获取删除按钮
+    importProxiesBtn = contentArea.querySelector('.import-proxies-btn'); // 获取导入按钮
     
     // 分页相关元素 (从 wrapper 内部查找)
     if (paginationWrapper) {
@@ -100,6 +104,8 @@ function validateRequiredElements() {
         selectAllCheckbox,
         addProxyBtn,
         bulkTestBtn,
+        bulkDeleteBtn,      // 验证删除按钮
+        importProxiesBtn,   // 验证导入按钮
         pageSizeSelect,
         prevPageBtn, 
         nextPageBtn, 
@@ -130,6 +136,12 @@ function setupEventListeners() {
 
     // 批量测试按钮
     bulkTestBtn.addEventListener('click', handleBulkTestClick);
+
+    // 批量删除按钮
+    bulkDeleteBtn.addEventListener('click', handleBulkDeleteClick); // 添加删除监听器
+
+    // 导入代理按钮
+    importProxiesBtn.addEventListener('click', handleImportClick); // 添加导入监听器
 
     // 筛选器变化
     Object.values(filterElements).forEach(select => {
@@ -525,20 +537,52 @@ async function handleEditProxy(proxyId) {
 }
 
 async function handleDeleteProxy(proxyId, rowElement) {
-    // 使用 confirm 或自定义确认框
-    if (confirm(`确定要删除代理 #${proxyId} 吗？此操作不可撤销。`)) {
-        try {
-            await window.dbAPI.deleteProxy(proxyId);
-            rowElement.remove(); // 从 DOM 中移除
-            showToast(`代理 #${proxyId} 已删除`, 'success');
-            // 可能需要重新计算总数并更新分页（如果跨页）
-            // 简单处理：重新加载当前页
-            loadProxies();
-        } catch (error) {
-            console.error(`删除代理 ${proxyId} 失败:`, error);
-            showToast(`删除失败: ${error.message}`, 'error');
+    // 获取代理信息用于确认提示 (如果需要更详细的信息)
+    // const proxyType = rowElement.cells[2]?.textContent?.trim() || '未知类型';
+    // const proxyHost = rowElement.cells[3]?.textContent?.trim() || `ID: ${proxyId}`;
+
+    showModal('tpl-confirm-dialog', (modalElement) => {
+        const messageElement = modalElement.querySelector('.confirm-message');
+        const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+        const titleElement = modalElement.querySelector('.modal-title');
+
+        if (!messageElement || !confirmBtn || !titleElement) {
+            console.error("确认模态框缺少元素");
+            hideModal();
+            return;
         }
-    }
+
+        // 设置模态框内容
+        titleElement.textContent = '确认删除代理';
+        messageElement.textContent = `确定要删除代理 #${proxyId} 吗？此操作不可撤销。`;
+        confirmBtn.textContent = '确认删除';
+        confirmBtn.classList.add('btn-danger'); // 使用危险色
+
+        const handleConfirm = async () => {
+            confirmBtn.removeEventListener('click', handleConfirm);
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 删除中...';
+
+            try {
+                await window.dbAPI.deleteProxy(proxyId);
+                rowElement.remove(); // 从 DOM 中移除
+                showToast(`代理 #${proxyId} 已删除`, 'success');
+                // 可能需要重新计算总数并更新分页（如果跨页）
+                // 简单处理：重新加载当前页
+                await loadProxies();
+                hideModal(); // 成功后关闭模态框
+            } catch (error) {
+                console.error(`删除代理 ${proxyId} 失败:`, error);
+                showToast(`删除失败: ${error.message}`, 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认删除';
+                // 失败时不关闭模态框，允许用户重试或取消
+            }
+        };
+
+        // 添加确认按钮监听器
+        confirmBtn.addEventListener('click', handleConfirm);
+    });
 }
 
 // --- 模态框处理 ---
@@ -825,6 +869,238 @@ function goToPage(page) {
         currentPage = page;
         loadProxies();
     }
+}
+
+// --- 新增或修改的事件处理函数 ---
+
+/**
+ * 处理批量删除选中代理的逻辑。
+ */
+async function handleBulkDeleteClick() {
+    const selectedIds = getSelectedProxyIds();
+    const count = selectedIds.length;
+
+    if (count === 0) {
+        showToast('请至少选择一个代理进行删除', 'warning');
+        return;
+    }
+
+    showModal('tpl-confirm-dialog', (modalElement) => {
+        const messageElement = modalElement.querySelector('.confirm-message');
+        const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+        const titleElement = modalElement.querySelector('.modal-title');
+        if (!messageElement || !confirmBtn || !titleElement) { console.error("确认框元素缺失"); hideModal(); return; }
+
+        titleElement.textContent = '确认批量删除';
+        messageElement.textContent = `确定删除选中的 ${count} 个代理吗？此操作不可撤销！`;
+        confirmBtn.textContent = `确认删除 (${count})`;
+        confirmBtn.classList.add('btn-danger');
+
+        const handleConfirm = async () => {
+            confirmBtn.removeEventListener('click', handleConfirm);
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> 删除中 (${count})...`;
+            hideModal(); // 先关闭确认框
+            showToast(`正在删除 ${count} 个代理...`, 'info');
+
+            try {
+                // TODO: 实现或调用 window.dbAPI.deleteProxies(selectedIds)
+                // 假设存在批量删除API
+                // const changes = await window.dbAPI.deleteProxies(selectedIds);
+                // 使用正确的函数名调用批量删除API
+                const result = await window.dbAPI.deleteProxiesByIds(selectedIds);
+                const changes = result.deletedCount; // 获取删除的数量
+                showToast(`成功删除 ${changes} 个代理`, 'success');
+                await loadProxies(); // 刷新列表
+            } catch (error) {
+                console.error('批量删除代理失败:', error);
+                showToast(`批量删除失败: ${error.message}`, 'error');
+            } finally {
+                // 重新启用按钮等操作（如果需要）
+            }
+        };
+        confirmBtn.addEventListener('click', handleConfirm);
+    });
+}
+
+/**
+ * 处理导入代理按钮点击事件。
+ */
+async function handleImportClick() {
+    // 创建一个隐藏的文件输入元素
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.txt,.csv';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    // 监听文件选择
+    fileInput.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            document.body.removeChild(fileInput);
+            return;
+        }
+
+        try {
+            // 读取文件内容
+            const content = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('读取文件失败'));
+                reader.readAsText(file);
+            });
+
+            // 解析代理列表
+            const proxies = parseProxyList(content);
+            if (proxies.length === 0) {
+                showToast('未找到有效的代理配置', 'warning');
+                document.body.removeChild(fileInput);
+                return;
+            }
+
+            // 显示确认对话框
+            showModal('tpl-confirm-dialog', (modalElement) => {
+                const messageElement = modalElement.querySelector('.confirm-message');
+                const confirmBtn = modalElement.querySelector('.modal-confirm-btn');
+                const titleElement = modalElement.querySelector('.modal-title');
+
+                if (!messageElement || !confirmBtn || !titleElement) {
+                    console.error("确认框元素缺失");
+                    hideModal();
+                    return;
+                }
+
+                titleElement.textContent = '确认导入代理';
+                messageElement.textContent = `发现 ${proxies.length} 个代理配置，是否导入？`;
+                confirmBtn.textContent = `确认导入 (${proxies.length})`;
+                confirmBtn.classList.remove('btn-danger');
+                confirmBtn.classList.add('btn-primary');
+
+                const handleConfirm = async () => {
+                    confirmBtn.removeEventListener('click', handleConfirm);
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> 导入中...`;
+
+                    try {
+                        // 批量添加代理
+                        let successCount = 0;
+                        let errorCount = 0;
+                        const errors = [];
+
+                        for (const proxy of proxies) {
+                            try {
+                                await window.dbAPI.addProxy({
+                                    type: 'HTTP', // 默认HTTP
+                                    host: proxy.host,
+                                    port: proxy.port,
+                                    username: proxy.username || null,
+                                    password: proxy.password || null,
+                                    group_id: null // 默认无分组
+                                });
+                                successCount++;
+                            } catch (err) {
+                                errorCount++;
+                                errors.push(`${proxy.host}:${proxy.port} - ${err.message}`);
+                            }
+                        }
+
+                        // 显示导入结果
+                        if (errorCount > 0) {
+                            showToast(`导入完成: ${successCount} 成功, ${errorCount} 失败`, 'warning');
+                            console.error('导入错误:', errors);
+                        } else {
+                            showToast(`成功导入 ${successCount} 个代理`, 'success');
+                        }
+
+                        hideModal();
+                        loadProxies(); // 刷新列表
+                    } catch (error) {
+                        console.error('导入代理失败:', error);
+                        showToast(`导入失败: ${error.message}`, 'error');
+                        confirmBtn.disabled = false;
+                        confirmBtn.textContent = '重试导入';
+                    }
+                };
+
+                confirmBtn.addEventListener('click', handleConfirm);
+            });
+
+        } catch (error) {
+            console.error('处理文件失败:', error);
+            showToast(`处理文件失败: ${error.message}`, 'error');
+        } finally {
+            document.body.removeChild(fileInput);
+        }
+    };
+
+    // 触发文件选择
+    fileInput.click();
+}
+
+/**
+ * 解析代理列表文本内容。
+ * 格式: ip:端口:账户:密码
+ * @param {string} content - 文件内容
+ * @returns {Array<{host: string, port: number, username?: string, password?: string}>}
+ */
+function parseProxyList(content) {
+    const proxies = [];
+    const lines = content.split(/\r?\n/);
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const parts = trimmed.split(':');
+        if (parts.length >= 2) {
+            const proxy = {
+                host: parts[0],
+                port: parseInt(parts[1], 10)
+            };
+
+            // 验证 IP 和端口
+            if (!isValidIP(proxy.host) || !isValidPort(proxy.port)) {
+                console.warn(`跳过无效的代理配置: ${trimmed}`);
+                continue;
+            }
+
+            // 如果有用户名和密码
+            if (parts.length >= 4) {
+                proxy.username = parts[2] || null;
+                proxy.password = parts[3] || null;
+            }
+
+            proxies.push(proxy);
+        }
+    }
+
+    return proxies;
+}
+
+/**
+ * 验证IP地址格式。
+ * @param {string} ip - IP地址
+ * @returns {boolean}
+ */
+function isValidIP(ip) {
+    const pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!pattern.test(ip)) return false;
+    
+    const parts = ip.split('.');
+    return parts.every(part => {
+        const num = parseInt(part, 10);
+        return num >= 0 && num <= 255;
+    });
+}
+
+/**
+ * 验证端口号。
+ * @param {number} port - 端口号
+ * @returns {boolean}
+ */
+function isValidPort(port) {
+    return Number.isInteger(port) && port > 0 && port <= 65535;
 }
 
 // --- 导出初始化函数 ---
