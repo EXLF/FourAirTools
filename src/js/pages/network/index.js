@@ -509,7 +509,7 @@ async function handleToggleEnable(proxyId, rowElement) {
 }
 
 async function handleSingleTest(proxyId, rowElement) {
-    showToast(`开始测试代理 #${proxyId}...`, 'info');
+    showToast(`开始测试代理 ${proxyId}...`, 'info');
     updateRowStatus(rowElement, '测试中');
     try {
         await window.proxyAPI.testProxies([proxyId]); // 使用数组包裹单个 ID
@@ -554,7 +554,7 @@ async function handleDeleteProxy(proxyId, rowElement) {
 
         // 设置模态框内容
         titleElement.textContent = '确认删除代理';
-        messageElement.textContent = `确定要删除代理 #${proxyId} 吗？此操作不可撤销。`;
+        messageElement.textContent = `确定要删除代理 ${proxyId} 吗？此操作不可撤销。`;
         confirmBtn.textContent = '确认删除';
         confirmBtn.classList.add('btn-danger'); // 使用危险色
 
@@ -566,7 +566,7 @@ async function handleDeleteProxy(proxyId, rowElement) {
             try {
                 await window.dbAPI.deleteProxy(proxyId);
                 rowElement.remove(); // 从 DOM 中移除
-                showToast(`代理 #${proxyId} 已删除`, 'success');
+                showToast(`代理 ${proxyId} 已删除`, 'success');
                 // 可能需要重新计算总数并更新分页（如果跨页）
                 // 简单处理：重新加载当前页
                 await loadProxies();
