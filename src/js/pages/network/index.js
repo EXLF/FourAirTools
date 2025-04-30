@@ -155,25 +155,62 @@ async function loadProxies() {
 }
 
 /**
+ * 获取延迟对应的样式类。
+ * @param {number} latencyMs - 延迟时间（毫秒）。
+ * @returns {string} CSS 类名。
+ */
+function getLatencyClass(latencyMs) {
+    if (latencyMs === null || latencyMs === undefined) return '';
+    if (latencyMs < 100) return 'latency-excellent';
+    if (latencyMs < 300) return 'latency-good';
+    if (latencyMs < 800) return 'latency-fair';
+    return 'latency-poor';
+}
+
+/**
+ * 获取风险等级对应的样式类。
+ * @param {string} riskLevel - 风险等级。
+ * @returns {string} CSS 类名。
+ */
+function getRiskClass(riskLevel) {
+    if (!riskLevel) return 'risk-unknown';
+    switch (riskLevel.toLowerCase()) {
+        case 'low':
+        case '低风险':
+            return 'risk-low';
+        case 'medium':
+        case '中等风险':
+            return 'risk-medium';
+        case 'high':
+        case '高风险':
+            return 'risk-high';
+        default:
+            return 'risk-unknown';
+    }
+}
+
+/**
  * 渲染表格内容。
  * @param {Array<object>} proxies - 代理数据数组。
  */
 function renderTable(proxies) {
-    tableBody.innerHTML = ''; // 清空旧数据
+    tableBody.innerHTML = '';
     if (proxies.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="14" class="text-center p-4">未找到符合条件的代理配置。</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="11" class="text-center p-4">未找到符合条件的代理配置。</td></tr>';
         return;
     }
 
     proxies.forEach(proxy => {
         const row = document.createElement('tr');
         row.dataset.proxyId = proxy.id;
-        row.classList.toggle('enabled', proxy.is_enabled === 1); // 根据启用状态添加类
+        row.classList.toggle('enabled', proxy.is_enabled === 1);
 
         // 格式化地区和风险
         const location = [proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ') || '-';
-        const risk = proxy.risk_level ? `${proxy.risk_level} (${proxy.risk_score ?? '?'})` : (proxy.status === '可用' ? '未知' : '-');
-        const latency = proxy.latency !== null && proxy.latency !== undefined ? `${proxy.latency}ms` : '-';
+        const riskClass = getRiskClass(proxy.risk_level);
+        const risk = proxy.risk_level ? `<span class="${riskClass}">${proxy.risk_level} (${proxy.risk_score ?? '?'})</span>` : '<span class="risk-unknown">未知</span>';
+        const latencyClass = getLatencyClass(proxy.latency);
+        const latency = proxy.latency !== null && proxy.latency !== undefined ? `<span class="${latencyClass}">${proxy.latency}ms</span>` : '-';
         const statusClass = getStatusClass(proxy.status);
 
         row.innerHTML = `
@@ -618,8 +655,10 @@ function updateRowsStatus(proxyIds, statusText) {
  */
 function updateRow(rowElement, proxy) {
     const location = [proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ') || '-';
-    const risk = proxy.risk_level ? `${proxy.risk_level} (${proxy.risk_score ?? '?'})` : (proxy.status === '可用' ? '未知' : '-');
-    const latency = proxy.latency !== null && proxy.latency !== undefined ? `${proxy.latency}ms` : '-';
+    const riskClass = getRiskClass(proxy.risk_level);
+    const risk = proxy.risk_level ? `<span class="${riskClass}">${proxy.risk_level} (${proxy.risk_score ?? '?'})</span>` : '<span class="risk-unknown">未知</span>';
+    const latencyClass = getLatencyClass(proxy.latency);
+    const latency = proxy.latency !== null && proxy.latency !== undefined ? `<span class="${latencyClass}">${proxy.latency}ms</span>` : '-';
     const statusClass = getStatusClass(proxy.status);
     const isEnabled = proxy.is_enabled === 1;
 
@@ -630,12 +669,13 @@ function updateRow(rowElement, proxy) {
     rowElement.querySelector('td[data-field="type"]').textContent = proxy.type || '-';
     rowElement.querySelector('td[data-field="host"]').textContent = proxy.host || '-';
     rowElement.querySelector('td[data-field="port"]').textContent = proxy.port || '-';
-    rowElement.querySelector('td[data-field="status"] span').textContent = proxy.status || '-';
-    rowElement.querySelector('td[data-field="status"] span').className = `status ${statusClass}`;
-    rowElement.querySelector('td[data-field="latency"]').textContent = latency;
+    const statusSpan = rowElement.querySelector('td[data-field="status"] span');
+    statusSpan.textContent = proxy.status || '-';
+    statusSpan.className = `status ${statusClass}`;
+    rowElement.querySelector('td[data-field="latency"]').innerHTML = latency;
     rowElement.querySelector('td[data-field="location"]').textContent = location;
     rowElement.querySelector('td[data-field="location"]').title = proxy.organization || '';
-    rowElement.querySelector('td[data-field="risk"]').textContent = risk;
+    rowElement.querySelector('td[data-field="risk"]').innerHTML = risk;
     rowElement.querySelector('td[data-field="group_name"]').textContent = proxy.group_name || '无分组';
 
     // 更新启用开关

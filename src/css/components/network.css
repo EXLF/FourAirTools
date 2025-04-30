@@ -1,0 +1,103 @@
+/* 状态颜色方案 */
+.status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    display: inline-block;  /* 确保内边距生效 */
+    line-height: 1.2;      /* 调整行高 */
+}
+
+/* 代理状态样式 */
+.status.available {
+    color: #10B981;  /* 绿色 - 表示可用 */
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.status.unavailable {
+    color: #EF4444;  /* 红色 - 表示不可用 */
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.status.testing {
+    color: #3B82F6;  /* 蓝色 - 表示测试中 */
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.status.error {
+    color: #F97316;  /* 橙色 - 表示错误 */
+    background-color: rgba(249, 115, 22, 0.1);
+}
+
+.status.unknown {
+    color: #6B7280;  /* 灰色 - 表示未测试 */
+    background-color: rgba(107, 114, 128, 0.1);
+}
+
+/* 延迟时间样式 */
+.latency-excellent {
+    color: #10B981;  /* 绿色 - 极佳 (<100ms) */
+    font-weight: 500;
+}
+
+.latency-good {
+    color: #059669;  /* 深绿色 - 良好 (100-300ms) */
+    font-weight: 500;
+}
+
+.latency-fair {
+    color: #F59E0B;  /* 黄色 - 一般 (300-800ms) */
+    font-weight: 500;
+}
+
+.latency-poor {
+    color: #EF4444;  /* 红色 - 较差 (>800ms) */
+    font-weight: 500;
+}
+
+/* 风险等级样式 */
+.risk-low {
+    color: #10B981;  /* 绿色 - 低风险 */
+    font-weight: 500;
+}
+
+.risk-medium {
+    color: #F59E0B;  /* 黄色 - 中等风险 */
+    font-weight: 500;
+}
+
+.risk-high {
+    color: #EF4444;  /* 红色 - 高风险 */
+    font-weight: 500;
+}
+
+.risk-unknown {
+    color: #6B7280;  /* 灰色 - 未知风险 */
+    font-weight: 500;
+}
+
+/* 表格单元格样式 */
+.proxies-table td {
+    vertical-align: middle;  /* 垂直居中 */
+    padding: 8px 12px;      /* 调整内边距 */
+}
+
+/* 操作按钮样式 */
+.proxies-table .actions-cell {
+    white-space: nowrap;    /* 防止按钮换行 */
+}
+
+.proxies-table .btn-icon {
+    padding: 6px;
+    margin: 0 2px;
+    border-radius: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6B7280;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.proxies-table .btn-icon:hover {
+    color: #3B82F6;
+    background-color: rgba(59, 130, 246, 0.1);
+} 
