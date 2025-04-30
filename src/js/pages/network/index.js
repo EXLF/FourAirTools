@@ -11,7 +11,8 @@ import { translateLocation } from '../../utils/locationTranslator.js';
 // 全局变量声明
 let contentArea = null;
 let tableBody = null;
-let paginationContainer = null;
+let paginationWrapper = null; // 外层容器
+let paginationContainer = null; // 内层按钮容器
 let searchInput = null;
 let selectAllCheckbox = null;
 let addProxyBtn = null;
@@ -20,9 +21,18 @@ let filterElements = {};
 let isLoading = false;
 let currentPage = 1;
 let itemsPerPage = 10;
-let currentSort = { field: 'id', order: 'desc' };
+let totalItems = 0;
+let currentSort = { field: 'id', order: 'asc' };
 let currentFilters = { type: 'all', groupId: 'all', status: 'all', search: '' };
 let groupsCache = [];
+
+// 分页相关的DOM元素引用 (匹配新结构)
+let pageSizeSelect = null;
+let prevPageBtn = null;
+let nextPageBtn = null;
+let pageNumbersContainer = null;
+let pageInfoSpan = null;
+// totalCountSpan 不再直接在HTML中，将在JS中查找
 
 /**
  * 初始化网络（IP 代理）页面。
@@ -38,20 +48,31 @@ export function initNetworkPage(pageElement) {
 
     // 缓存 DOM 元素
     tableBody = contentArea.querySelector('.proxies-table tbody');
-    paginationContainer = contentArea.querySelector('.pagination');
+    paginationWrapper = contentArea.querySelector('.pagination-controls-wrapper'); // 外层
     searchInput = contentArea.querySelector('.table-search-input');
     selectAllCheckbox = contentArea.querySelector('.select-all-checkbox');
     addProxyBtn = contentArea.querySelector('.add-proxy-btn');
     bulkTestBtn = contentArea.querySelector('.bulk-test-proxies-btn');
+    
+    // 分页相关元素 (从 wrapper 内部查找)
+    if (paginationWrapper) {
+        pageSizeSelect = paginationWrapper.querySelector('.page-size-select');
+        paginationContainer = paginationWrapper.querySelector('.pagination'); // 内层
+        if (paginationContainer) {
+            prevPageBtn = paginationContainer.querySelector('.prev-page-btn');
+            nextPageBtn = paginationContainer.querySelector('.next-page-btn');
+            pageNumbersContainer = paginationContainer.querySelector('.page-numbers');
+            pageInfoSpan = paginationContainer.querySelector('.page-info');
+        }
+    }
+    
     filterElements = {
         type: contentArea.querySelector('.select-filter[data-filter="type"]'),
         groupId: contentArea.querySelector('.select-filter[data-filter="groupId"]'),
         status: contentArea.querySelector('.select-filter[data-filter="status"]'),
     };
 
-    if (!tableBody || !paginationContainer || !searchInput || !selectAllCheckbox || !addProxyBtn || !bulkTestBtn || !filterElements.type || !filterElements.groupId || !filterElements.status) {
-        console.error('[Network Page] Failed to find all required elements in the template.');
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="14" class="text-center text-red-500 p-4">页面元素加载不完整，无法初始化代理管理。</td></tr>';
+    if (!validateRequiredElements()) {
         return;
     }
 
@@ -65,6 +86,39 @@ export function initNetworkPage(pageElement) {
 
     // 监听代理测试结果
     listenForTestResults();
+}
+
+/**
+ * 校验必需的DOM元素是否存在。
+ */
+function validateRequiredElements() {
+    const requiredElements = {
+        tableBody,
+        paginationWrapper, // 检查外层
+        paginationContainer, // 检查内层
+        searchInput,
+        selectAllCheckbox,
+        addProxyBtn,
+        bulkTestBtn,
+        pageSizeSelect,
+        prevPageBtn, 
+        nextPageBtn, 
+        pageNumbersContainer, 
+        pageInfoSpan,
+        // totalCountSpan 不再直接检查，会在 renderPagination 中处理
+        ...filterElements
+    };
+
+    for (const [name, element] of Object.entries(requiredElements)) {
+        if (!element) {
+            console.error(`[Network Page] Required element not found: ${name}`);
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="14" class="text-center text-red-500 p-4">页面元素加载不完整，无法初始化代理管理。</td></tr>';
+            }
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
@@ -91,6 +145,12 @@ function setupEventListeners() {
     // 表格内事件委托 (操作按钮, 行选择)
     tableBody.addEventListener('click', handleTableClick);
     tableBody.addEventListener('change', handleTableRowCheckboxChange);
+
+    // 分页相关的事件监听器 (复制自钱包管理)
+    pageSizeSelect.addEventListener('change', handlePageSizeChange);
+    prevPageBtn.addEventListener('click', () => goToPage(currentPage - 1));
+    nextPageBtn.addEventListener('click', () => goToPage(currentPage + 1));
+    pageNumbersContainer.addEventListener('click', handlePageNumberClick);
 }
 
 /**
@@ -204,6 +264,7 @@ function renderTable(proxies) {
     proxies.forEach(proxy => {
         const row = document.createElement('tr');
         row.dataset.proxyId = proxy.id;
+        row.classList.add('data-table');
         row.classList.toggle('enabled', proxy.is_enabled === 1);
 
         // 格式化地区和风险
@@ -216,7 +277,7 @@ function renderTable(proxies) {
 
         row.innerHTML = `
             <td><input type="checkbox" class="row-checkbox"></td>
-            <td data-field="name">#${proxy.id}</td>
+            <td data-field="name">${proxy.id}</td>
             <td data-field="type">${proxy.type || '-'}</td>
             <td data-field="host">${proxy.host || '-'}</td>
             <td data-field="port">${proxy.port || '-'}</td>
@@ -250,49 +311,49 @@ function getStatusClass(status) {
 }
 
 /**
- * 渲染分页控件。
- * @param {number} totalItems - 总项目数。
+ * 渲染分页控件 (匹配新结构)。
  */
-function renderPagination(totalItems) {
-    paginationContainer.innerHTML = ''; // 清空旧控件
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+function renderPagination(total) {
+    totalItems = total;
+    const totalPages = Math.ceil(total / itemsPerPage);
+    
+    // 安全检查
+    if (!paginationWrapper || !pageInfoSpan || !pageNumbersContainer || !prevPageBtn || !nextPageBtn) {
+        console.error("Pagination elements not found, cannot render pagination.");
+        return;
+    }
 
-    if (totalPages <= 1) return; // 只有一页或没有数据则不显示分页
+    // 更新总数显示 (查找totalCountSpan)
+    const totalCountSpan = paginationWrapper.querySelector('.total-count');
+    if (totalCountSpan) {
+        totalCountSpan.textContent = total;
+    }
+    
+    // 更新页码信息
+    pageInfoSpan.textContent = `${currentPage}/${totalPages}页 共${total}条`;
 
-    const paginationWrapper = document.createElement('div');
-    paginationWrapper.className = 'pagination-controls';
+    // 更新按钮状态
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
 
-    // 上一页按钮
-    const prevButton = document.createElement('button');
-    prevButton.innerHTML = '<i class="fa fa-chevron-left"></i>';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            loadProxies();
-        }
-    });
-    paginationWrapper.appendChild(prevButton);
+    // 生成页码按钮
+    pageNumbersContainer.innerHTML = '';
+    const maxPageButtons = 5; 
+    let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+    if (endPage - startPage + 1 < maxPageButtons && totalPages >= maxPageButtons) {
+        startPage = endPage - maxPageButtons + 1;
+    }
+    for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.className = `page-number ${i === currentPage ? 'active' : ''}`;
+        pageButton.textContent = i;
+        pageButton.dataset.page = i;
+        pageNumbersContainer.appendChild(pageButton);
+    }
 
-    // 页码信息 (例如: "第 1 / 10 页")
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'page-info';
-    pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
-    paginationWrapper.appendChild(pageInfo);
-
-    // 下一页按钮
-    const nextButton = document.createElement('button');
-    nextButton.innerHTML = '<i class="fa fa-chevron-right"></i>';
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', () => {
-        if (currentPage < totalPages) {
-            currentPage++;
-            loadProxies();
-        }
-    });
-    paginationWrapper.appendChild(nextButton);
-
-    paginationContainer.appendChild(paginationWrapper);
+    // 控制整个 wrapper 的显示
+    paginationWrapper.style.display = totalPages > 0 ? 'flex' : 'none'; // 修改：有数据才显示
 }
 
 // --- 事件处理函数 ---
@@ -352,10 +413,11 @@ function handleSelectAllChange(event) {
 function handleTableClick(event) {
     const target = event.target;
     const actionBtn = target.closest('.action-btn');
+    const row = target.closest('tr');
 
+    // 如果点击的是操作按钮，处理按钮事件
     if (actionBtn) {
         const action = actionBtn.dataset.action;
-        const row = actionBtn.closest('tr');
         const proxyId = parseInt(row.dataset.proxyId, 10);
 
         switch (action) {
@@ -371,6 +433,23 @@ function handleTableClick(event) {
             case 'delete':
                 handleDeleteProxy(proxyId, row);
                 break;
+        }
+        return; // 如果是按钮点击，不执行后续的行选中逻辑
+    }
+
+    // 如果点击的是复选框，不处理行点击事件
+    if (target.matches('input[type="checkbox"]')) {
+        return;
+    }
+
+    // 处理行点击事件
+    if (row) {
+        const checkbox = row.querySelector('input.row-checkbox');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            row.classList.toggle('selected', checkbox.checked);
+            // 触发change事件以更新全选框状态
+            checkbox.dispatchEvent(new Event('change'));
         }
     }
 }
@@ -481,6 +560,9 @@ function openProxyModal(proxyData = null) {
             const option = document.createElement('option');
             option.value = group.id;
             option.textContent = group.name;
+            if (!proxyData && group.name === '默认分组') {  // 添加模式下，默认选中"默认分组"
+                option.selected = true;
+            }
             groupSelect.appendChild(option);
         });
 
@@ -707,6 +789,42 @@ function updateRow(rowElement, proxy) {
          testBtn.disabled = false;
          testBtn.innerHTML = '<i class="fa fa-plug"></i>';
      }
+}
+
+/**
+ * 处理每页显示数量变化。
+ */
+function handlePageSizeChange(event) {
+    const newSize = parseInt(event.target.value, 10);
+    if (newSize !== itemsPerPage) {
+        itemsPerPage = newSize;
+        currentPage = 1; // 重置到第一页
+        loadProxies();
+    }
+}
+
+/**
+ * 处理页码点击事件 (复制自钱包管理)。
+ */
+function handlePageNumberClick(event) {
+    const pageButton = event.target.closest('.page-number');
+    if (pageButton && !pageButton.classList.contains('active')) {
+        const page = parseInt(pageButton.dataset.page, 10);
+        if (page) {
+            goToPage(page);
+        }
+    }
+}
+
+/**
+ * 跳转到指定页。
+ */
+function goToPage(page) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+        currentPage = page;
+        loadProxies();
+    }
 }
 
 // --- 导出初始化函数 ---
