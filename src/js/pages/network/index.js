@@ -659,13 +659,6 @@ function openProxyModal(proxyData = null) {
             const isEditing = !!data.id;
 
             try {
-                 // 不再需要检查加密服务
-                 // if (hasPassword && !(await window.electron.ipcRenderer.invoke('auth:isUnlocked'))) {
-                 //      showToast('请先解锁应用以保存密码！', 'error');
-                 //     // 可能需要触发解锁流程
-                 //      return;
-                 //  }
-
                 if (isEditing) {
                     data.id = parseInt(data.id, 10); // 确保 ID 是数字
                     await window.dbAPI.updateProxy(data.id, data);
@@ -678,8 +671,15 @@ function openProxyModal(proxyData = null) {
                 hideModal();
                 loadProxies(); // 刷新列表
             } catch (error) {
-                console.error('保存代理配置失败:', error);
-                showToast(`保存失败: ${error.message}`, 'error');
+                console.error('保存代理配置失败:', error); // 保留详细错误日志在控制台
+                // 对用户显示友好的错误信息
+                let userMessage = '保存失败，请检查输入是否正确';
+                if (error.message.includes('already exists') || error.message.includes('已存在')) {
+                    userMessage = '该IP地址已存在，请勿重复添加';
+                } else if (error.message.includes('required') || error.message.includes('缺少')) {
+                    userMessage = '请填写所有必填项';
+                }
+                showToast(userMessage, 'error');
             }
         };
     });
@@ -921,6 +921,9 @@ async function handleBulkDeleteClick() {
 
 /**
  * 处理导入代理按钮点击事件。
+ * 支持两种格式：
+ * 1. 协议类型:ip:端口:用户名:密码 - 新格式
+ * 2. ip:端口:用户名:密码 - 兼容旧格式，默认HTTP
  */
 async function handleImportClick() {
     // 创建一个隐藏的文件输入元素
@@ -969,6 +972,13 @@ async function handleImportClick() {
 
                 titleElement.textContent = '确认导入代理';
                 messageElement.textContent = `发现 ${proxies.length} 个代理配置，是否导入？`;
+                messageElement.innerHTML += `<div style="margin-top:10px;font-size:0.9em;color:#666;">
+                    <p>支持格式：</p>
+                    <p>1. IP:端口</p>
+                    <p>2. IP:端口:用户名:密码</p>
+                    <p>3. 协议类型:IP:端口:用户名:密码</p>
+                    <p>注：如不指定协议类型，默认为HTTP</p>
+                </div>`;
                 confirmBtn.textContent = `确认导入 (${proxies.length})`;
                 confirmBtn.classList.remove('btn-danger');
                 confirmBtn.classList.add('btn-primary');
@@ -987,12 +997,12 @@ async function handleImportClick() {
                         for (const proxy of proxies) {
                             try {
                                 await window.dbAPI.addProxy({
-                                    type: 'HTTP', // 默认HTTP
+                                    type: proxy.type || 'HTTP',
                                     host: proxy.host,
                                     port: proxy.port,
                                     username: proxy.username || null,
                                     password: proxy.password || null,
-                                    group_id: null // 默认无分组
+                                    group_id: null
                                 });
                                 successCount++;
                             } catch (err) {
@@ -1036,9 +1046,12 @@ async function handleImportClick() {
 
 /**
  * 解析代理列表文本内容。
- * 格式: ip:端口:账户:密码
+ * 支持格式:
+ * 1. IP:端口
+ * 2. IP:端口:用户名:密码
+ * 3. 协议类型:IP:端口:用户名:密码
  * @param {string} content - 文件内容
- * @returns {Array<{host: string, port: number, username?: string, password?: string}>}
+ * @returns {Array<{type: string, host: string, port: number, username?: string, password?: string}>}
  */
 function parseProxyList(content) {
     const proxies = [];
@@ -1049,26 +1062,52 @@ function parseProxyList(content) {
         if (!trimmed || trimmed.startsWith('#')) continue;
 
         const parts = trimmed.split(':');
-        if (parts.length >= 2) {
-            const proxy = {
-                host: parts[0],
-                port: parseInt(parts[1], 10)
-            };
+        
+        // 至少需要IP和端口
+        if (parts.length < 2) {
+            console.warn(`跳过无效的代理配置: ${trimmed} (格式错误)`);
+            continue;
+        }
 
-            // 验证 IP 和端口
-            if (!isValidIP(proxy.host) || !isValidPort(proxy.port)) {
-                console.warn(`跳过无效的代理配置: ${trimmed}`);
+        // 判断第一部分是协议类型还是IP
+        const hasProtocol = !isValidIP(parts[0]);
+        let proxy = {};
+
+        if (hasProtocol) {
+            // 格式: 协议类型:IP:端口[:用户名:密码]
+            if (parts.length < 3) {
+                console.warn(`跳过无效的代理配置: ${trimmed} (缺少必要参数)`);
                 continue;
             }
-
-            // 如果有用户名和密码
+            proxy.type = parts[0].toUpperCase();
+            proxy.host = parts[1];
+            proxy.port = parseInt(parts[2], 10);
+            if (parts.length >= 5) {
+                proxy.username = parts[3] || null;
+                proxy.password = parts[4] || null;
+            }
+        } else {
+            // 格式: IP:端口[:用户名:密码]
+            proxy.type = 'HTTP';
+            proxy.host = parts[0];
+            proxy.port = parseInt(parts[1], 10);
             if (parts.length >= 4) {
                 proxy.username = parts[2] || null;
                 proxy.password = parts[3] || null;
             }
-
-            proxies.push(proxy);
         }
+
+        // 验证IP和端口
+        if (!isValidIP(proxy.host)) {
+            console.warn(`跳过无效的代理配置: ${trimmed} (IP地址无效)`);
+            continue;
+        }
+        if (!isValidPort(proxy.port)) {
+            console.warn(`跳过无效的代理配置: ${trimmed} (端口号无效)`);
+            continue;
+        }
+
+        proxies.push(proxy);
     }
 
     return proxies;
@@ -1154,7 +1193,7 @@ async function handleExportClick() {
             decryptionOption.innerHTML = `
                 <label>
                     <input type="checkbox" name="decrypt-passwords" checked>
-                    解密并导出密码（需要应用已解锁）
+                    勾选导出账户密码，未勾选则只导出IP端口
                 </label>
             `;
 
@@ -1246,12 +1285,12 @@ async function handleExportClick() {
 function formatProxiesForExport(proxies, includeAuth) {
     let content = '# FourAir IP代理导出\n';
     content += `# 导出时间: ${new Date().toLocaleString()}\n`;
-    content += '# 格式: ip:端口:用户名:密码\n';
+    content += '# 格式: 协议类型:ip:端口:用户名:密码\n';
     content += '#\n\n';
 
     proxies.forEach(proxy => {
-        // 基本格式: ip:端口
-        let line = `${proxy.host}:${proxy.port}`;
+        // 基本格式: 协议类型:ip:端口
+        let line = `${proxy.type || 'HTTP'}:${proxy.host}:${proxy.port}`;
         
         // 如果包含认证信息，则添加用户名和密码
         if (includeAuth) {

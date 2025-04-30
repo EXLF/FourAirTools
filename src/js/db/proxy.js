@@ -1,6 +1,25 @@
 const cryptoService = require('../core/cryptoService'); // 导入加密服务
 
 /**
+ * 检查IP是否已存在于数据库中。
+ * @param {sqlite3.Database} db - 数据库实例。
+ * @param {string} host - 要检查的IP地址。
+ * @returns {Promise<boolean>} 如果IP已存在返回true，否则返回false。
+ */
+async function checkIPExists(db, host) {
+    return new Promise((resolve, reject) => {
+        const sql = 'SELECT COUNT(*) as count FROM proxies WHERE host = ?';
+        db.get(sql, [host], (err, row) => {
+            if (err) {
+                reject(new Error(`检查IP是否存在失败: ${err.message}`));
+            } else {
+                resolve(row.count > 0);
+            }
+        });
+    });
+}
+
+/**
  * 添加一个新的代理配置到数据库。
  * @param {sqlite3.Database} db - 数据库实例。
  * @param {object} proxyData - 代理数据对象，包含 name, type, host, port, [username], [password], [group_id]。
@@ -16,29 +35,39 @@ async function addProxy(db, proxyData) {
             return reject(new Error('缺少必要的代理信息 (type, host, port)'));
         }
 
-        // 获取当前最大ID，用于生成新的name
-        db.get('SELECT MAX(id) as maxId FROM proxies', [], function(err, row) {
-            if (err) {
-                return reject(new Error(`获取最大ID失败: ${err.message}`));
+        try {
+            // 检查IP是否已存在
+            const exists = await checkIPExists(db, host);
+            if (exists) {
+                return reject(new Error(`IP ${host} 已存在，不能重复添加`));
             }
-            
-            const nextId = (row.maxId || 0) + 1;
-            const name = `#${nextId}`;
 
-            const sql = `INSERT INTO proxies (name, type, host, port, username, password, group_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)`;
-            const params = [name, type, host, port, username || null, password || null, group_id || null];
-
-            db.run(sql, params, function(err) {
+            // 获取当前最大ID，用于生成新的name
+            db.get('SELECT MAX(id) as maxId FROM proxies', [], function(err, row) {
                 if (err) {
-                    console.error('添加代理到数据库失败:', err.message);
-                    reject(new Error(`添加代理失败: ${err.message}`));
-                } else {
-                    console.log(`添加代理成功，ID: ${this.lastID}`);
-                    resolve({ id: this.lastID });
+                    return reject(new Error(`获取最大ID失败: ${err.message}`));
                 }
+                
+                const nextId = (row.maxId || 0) + 1;
+                const name = `#${nextId}`;
+
+                const sql = `INSERT INTO proxies (name, type, host, port, username, password, group_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+                const params = [name, type, host, port, username || null, password || null, group_id || null];
+
+                db.run(sql, params, function(err) {
+                    if (err) {
+                        console.error('添加代理到数据库失败:', err.message);
+                        reject(new Error(`添加代理失败: ${err.message}`));
+                    } else {
+                        console.log(`添加代理成功，ID: ${this.lastID}`);
+                        resolve({ id: this.lastID });
+                    }
+                });
             });
-        });
+        } catch (error) {
+            reject(error);
+        }
     });
 }
 
@@ -295,5 +324,6 @@ module.exports = {
     getProxyById,
     updateProxy,
     deleteProxy,
-    deleteProxiesByIds
+    deleteProxiesByIds,
+    checkIPExists
 }; 
