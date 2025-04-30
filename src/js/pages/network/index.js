@@ -620,20 +620,23 @@ function listenForTestResults() {
  * @param {string} statusText - 新的状态文本 ('测试中', '可用', '不可用', etc.)。
  */
 function updateRowStatus(rowElement, statusText) {
+    // Add null check for rowElement for extra safety
+    if (!rowElement) {
+        console.warn('updateRowStatus called with null rowElement');
+        return;
+    }
     const statusCell = rowElement.querySelector('td[data-field="status"] span');
     const testBtn = rowElement.querySelector('.test-btn');
     if (statusCell) {
         statusCell.textContent = statusText;
         statusCell.className = `status ${getStatusClass(statusText)}`;
     }
-     // 测试中时禁用测试按钮
+     // 根据状态更新测试按钮
     if (testBtn) {
-         testBtn.disabled = (statusText === '测试中');
-         if (testBtn.disabled) {
-             testBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-         } else {
-             testBtn.innerHTML = '<i class="fa fa-plug"></i>';
-         }
+         const isTesting = (statusText === '测试中');
+         testBtn.disabled = isTesting; // 测试中时禁用
+         // 如果正在测试，显示旋转图标，否则恢复默认图标
+         testBtn.innerHTML = isTesting ? '<i class="fa fa-spinner fa-spin"></i>' : '<i class="fa fa-plug"></i>';
     }
 }
 
@@ -684,11 +687,19 @@ function updateRow(rowElement, proxy) {
 
     // 更新启用开关
     const toggleBtnIcon = rowElement.querySelector('.toggle-enable-btn i');
-    toggleBtnIcon.classList.toggle('fa-toggle-on', isEnabled);
-    toggleBtnIcon.classList.toggle('text-green-500', isEnabled);
-    toggleBtnIcon.classList.toggle('fa-toggle-off', !isEnabled);
-    toggleBtnIcon.classList.toggle('text-gray-500', !isEnabled);
-    toggleBtnIcon.closest('button').title = `点击${isEnabled ? '禁用' : '启用'}`;
+    if (toggleBtnIcon) { 
+        toggleBtnIcon.classList.toggle('fa-toggle-on', isEnabled);
+        toggleBtnIcon.classList.toggle('text-green-500', isEnabled);
+        toggleBtnIcon.classList.toggle('fa-toggle-off', !isEnabled);
+        toggleBtnIcon.classList.toggle('text-gray-500', !isEnabled);
+        const toggleBtn = toggleBtnIcon.closest('button');
+        if (toggleBtn) {
+           toggleBtn.title = `点击${isEnabled ? '禁用' : '启用'}`;
+        }
+    } else {
+        // 可以选择在这里打印一个警告，说明切换按钮未找到
+        // console.warn(`Toggle enable button not found in row for proxy ${proxy.id}`);
+    }
 
     // 恢复测试按钮状态
      const testBtn = rowElement.querySelector('.test-btn');

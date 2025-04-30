@@ -14,6 +14,20 @@
     vertical-align: middle;
 }
 
+/* 复选框列的特殊样式 */
+.data-table th:first-child,
+.data-table td:first-child {
+    width: 40px;
+    padding: 14px 10px;
+    text-align: center;
+}
+
+.data-table th:first-child input[type="checkbox"],
+.data-table td:first-child input[type="checkbox"] {
+    margin: 0;
+    vertical-align: middle;
+}
+
 .data-table th {
     background-color: #f8f9fa;
     font-weight: 600;
