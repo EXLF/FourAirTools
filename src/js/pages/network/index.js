@@ -74,7 +74,6 @@ export function initNetworkPage(pageElement) {
     
     filterElements = {
         type: contentArea.querySelector('.select-filter[data-filter="type"]'),
-        groupId: contentArea.querySelector('.select-filter[data-filter="groupId"]'),
         status: contentArea.querySelector('.select-filter[data-filter="status"]'),
     };
 
@@ -85,10 +84,8 @@ export function initNetworkPage(pageElement) {
     // 设置事件监听器
     setupEventListeners();
 
-    // 初始化：加载分组 -> 加载数据
-    loadGroups().then(() => {
-        loadProxies(); // 初始加载第一页数据
-    });
+    // 直接加载数据，不需要先加载分组
+    loadProxies();
 
     // 监听代理测试结果
     listenForTestResults();
@@ -303,7 +300,6 @@ function renderTable(proxies) {
             <td data-field="latency">${latency}</td>
             <td data-field="location" title="${[proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ')}">${location}</td>
             <td data-field="risk">${risk}</td>
-            <td data-field="group_name">${proxy.group_name || '无分组'}</td>
             <td class="actions-cell">
                  <button class="btn-icon action-btn test-btn" data-action="test" title="测试连通性"><i class="fa fa-plug"></i></button>
                  <button class="btn-icon action-btn edit-btn" data-action="edit" title="编辑"><i class="fa fa-edit"></i></button>
@@ -602,39 +598,37 @@ function openProxyModal(proxyData = null) {
         const form = modalElement.querySelector('#proxy-form');
         const title = modalElement.querySelector('.modal-title');
         const saveBtn = modalElement.querySelector('#modal-save-proxy-btn');
-        const groupSelect = form.querySelector('#proxy-group');
 
-        // 填充分组下拉框
-        groupSelect.innerHTML = '<option value="">-- 无分组 --</option>'; // 重置
-        groupsCache.forEach(group => {
-            const option = document.createElement('option');
-            option.value = group.id;
-            option.textContent = group.name;
-            if (!proxyData && group.name === '默认分组') {  // 添加模式下，默认选中"默认分组"
-                option.selected = true;
-            }
-            groupSelect.appendChild(option);
-        });
-
+        // 重置表单
+        form.reset();
+        
         if (proxyData) {
             // 编辑模式
+            console.log('正在编辑代理', proxyData);
             title.textContent = '编辑代理配置';
-            form.elements['id'].value = proxyData.id;
-            form.elements['name'].value = proxyData.name || '';
-            form.elements['type'].value = proxyData.type || 'HTTP';
-            form.elements['host'].value = proxyData.host || '';
-            form.elements['port'].value = proxyData.port || '';
-            form.elements['username'].value = proxyData.username || '';
-            // 使用原始密码字段，不再需要特殊处理
-            form.elements['password'].value = proxyData.password || '';
-            form.elements['password'].placeholder = '留空则不修改密码';
-            groupSelect.value = proxyData.group_id || '';
+            
+            // 设置表单字段值前先检查元素是否存在
+            if (form.elements['id']) form.elements['id'].value = proxyData.id || '';
+            if (form.elements['type']) form.elements['type'].value = proxyData.type || 'HTTP';
+            if (form.elements['host']) form.elements['host'].value = proxyData.host || '';
+            if (form.elements['port']) form.elements['port'].value = proxyData.port || '';
+            if (form.elements['username']) form.elements['username'].value = proxyData.username || '';
+            if (form.elements['password']) {
+                form.elements['password'].value = proxyData.password || '';
+                form.elements['password'].placeholder = '留空则不修改密码';
+            }
+            
+            // 修改name字段的设置，可能不存在这个字段
+            if (form.elements['name'] && proxyData.name) {
+                form.elements['name'].value = proxyData.name;
+            }
         } else {
             // 添加模式
             title.textContent = '添加代理配置';
-            form.reset(); // 重置表单
-            form.elements['id'].value = ''; // 确保 ID 为空
-             form.elements['password'].placeholder = '输入密码 (可选)';
+            if (form.elements['id']) form.elements['id'].value = ''; // 确保 ID 为空
+            if (form.elements['password']) {
+                form.elements['password'].placeholder = '输入密码 (可选)';
+            }
         }
 
         // 保存按钮事件 (移除旧监听器确保只有一个)
@@ -649,9 +643,7 @@ function openProxyModal(proxyData = null) {
             let hasPassword = false;
             formData.forEach((value, key) => {
                 // 特殊处理 group_id，如果是空字符串，设为 null
-                if (key === 'group_id' && value === '') {
-                    data[key] = null;
-                } else if (key === 'password') {
+                if (key === 'password') {
                     if (value.trim() !== '') { // 只有非空时才包含密码字段
                        data[key] = value;
                        hasPassword = true;
@@ -663,7 +655,6 @@ function openProxyModal(proxyData = null) {
 
              // 类型转换
             data.port = parseInt(data.port, 10);
-            if (data.group_id) data.group_id = parseInt(data.group_id, 10);
 
             const isEditing = !!data.id;
 
@@ -815,7 +806,6 @@ function updateRow(rowElement, proxy) {
     locationCell.textContent = location;
     locationCell.title = fullLocation; // 完整地址信息放在 title 中
     rowElement.querySelector('td[data-field="risk"]').innerHTML = risk;
-    rowElement.querySelector('td[data-field="group_name"]').textContent = proxy.group_name || '无分组';
 
     // 更新启用开关
     const toggleBtnIcon = rowElement.querySelector('.toggle-enable-btn i');
