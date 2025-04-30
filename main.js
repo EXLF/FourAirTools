@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
 const db = require('./src/js/db/index.js');
@@ -24,6 +24,23 @@ function createWindow() {
       webviewTag: true // 启用 webview 标签支持
     }
   });
+
+  // *** 新增：设置窗口打开处理程序 ***
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // 检查 URL 是否是 http 或 https
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      // 使用 shell 在默认浏览器中打开链接
+      console.log(`[Main][WindowOpenHandler] Intercepted window.open for ${url}. Opening externally.`);
+      shell.openExternal(url);
+      // 拒绝 Electron 创建新窗口
+      return { action: 'deny' };
+    }
+    // 对于其他情况 (e.g., about:blank or other protocols)，允许默认行为
+    // 注意：根据安全需求，您可能希望默认拒绝所有非明确允许的窗口打开
+    console.log(`[Main][WindowOpenHandler] Allowing window.open for non-http(s) URL: ${url}`);
+    return { action: 'allow' }; 
+  });
+  // *** 结束新增 ***
 
   // 在加载文件前设置 IPC Handlers 并传入 mainWindow
   setupDatabaseIpcHandlers();
@@ -122,6 +139,18 @@ function createWindow() {
       }
   });
   // ----------------------------------
+
+  // --- 新增：处理在外部浏览器打开链接的请求 ---
+  ipcMain.on('open-external-link', (event, url) => {
+    console.log(`[Main] Received request to open external link: ${url}`);
+    // 安全检查：确保 URL 是 http 或 https 协议
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      shell.openExternal(url);
+    } else {
+      console.warn(`[Main] Blocked attempt to open non-http(s) URL externally: ${url}`);
+    }
+  });
+  // ----------------------------------------
 
   // 加载 index.html
   mainWindow.loadFile('index.html');

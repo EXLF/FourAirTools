@@ -1,7 +1,4 @@
-// Import other modules if needed
-// import * as table from './table.js';
-// import * as modals from './modals.js';
-// import * as actions from './actions.js';
+// const { ipcRenderer } = require('electron'); // 移除此行
 
 let tutorialsData = []; // 存储从服务器获取的教程数据
 let currentWebview = null; // 存储当前活动的 webview 元素
@@ -412,42 +409,63 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         return;
     }
 
-    // 尝试使用页面中已有的 webview 元素
-    let webview = webviewContainer.querySelector('#test-webview');
-    let isExistingWebview = !!webview;
-    
-    // 如果页面中没有 webview 或者 webview 被标记为删除，则创建新的
-    if (!isExistingWebview) {
-        console.log("Creating new webview element dynamically");
-        
-        // 清除可能存在的旧 WebView
-        if (currentWebview) {
-            currentWebview.remove();
-            currentWebview = null;
-        }
+    // --- 简化逻辑：总是创建新的 WebView --- 
 
-        // 创建新的 WebView
-        webview = document.createElement('webview');
-        webview.setAttribute('nodeintegration', 'false'); // 安全设置
-        webview.setAttribute('webpreferences', 'contextIsolation=true'); // 安全设置
-        webview.setAttribute('allowpopups', ''); // 允许可能需要的弹出窗口
-    } else {
-        console.log("Using existing webview element in the page");
-        // webview.style.display = 'block'; // 不再需要，由 CSS 控制
+    // 1. 清除可能存在的旧 WebView
+    if (currentWebview) {
+        try {
+            currentWebview.stop();
+        } catch (e) {
+            console.warn("Error calling old webview.stop():", e.message);
+        }
+        currentWebview.remove();
+        currentWebview = null;
     }
-    
-    // 设置/更新 webview 属性
+    webviewContentArea.innerHTML = ''; // 清空容器内容
+
+    // 2. 创建新的 WebView 元素
+    console.log("Creating new webview element");
+    const webview = document.createElement('webview');
+    webview.setAttribute('nodeintegration', 'false'); // 安全设置
+    webview.setAttribute('webpreferences', 'contextIsolation=true'); // 安全设置
+    webview.setAttribute('allowpopups', ''); // 允许可能需要的弹出窗口
     webview.setAttribute('src', url);
-    // webview.setAttribute('style', 'width: 100%; height: 100%; border: none; display: block;'); // 不再需要，由 CSS 控制
     webview.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+    // CSS 类将控制样式，无需内联 style
+    // webview.setAttribute('style', 'width: 100%; height: 100%; border: none; display: block;'); 
     
-    // 保存引用
+    // 3. 添加 new-window 事件监听器 (使用 preload 暴露的 API)
+    webview.addEventListener('new-window', (e) => {
+        const parsedUrl = window.urlUtils.parse(e.url);
+        const protocol = parsedUrl?.protocol;
+        if (protocol === 'http:' || protocol === 'https:') {
+            e.preventDefault(); // 阻止 Electron 打开新窗口
+            console.log(`[Webview] Intercepted new-window event for URL: ${e.url}. Opening externally.`);
+            window.electron.ipcRenderer.sendOpenExternalLink(e.url); // 使用 preload API
+        }
+    });
+
+    // *** 新增: 添加 will-navigate 事件监听器 ***
+    webview.addEventListener('will-navigate', (e) => {
+        const parsedUrl = window.urlUtils.parse(e.url);
+        const protocol = parsedUrl?.protocol;
+        // 检查是否是外部 HTTP/HTTPS 链接，并且不是当前加载的 URL (防止刷新循环)
+        // 注意：简单地检查 isMainFrame 可能不足以区分用户点击和脚本导航
+        if ((protocol === 'http:' || protocol === 'https:') && e.url !== currentWebview.getURL()) {
+            e.preventDefault(); // 阻止 Webview 内部导航
+            console.log(`[Webview] Intercepted will-navigate event for URL: ${e.url}. Opening externally.`);
+            window.electron.ipcRenderer.sendOpenExternalLink(e.url); // 使用 preload API
+        }
+    });
+
+    // 4. 保存引用并添加到 DOM
     currentWebview = webview;
+    webviewContentArea.appendChild(webview);
 
     // 更新标题
     webviewTitleElement.textContent = `加载中: ${title}`;
 
-    // 添加事件监听
+    // 添加其他事件监听 (dom-ready, loading, fail)
     webview.addEventListener('dom-ready', () => {
         console.log('Webview DOM ready for ' + url);
         
@@ -522,13 +540,7 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         refreshBtn.disabled = false; // 失败也启用刷新
     });
     
-    // 如果是新创建的 webview，需要添加到 DOM
-    if (!isExistingWebview) {
-        webviewContentArea.innerHTML = ''; // 清空可能存在的错误信息
-        webviewContentArea.appendChild(webview);
-    }
-
-    // 设置刷新按钮功能
+    // 设置刷新按钮功能 (确保引用的是当前的 webview)
     refreshBtn.onclick = () => {
         if (currentWebview && typeof currentWebview.reload === 'function') {
             console.log('Reloading webview...');

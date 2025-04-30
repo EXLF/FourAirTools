@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const url = require('url'); // 导入 url 模块
 
 console.log('Preload script loaded.');
 
@@ -58,7 +59,8 @@ const validSendChannels = [
     'app:exportWallets', 
     'app:importWallets', // 新增
     'app:encryptData', // 添加加密通道
-    'app:lock' // 添加手动锁定通道
+    'app:lock', // 添加手动锁定通道
+    'open-external-link'
 ];
 const validReceiveChannels = [
     'show-setup-password',
@@ -97,6 +99,15 @@ contextBridge.exposeInMainWorld('electron', {
                 ipcRenderer.send(channel, data);
             }
         },
+        // *** 新增：专门用于打开外部链接的函数 ***
+        sendOpenExternalLink: (link) => {
+            const channel = 'open-external-link';
+            if (validSendChannels.includes(channel)) {
+                 ipcRenderer.send(channel, link);
+            } else {
+                 console.warn(`[Preload] Attempted to send on invalid channel: ${channel}`);
+            }
+        },
         invoke: async (channel, ...args) => {
             if (validInvokeChannels.includes(channel)) {
                 return await ipcRenderer.invoke(channel, ...args);
@@ -133,6 +144,18 @@ contextBridge.exposeInMainWorld('electron', {
 // (或者你可以选择继续通过 electron.ipcRenderer.invoke 调用)
 contextBridge.exposeInMainWorld('walletAPI', {
     getBalance: (address) => ipcRenderer.invoke('wallet:getBalance', address)
+});
+
+// *** 新增：暴露 URL 解析功能 ***
+contextBridge.exposeInMainWorld('urlUtils', {
+    parse: (urlString) => {
+        try {
+            return url.parse(urlString);
+        } catch (e) {
+            console.error(`[Preload] Error parsing URL: ${urlString}`, e);
+            return null; // 返回 null 或抛出错误，根据你的错误处理策略
+        }
+    }
 });
 
 console.log('[Preload] Preload script executed successfully.');
