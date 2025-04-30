@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.notion.so https://notion.so">
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.notion.so https://notion.so">
+    <title>简单Electron应用</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+        background-color: #f0f0f0;
+        margin: 0;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      .webview-container {
+        margin-top: 20px;
+        width: 100%;
+        height: 600px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      webview {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>简单的Electron桌面应用</h1>
+    <p>下方嵌入了Notion页面</p>
+    
+    <div class="webview-container">
+      <!-- 使用webview标签嵌入Notion页面 -->
+      <webview 
+        id="notionWebview" 
+        src="https://www.notion.so/eie/Mira-1c085e5dc31480a3aa1bc642f6789fa5?pvs=4"
+        allowpopups="false"
+        partition="persist:notion" 
+        disablewebsecurity 
+        webpreferences="nativeWindowOpen=false"></webview>
+    </div>
+    
+    <!-- 引入渲染进程的JavaScript -->
+    <script src="renderer.js"></script>
+  </body>
+</html> 

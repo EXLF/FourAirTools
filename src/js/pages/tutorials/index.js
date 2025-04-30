@@ -398,6 +398,7 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
 
 /**
  * 显示指定 URL 的教程于 WebView 中。
+ * 在webview中展示教程内容，只有当用户点击webview内的链接时才在外部浏览器打开
  */
 function showTutorialInWebview(url, title, webviewContainer, listContainer, refreshBtn) {
     console.log(`Opening tutorial in webview: ${title} (${url})`);
@@ -409,8 +410,7 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         return;
     }
 
-    // --- 简化逻辑：总是创建新的 WebView --- 
-
+    // --- 先完全清理之前的webview --- 
     // 1. 清除可能存在的旧 WebView
     if (currentWebview) {
         try {
@@ -421,166 +421,253 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         currentWebview.remove();
         currentWebview = null;
     }
-    webviewContentArea.innerHTML = ''; // 清空容器内容
-
-    // 2. 创建新的 WebView 元素
-    console.log("Creating new webview element");
-    const webview = document.createElement('webview');
-    webview.setAttribute('nodeintegration', 'false'); // 安全设置
-    webview.setAttribute('webpreferences', 'contextIsolation=true'); // 安全设置
-    webview.setAttribute('allowpopups', ''); // 允许可能需要的弹出窗口
-    webview.setAttribute('src', url);
-    webview.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
-    // CSS 类将控制样式，无需内联 style
-    // webview.setAttribute('style', 'width: 100%; height: 100%; border: none; display: block;'); 
     
-    // 3. 添加 new-window 事件监听器 (使用 preload 暴露的 API)
-    webview.addEventListener('new-window', (e) => {
-        const parsedUrl = window.urlUtils.parse(e.url);
-        const protocol = parsedUrl?.protocol;
-        if (protocol === 'http:' || protocol === 'https:') {
-            e.preventDefault(); // 阻止 Electron 打开新窗口
-            console.log(`[Webview] Intercepted new-window event for URL: ${e.url}. Opening externally.`);
-            window.electron.ipcRenderer.sendOpenExternalLink(e.url); // 使用 preload API
-        }
-    });
-
-    // *** 新增: 添加 will-navigate 事件监听器 ***
-    webview.addEventListener('will-navigate', (e) => {
-        const parsedUrl = window.urlUtils.parse(e.url);
-        const protocol = parsedUrl?.protocol;
-        // 检查是否是外部 HTTP/HTTPS 链接，并且不是当前加载的 URL (防止刷新循环)
-        // 注意：简单地检查 isMainFrame 可能不足以区分用户点击和脚本导航
-        if ((protocol === 'http:' || protocol === 'https:') && e.url !== currentWebview.getURL()) {
-            e.preventDefault(); // 阻止 Webview 内部导航
-            console.log(`[Webview] Intercepted will-navigate event for URL: ${e.url}. Opening externally.`);
-            window.electron.ipcRenderer.sendOpenExternalLink(e.url); // 使用 preload API
-        }
-    });
-
-    // 4. 保存引用并添加到 DOM
-    currentWebview = webview;
-    webviewContentArea.appendChild(webview);
-
-    // 更新标题
-    webviewTitleElement.textContent = `加载中: ${title}`;
-
-    // 添加其他事件监听 (dom-ready, loading, fail)
-    webview.addEventListener('dom-ready', () => {
-        console.log('Webview DOM ready for ' + url);
+    // 2. 确保内容区域完全清空
+    webviewContentArea.innerHTML = '';
+    
+    // 3. 确保系统了解先前的webview已关闭
+    setTimeout(() => {
+        // 给系统一点时间清理旧webview资源
         
-        // --- 尝试注入 CSS ---
-        // 更新注入的 CSS，尝试强制内容宽度并移除限制
-        const cssToInject = `
-            body {
-                width: 100% !important;
-                min-width: initial !important; /* 覆盖之前的注入 */
-                box-sizing: border-box !important;
+        // 创建新的 WebView 元素
+        console.log("Creating new webview element");
+        const webview = document.createElement('webview');
+        webview.setAttribute('nodeintegration', 'false'); // 安全设置
+        webview.setAttribute('webpreferences', 'contextIsolation=true'); // 安全设置
+        webview.setAttribute('allowpopups', 'false'); // 禁止弹出窗口，改为在外部浏览器打开
+        webview.setAttribute('partition', 'persist:tutorials'); // 使用隔离的持久会话
+        webview.setAttribute('preload', 'preload/webview-preload.js'); // 预加载脚本
+        
+        // 最后才设置URL，防止在设置其他属性前就开始加载
+        webview.setAttribute('src', url);
+        webview.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+        
+        // 添加事件监听器
+        // 创建防重复打开链接的辅助函数
+        let processingLink = false;
+        let lastProcessedLink = '';
+        let lastProcessTime = 0;
+        
+        const openLinkInBrowser = (url) => {
+            // 防止1秒内重复处理同一链接
+            const now = Date.now();
+            if (processingLink || (url === lastProcessedLink && now - lastProcessTime < 1000)) {
+                console.log(`[Webview] 跳过重复链接处理: ${url}`);
+                return;
             }
-            /* 尝试针对 Notion 的常用容器类名 */
-            .notion-frame, .notion-page-content {
-                max-width: none !important; /* 移除最大宽度限制 */
-                width: 100% !important;
-                padding-left: 10px !important; /* 减少可能的内边距 */
-                padding-right: 10px !important;
-                box-sizing: border-box !important;
+            
+            processingLink = true;
+            lastProcessedLink = url;
+            lastProcessTime = now;
+            
+            console.log(`[Webview] 在浏览器中打开链接: ${url}`);
+            window.electron.ipcRenderer.sendOpenExternalLink(url);
+            
+            // 500ms后重置状态
+            setTimeout(() => {
+                processingLink = false;
+            }, 500);
+        };
+        
+        // 处理 new-window 事件 (target="_blank"的链接)
+        webview.addEventListener('new-window', (e) => {
+            e.preventDefault(); // 始终阻止在新窗口打开
+            // 简化安全检查
+            if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
+                console.log(`[Webview] Intercepted new-window event for URL: ${e.url}`);
+                openLinkInBrowser(e.url);
+            } else {
+                console.warn(`[Webview] Blocked non-http(s) URL in new-window event: ${e.url}`);
             }
-            /* 可能还有其他内部元素需要调整 */
-        `;
-        webview.insertCSS(cssToInject).then(() => {
-            console.log('Injected custom CSS into webview.');
-        }).catch(err => {
-            console.error('Failed to inject CSS:', err);
         });
-        // --- 结束注入 CSS ---
 
-        // 尝试显示 webview 中加载的 HTML (用于调试)
-        webview.executeJavaScript(`
-            document.documentElement.innerHTML;
-        `).then(html => {
-            console.log('WebView loaded HTML (first 100 chars):', html.substring(0, 100) + '...');
-        }).catch(err => {
-            console.error('Failed to get WebView HTML:', err);
+        // 处理 will-navigate 事件 (普通链接点击)
+        webview.addEventListener('will-navigate', (e) => {
+            // 首次加载教程内容时不拦截
+            const currentUrl = currentWebview ? currentWebview.getURL() : url;
+            
+            // 如果不是当前页面刷新和初始加载，才拦截导航请求
+            if (e.url !== url && e.url !== currentUrl) {
+                e.preventDefault(); // 阻止内部导航
+                if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
+                    console.log(`[Webview] Intercepted will-navigate event for URL: ${e.url}`);
+                    openLinkInBrowser(e.url);
+                } else {
+                    console.warn(`[Webview] Blocked non-http(s) URL in will-navigate event: ${e.url}`);
+                }
+            }
         });
         
-        // 可以尝试打开开发者工具进行调试
-        if (url === 'https://www.baidu.com') {
-            console.log('Opening DevTools for test page');
-            webview.openDevTools();
-        }
-    });
+        // 添加IPC消息处理
+        webview.addEventListener('ipc-message', (e) => {
+            console.log('Received IPC message from webview:', e.channel, e.args);
+            
+            // 处理链接点击事件
+            if ((e.channel === 'open-external-link' || e.channel === 'link-click') && e.args && e.args[0]) {
+                const url = e.args[0];
+                console.log(`[Webview IPC] Received open link request for: ${url}`);
+                openLinkInBrowser(url);
+            }
+        });
+        
+        // 添加console-message事件监听，显示webview内部的日志
+        webview.addEventListener('console-message', (e) => {
+            console.log(`[Webview Console] ${e.message}`);
+        });
+        
+        // 添加DOM就绪事件处理
+        webview.addEventListener('dom-ready', () => {
+            console.log('Webview DOM ready for ' + url);
+            
+            // 尝试注入 CSS
+            const cssToInject = `
+                body {
+                    width: 100% !important;
+                    min-width: initial !important; /* 覆盖之前的注入 */
+                    box-sizing: border-box !important;
+                }
+                /* 尝试针对 Notion 的常用容器类名 */
+                .notion-frame, .notion-page-content {
+                    max-width: none !important; /* 移除最大宽度限制 */
+                    width: 100% !important;
+                    padding-left: 10px !important; /* 减少可能的内边距 */
+                    padding-right: 10px !important;
+                    box-sizing: border-box !important;
+                }
+                /* 可能还有其他内部元素需要调整 */
+            `;
+            webview.insertCSS(cssToInject).then(() => {
+                console.log('Injected custom CSS into webview.');
+            }).catch(err => {
+                console.error('Failed to inject CSS:', err);
+            });
+            
+            // 显示加载的HTML用于调试
+            webview.executeJavaScript(`
+                document.documentElement.innerHTML;
+            `).then(html => {
+                console.log('WebView loaded HTML (first 100 chars):', html.substring(0, 100) + '...');
+            }).catch(err => {
+                console.error('Failed to get WebView HTML:', err);
+            });
+        });
+        
+        // 加载事件
+        webview.addEventListener('did-start-loading', () => {
+            console.log('Webview started loading:', url);
+            webviewTitleElement.textContent = `加载中: ${title}`;
+            refreshBtn.disabled = true; // 加载时禁用刷新
+        });
 
-    webview.addEventListener('did-start-loading', () => {
-        console.log('Webview started loading:', url);
+        webview.addEventListener('did-stop-loading', () => {
+            console.log('Webview finished loading:', url);
+            webviewTitleElement.textContent = title; // 加载完成显示标题
+            refreshBtn.disabled = false; // 加载完成启用刷新
+        });
+        
+        // 加载失败处理
+        webview.addEventListener('did-fail-load', (event) => {
+            console.error('Webview load failed:', event);
+            webviewTitleElement.textContent = `加载失败: ${title}`;
+            
+            // 记录更详细的错误信息
+            const { errorCode, errorDescription, validatedURL } = event;
+            console.error(`Load failed for ${validatedURL}. Error ${errorCode}: ${errorDescription}`);
+            
+            webviewContentArea.innerHTML = `
+                <p style="color: red; padding: 20px; text-align: center;">
+                    无法加载教程页面 (错误 ${errorCode}): ${errorDescription}<br>
+                    URL: ${validatedURL}<br>
+                    请检查网络连接或链接是否有效。
+                </p>
+            `;
+            refreshBtn.disabled = false; // 失败也启用刷新
+        });
+        
+        // 设置刷新按钮功能
+        refreshBtn.onclick = () => {
+            if (currentWebview && typeof currentWebview.reload === 'function') {
+                console.log('Reloading webview...');
+                currentWebview.reload();
+            } else {
+                console.error('Cannot reload: currentWebview reference is invalid or missing reload method.');
+                refreshBtn.disabled = true;
+            }
+        };
+        
+        // 4. 保存引用并添加到 DOM
+        currentWebview = webview;
+        webviewContentArea.appendChild(webview);
+        
+        // 切换视图
+        listContainer.style.display = 'none';
+        webviewContainer.style.display = 'flex'; // 使用 flex 布局
+        
+        // 更新标题
         webviewTitleElement.textContent = `加载中: ${title}`;
-        refreshBtn.disabled = true; // 加载时禁用刷新
-    });
-
-    webview.addEventListener('did-stop-loading', () => {
-        console.log('Webview finished loading:', url);
-        webviewTitleElement.textContent = title; // 加载完成显示标题
-        refreshBtn.disabled = false; // 加载完成启用刷新
-    });
-
-    webview.addEventListener('did-fail-load', (event) => {
-        console.error('Webview load failed:', event);
-        webviewTitleElement.textContent = `加载失败: ${title}`;
-        
-        // 记录更详细的错误信息
-        const { errorCode, errorDescription, validatedURL } = event;
-        console.error(`Load failed for ${validatedURL}. Error ${errorCode}: ${errorDescription}`);
-        
-        webviewContentArea.innerHTML = `
-            <p style="color: red; padding: 20px; text-align: center;">
-                无法加载教程页面 (错误 ${errorCode}): ${errorDescription}<br>
-                URL: ${validatedURL}<br>
-                请检查网络连接或链接是否有效。
-            </p>
-        `;
-        refreshBtn.disabled = false; // 失败也启用刷新
-    });
-    
-    // 设置刷新按钮功能 (确保引用的是当前的 webview)
-    refreshBtn.onclick = () => {
-        if (currentWebview && typeof currentWebview.reload === 'function') {
-            console.log('Reloading webview...');
-            currentWebview.reload();
-        } else {
-            console.error('Cannot reload: currentWebview reference is invalid or missing reload method.');
-            refreshBtn.disabled = true;
-        }
-    };
-
-    // 切换视图
-    listContainer.style.display = 'none';
-    webviewContainer.style.display = 'flex'; // 使用 flex 布局
+    }, 100); // 短暂延迟，确保系统有时间清理
 }
 
 /**
  * 关闭 WebView 并返回列表视图。
+ * 确保彻底清理webview及相关资源
  */
 function closeWebview(webviewContainer, listContainer) {
-     if (webviewContainer.style.display !== 'none') {
+    if (webviewContainer.style.display !== 'none') {
+        console.log("正在关闭webview...");
+        
+        // 1. 先隐藏webview容器，显示列表容器
         webviewContainer.style.display = 'none';
         listContainer.style.display = 'block';
-        // 清理 webview 内容并移除元素
+        
+        // 2. 清理webview内容
         const webviewContentArea = webviewContainer.querySelector('#webview-content');
         if (webviewContentArea) {
-            webviewContentArea.innerHTML = ''; // 清空
+            // 清空前先获取所有webview元素并逐个停止和移除
+            const webviews = webviewContentArea.querySelectorAll('webview');
+            webviews.forEach(wv => {
+                try {
+                    wv.stop();
+                } catch (e) { 
+                    console.warn(`停止webview失败: ${e.message}`); 
+                }
+                
+                try {
+                    // 移除所有事件监听器
+                    wv.getWebContents()?.removeAllListeners();
+                } catch (e) { 
+                    console.warn(`移除webview事件监听器失败: ${e.message}`);
+                }
+                
+                wv.remove();
+            });
+            
+            // 清空内容区域
+            webviewContentArea.innerHTML = '';
         }
+        
+        // 3. 停止并清理当前webview引用
         if (currentWebview) {
-            // 尝试停止加载并移除
             try {
-                // stop() 是 webview 标签的有效方法
-                currentWebview.stop(); 
+                currentWebview.stop();
             } catch (e) {
-                 console.warn("Error calling webview.stop():", e.message);
-                 // 即使 stop 出错，也继续尝试移除
+                console.warn(`停止当前webview失败: ${e.message}`);
             }
-            currentWebview.remove(); // 从 DOM 移除
-            currentWebview = null; // 清除引用
+            
+            currentWebview = null;
         }
-        console.log("Webview closed.");
+        
+        // 4. 执行一些清理操作，防止内存泄漏
+        // 尝试执行垃圾回收以释放资源
+        if (global.gc) {
+            try {
+                global.gc();
+            } catch (e) {
+                console.warn('触发垃圾回收失败');
+            }
+        }
+        
+        console.log("Webview已关闭并清理完毕");
     }
 }
 

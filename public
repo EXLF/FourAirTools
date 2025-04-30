@@ -1,0 +1,70 @@
+// webview-preload.js
+// 为webview内的页面提供通信能力
+
+// 使用contextBridge提供API
+const { ipcRenderer, contextBridge } = require('electron');
+
+// 提供给webview内页面使用的API
+contextBridge.exposeInMainWorld('electronTutorial', {
+  // 发送消息给宿主窗口
+  sendToHost: (channel, data) => {
+    if (channel === 'open-external-link') {
+      // 特殊处理打开链接的请求
+      console.log('Sending to host:', channel, data);
+      ipcRenderer.sendToHost(channel, data);
+    }
+  },
+  
+  // 打开外部链接
+  openExternal: (url) => {
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      console.log('Opening external URL from preload:', url);
+      ipcRenderer.send('open-external-link', url);
+    } else {
+      console.warn('Invalid URL in openExternal:', url);
+    }
+  }
+});
+
+// 监听点击事件，拦截链接
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('Webview preload script loaded');
+  
+  // 拦截所有链接点击
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href^="http"]');
+    if (link) {
+      const href = link.getAttribute('href');
+      // 排除当前页面的锚点链接
+      const currentUrl = window.location.href.split('#')[0];
+      const clickedUrl = href.split('#')[0];
+      
+      if (clickedUrl !== currentUrl) {
+        e.preventDefault();
+        console.log('Link intercepted by preload:', href);
+        
+        // 发送IPC消息
+        window.electronTutorial.openExternal(href);
+        return false;
+      }
+    }
+  }, true);
+});
+
+// 拦截window.open
+const originalWindowOpen = window.open;
+window.open = function(url, target, features) {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    console.log('window.open intercepted:', url);
+    // 如果是http链接，发送IPC消息
+    window.electronTutorial.openExternal(url);
+    // 返回一个空对象以避免错误
+    return {
+      closed: true,
+      close: function() {}
+    };
+  } else {
+    // 其他链接类型，走原始的window.open
+    return originalWindowOpen.call(window, url, target, features);
+  }
+}; 
