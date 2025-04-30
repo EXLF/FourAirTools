@@ -3,6 +3,7 @@ import { setupTableActions, setupFilteringAndSearch, setupCheckAll } from '../..
 import { showModal, hideModal } from '../../components/modal.js';
 import { showToast } from '../../components/toast.js';
 import { debounce } from '../../utils/index.js';
+import { translateLocation } from '../../utils/locationTranslator.js';
 // import * as table from './table.js';
 // import * as modals from './modals.js';
 // import * as actions from './actions.js';
@@ -206,7 +207,7 @@ function renderTable(proxies) {
         row.classList.toggle('enabled', proxy.is_enabled === 1);
 
         // 格式化地区和风险
-        const location = [proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ') || '-';
+        const location = translateLocation([proxy.country, proxy.region, proxy.city].filter(Boolean).join(', '));
         const riskClass = getRiskClass(proxy.risk_level);
         const risk = proxy.risk_level ? `<span class="${riskClass}">${proxy.risk_level} (${proxy.risk_score ?? '?'})</span>` : '<span class="risk-unknown">未知</span>';
         const latencyClass = getLatencyClass(proxy.latency);
@@ -221,7 +222,7 @@ function renderTable(proxies) {
             <td data-field="port">${proxy.port || '-'}</td>
             <td data-field="status"><span class="status ${statusClass}">${proxy.status || '-'}</span></td>
             <td data-field="latency">${latency}</td>
-            <td data-field="location" title="${proxy.organization || ''}">${location}</td>
+            <td data-field="location" title="${[proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ')}">${location}</td>
             <td data-field="risk">${risk}</td>
             <td data-field="group_name">${proxy.group_name || '无分组'}</td>
             <td class="actions-cell">
@@ -654,7 +655,9 @@ function updateRowsStatus(proxyIds, statusText) {
  * @param {object} proxy - 新的代理数据对象 (应包含所有渲染所需字段)。
  */
 function updateRow(rowElement, proxy) {
-    const location = [proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ') || '-';
+    // 格式化地区和风险
+    const fullLocation = [proxy.country, proxy.region, proxy.city].filter(Boolean).join(', ');
+    const location = translateLocation(fullLocation);
     const riskClass = getRiskClass(proxy.risk_level);
     const risk = proxy.risk_level ? `<span class="${riskClass}">${proxy.risk_level} (${proxy.risk_score ?? '?'})</span>` : '<span class="risk-unknown">未知</span>';
     const latencyClass = getLatencyClass(proxy.latency);
@@ -673,8 +676,9 @@ function updateRow(rowElement, proxy) {
     statusSpan.textContent = proxy.status || '-';
     statusSpan.className = `status ${statusClass}`;
     rowElement.querySelector('td[data-field="latency"]').innerHTML = latency;
-    rowElement.querySelector('td[data-field="location"]').textContent = location;
-    rowElement.querySelector('td[data-field="location"]').title = proxy.organization || '';
+    const locationCell = rowElement.querySelector('td[data-field="location"]');
+    locationCell.textContent = location;
+    locationCell.title = fullLocation; // 完整地址信息放在 title 中
     rowElement.querySelector('td[data-field="risk"]').innerHTML = risk;
     rowElement.querySelector('td[data-field="group_name"]').textContent = proxy.group_name || '无分组';
 
