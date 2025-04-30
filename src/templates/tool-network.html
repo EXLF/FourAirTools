@@ -39,15 +39,11 @@
                 <th>类型</th>
                 <th>主机地址</th>
                 <th>端口</th>
-                <th>用户名</th>
-                <!-- 新增列 -->
                 <th>状态</th>
                 <th>延迟(ms)</th>
-                <th>出口 IP</th>
                 <th>地区</th>
                 <th>风险</th>
                 <th>分组</th>
-                <th>启用</th> <!-- 新增启用开关列 -->
                 <th>操作</th>
             </tr>
         </thead>
@@ -60,17 +56,12 @@
                 <td data-field="type">SOCKS5</td>
                 <td data-field="host">proxy.example.com</td>
                 <td data-field="port">1080</td>
-                <td data-field="username">user</td>
                 <td data-field="status"><span class="status available">可用</span></td>
                 <td data-field="latency">120</td>
-                <td data-field="exit_ip">1.2.3.4</td>
                 <td data-field="location">美国, 加州</td>
                 <td data-field="risk">低风险(10)</td>
                 <td data-field="group_name">分组A</td>
                 <td class="actions-cell">
-                     <button class="btn-icon action-btn" data-action="toggle-enable" title="点击启用/禁用">
-                         <i class="fa fa-toggle-on"></i>  <!-- 或 fa-toggle-off -->
-                     </button>
                      <button class="btn-icon action-btn" data-action="test" title="测试连通性"><i class="fa fa-plug"></i></button>
                      <button class="btn-icon action-btn" data-action="edit" title="编辑"><i class="fa fa-edit"></i></button>
                      <button class="btn-icon action-btn" data-action="delete" title="删除"><i class="fa fa-trash"></i></button>

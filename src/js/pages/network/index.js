@@ -182,18 +182,11 @@ function renderTable(proxies) {
             <td data-field="type">${proxy.type || '-'}</td>
             <td data-field="host">${proxy.host || '-'}</td>
             <td data-field="port">${proxy.port || '-'}</td>
-            <td data-field="username">${proxy.username || '-'}</td>
             <td data-field="status"><span class="status ${statusClass}">${proxy.status || '-'}</span></td>
             <td data-field="latency">${latency}</td>
-            <td data-field="exit_ip">${proxy.exit_ip || '-'}</td>
             <td data-field="location" title="${proxy.organization || ''}">${location}</td>
             <td data-field="risk">${risk}</td>
             <td data-field="group_name">${proxy.group_name || '无分组'}</td>
-            <td>
-                <button class="btn-icon action-btn toggle-enable-btn" data-action="toggle-enable" title="点击${proxy.is_enabled ? '禁用' : '启用'}">
-                    <i class="fa ${proxy.is_enabled ? 'fa-toggle-on text-green-500' : 'fa-toggle-off text-gray-500'}"></i>
-                </button>
-            </td>
             <td class="actions-cell">
                  <button class="btn-icon action-btn test-btn" data-action="test" title="测试连通性"><i class="fa fa-plug"></i></button>
                  <button class="btn-icon action-btn edit-btn" data-action="edit" title="编辑"><i class="fa fa-edit"></i></button>
@@ -637,12 +630,9 @@ function updateRow(rowElement, proxy) {
     rowElement.querySelector('td[data-field="type"]').textContent = proxy.type || '-';
     rowElement.querySelector('td[data-field="host"]').textContent = proxy.host || '-';
     rowElement.querySelector('td[data-field="port"]').textContent = proxy.port || '-';
-    rowElement.querySelector('td[data-field="username"]').textContent = proxy.username || '-';
-    const statusSpan = rowElement.querySelector('td[data-field="status"] span');
-    statusSpan.textContent = proxy.status || '-';
-    statusSpan.className = `status ${statusClass}`;
+    rowElement.querySelector('td[data-field="status"] span').textContent = proxy.status || '-';
+    rowElement.querySelector('td[data-field="status"] span').className = `status ${statusClass}`;
     rowElement.querySelector('td[data-field="latency"]').textContent = latency;
-    rowElement.querySelector('td[data-field="exit_ip"]').textContent = proxy.exit_ip || '-';
     rowElement.querySelector('td[data-field="location"]').textContent = location;
     rowElement.querySelector('td[data-field="location"]').title = proxy.organization || '';
     rowElement.querySelector('td[data-field="risk"]').textContent = risk;
