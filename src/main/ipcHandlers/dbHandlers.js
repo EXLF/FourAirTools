@@ -195,6 +195,47 @@ function setupDatabaseIpcHandlers() {
     });
     // --- ------------------------------------ --- 
 
+    // --- Proxies --- 
+    ipcMain.handle('db:addProxy', async (event, proxyData) => {
+        console.log('[IPC] Received: db:addProxy', proxyData);
+        // 密码应该已经在渲染进程处理或不包含在此处，
+        // 但 db.addProxy 会处理加密（如果提供了 password 且加密服务解锁）
+        return await db.addProxy(db.db, proxyData);
+    });
+    ipcMain.handle('db:getProxies', async (event, options) => {
+        console.log('[IPC] Received: db:getProxies', options);
+        return await db.getProxies(db.db, options);
+    });
+    ipcMain.handle('db:getProxyById', async (event, id) => {
+        console.log('[IPC] Received: db:getProxyById', id);
+        // 这个函数会尝试解密密码
+        return await db.getProxyById(db.db, id);
+    });
+    ipcMain.handle('db:updateProxy', async (event, id, updates) => {
+        console.log('[IPC] Received: db:updateProxy', id, updates);
+        // db.updateProxy 会处理密码加密（如果提供了 password）
+        return await db.updateProxy(db.db, id, updates);
+    });
+    ipcMain.handle('db:deleteProxy', async (event, id) => {
+        console.log('[IPC] Received: db:deleteProxy', id);
+        return await db.deleteProxy(db.db, id);
+    });
+    ipcMain.handle('db:deleteProxiesByIds', async (event, ids) => {
+        console.log('[IPC] Received: db:deleteProxiesByIds', ids);
+        if (!Array.isArray(ids) || ids.length === 0) {
+            console.warn('[IPC Main] db:deleteProxiesByIds - Invalid input');
+            return { deletedCount: 0, errors: ['Invalid input: IDs array is required.'] };
+        }
+        try {
+            const deletedCount = await db.deleteProxiesByIds(db.db, ids);
+            return { deletedCount: deletedCount, errors: [] };
+        } catch (error) {
+            console.error(`[IPC Main] db:deleteProxiesByIds - Error: ${error.message}`, error);
+            return { deletedCount: 0, errors: [error.message || 'An unknown error occurred during bulk deletion.'] };
+        }
+    });
+    // --- --------- ---
+
     console.log('[IPC] Database IPC handlers ready.');
 }
 

@@ -49,6 +49,8 @@ function initializeDatabase() {
                     createSocialAccountsTable();
                     // *** 4. 新增：创建钱包-社交账户关联表 ***
                     createWalletSocialLinksTable();
+                    // *** 5. 新增：创建代理表 ***
+                    createProxiesTable();
                 });
             }
         });
@@ -178,6 +180,73 @@ function createWalletSocialLinksTable() {
 }
 
 /**
+ * 新增：创建代理表 (proxies)
+ */
+function createProxiesTable() {
+    const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS proxies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('HTTP', 'HTTPS', 'SOCKS5')), -- 限制类型
+            host TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            username TEXT,
+            password TEXT, -- 存储加密后的密码
+            group_id INTEGER,
+            is_enabled INTEGER DEFAULT 0, -- 0=禁用, 1=启用 (可以考虑用单独的设置表)
+            status TEXT DEFAULT '未测试' CHECK(status IN ('未测试', '可用', '不可用', '测试中', '信息获取失败')),
+            latency INTEGER, -- 毫秒
+            exit_ip TEXT,
+            country TEXT,
+            country_code TEXT,
+            region TEXT,
+            city TEXT,
+            organization TEXT,
+            asn INTEGER,
+            risk_level TEXT,
+            risk_score INTEGER,
+            last_checked_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
+        );
+    `;
+    const createUpdatedAtTriggerSQL = `
+        CREATE TRIGGER IF NOT EXISTS update_proxies_updatedAt
+        AFTER UPDATE ON proxies
+        FOR EACH ROW
+        BEGIN
+            UPDATE proxies SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+        END;
+    `;
+    // 可以考虑为常用查询字段加索引，例如 group_id, is_enabled, status
+    const createGroupIdIndexSQL = `CREATE INDEX IF NOT EXISTS idx_proxies_groupId ON proxies(group_id);`;
+    const createStatusIndexSQL = `CREATE INDEX IF NOT EXISTS idx_proxies_status ON proxies(status);`;
+
+    db.serialize(() => {
+        db.run(createTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating proxies table:', err.message);
+            } else {
+                console.log('Proxies 表已准备好。');
+                db.run(createUpdatedAtTriggerSQL, (errTrigger) => {
+                    if (errTrigger) console.error('Error creating updatedAt trigger for proxies:', errTrigger.message);
+                    else console.log('UpdatedAt trigger for proxies created.');
+                });
+                db.run(createGroupIdIndexSQL, (errIndex1) => {
+                     if (errIndex1) console.error('Error creating index on group_id for proxies:', errIndex1.message);
+                    else console.log('Index on group_id created for proxies.');
+                });
+                db.run(createStatusIndexSQL, (errIndex2) => {
+                    if (errIndex2) console.error('Error creating index on status for proxies:', errIndex2.message);
+                    else console.log('Index on status created for proxies.');
+                });
+            }
+        });
+    });
+}
+
+/**
  * 关闭数据库连接（应用退出时调用）
  */
 function closeDatabase() {
@@ -195,6 +264,7 @@ const group = require('./group');
 const wallet = require('./wallet');
 const social = require('./social');
 const links = require('./links');
+const proxy = require('./proxy');
 
 // 导出数据库实例、关闭方法和所有模块接口
 module.exports = {
@@ -203,5 +273,6 @@ module.exports = {
     ...group,
     ...wallet,
     ...social,
-    ...links
+    ...links,
+    ...proxy
 }; 

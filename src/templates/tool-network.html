@@ -1,67 +1,137 @@
 <div class="page-header">
     <h2>IP代理管理</h2>
     <div class="header-actions">
-         <button class="btn btn-primary"><i class="fa fa-plus"></i> 添加代理配置</button>
-         <button class="btn btn-secondary"><i class="fa fa-check-circle"></i> 测试连通性</button>
+         <button class="btn btn-primary add-proxy-btn"><i class="fa fa-plus"></i> 添加代理配置</button>
+         <button class="btn btn-secondary bulk-test-proxies-btn"><i class="fa fa-check-circle"></i> 测试选中代理</button>
+         <!-- 可以添加批量删除等按钮 -->
     </div>
 </div>
  <div class="filters-bar">
      <div class="filter-group">
         <label><i class="fa fa-filter"></i> 筛选:</label>
-        <select class="select-filter"><option>所有类型</option><option>HTTP</option><option>SOCKS5</option><option>VPN</option></select>
-        <select class="select-filter"><option>所有分组</option><option>分组A</option></select>
-        <input type="search" placeholder="搜索名称/IP/端口..." class="table-search-input">
+        <select class="select-filter" data-filter="type">
+            <option value="all">所有类型</option>
+            <option value="HTTP">HTTP</option>
+            <option value="HTTPS">HTTPS</option>
+            <option value="SOCKS5">SOCKS5</option>
+        </select>
+        <select class="select-filter group-filter-select" data-filter="groupId">
+            <option value="all">所有分组</option>
+            <!-- 分组选项将由 JS 动态加载 -->
+        </select>
+         <select class="select-filter" data-filter="status">
+            <option value="all">所有状态</option>
+            <option value="未测试">未测试</option>
+            <option value="可用">可用</option>
+            <option value="不可用">不可用</option>
+            <option value="测试中">测试中</option>
+            <option value="信息获取失败">信息获取失败</option>
+        </select>
+        <input type="search" placeholder="搜索名称/主机/出口IP..." class="table-search-input">
      </div>
 </div>
  <div class="table-container">
-     <table class="data-table">
+     <table class="data-table proxies-table">
         <thead>
             <tr>
-                <th><input type="checkbox"></th>
+                <th><input type="checkbox" class="select-all-checkbox"></th>
                 <th>名称/标识</th>
                 <th>类型</th>
-                <th>地址/服务器</th>
+                <th>主机地址</th>
                 <th>端口</th>
                 <th>用户名</th>
+                <!-- 新增列 -->
                 <th>状态</th>
+                <th>延迟(ms)</th>
+                <th>出口 IP</th>
+                <th>地区</th>
+                <th>风险</th>
                 <th>分组</th>
+                <th>启用</th> <!-- 新增启用开关列 -->
                 <th>操作</th>
             </tr>
         </thead>
          <tbody>
-            <tr>
-                <td><input type="checkbox"></td>
-                <td>家庭宽带1</td>
-                <td>本地IP</td>
-                <td>192.168.1.100</td>
-                <td>N/A</td>
-                <td>N/A</td>
-                <td><span class="status active">活跃</span></td>
-                <td>默认</td>
+            <!-- 表格行将由 JS 动态生成 -->
+            <!-- 示例行结构 (JS 中会生成类似内容):
+            <tr data-proxy-id="1">
+                <td><input type="checkbox" class="row-checkbox"></td>
+                <td data-field="name">代理名称</td>
+                <td data-field="type">SOCKS5</td>
+                <td data-field="host">proxy.example.com</td>
+                <td data-field="port">1080</td>
+                <td data-field="username">user</td>
+                <td data-field="status"><span class="status available">可用</span></td>
+                <td data-field="latency">120</td>
+                <td data-field="exit_ip">1.2.3.4</td>
+                <td data-field="location">美国, 加州</td>
+                <td data-field="risk">低风险(10)</td>
+                <td data-field="group_name">分组A</td>
                 <td class="actions-cell">
-                     <button class="btn-icon" title="测试"><i class="fa fa-plug"></i></button>
-                     <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
-                     <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
+                     <button class="btn-icon action-btn" data-action="toggle-enable" title="点击启用/禁用">
+                         <i class="fa fa-toggle-on"></i>  <!-- 或 fa-toggle-off -->
+                     </button>
+                     <button class="btn-icon action-btn" data-action="test" title="测试连通性"><i class="fa fa-plug"></i></button>
+                     <button class="btn-icon action-btn" data-action="edit" title="编辑"><i class="fa fa-edit"></i></button>
+                     <button class="btn-icon action-btn" data-action="delete" title="删除"><i class="fa fa-trash"></i></button>
                 </td>
             </tr>
-             <tr>
-                <td><input type="checkbox"></td>
-                <td>代理IP_US_01</td>
-                <td>SOCKS5</td>
-                <td>us.proxy.com</td>
-                <td>1080</td>
-                <td>user1</td>
-                 <td><span class="status active">可用</span></td>
-                <td>分组A</td>
-                <td class="actions-cell">
-                     <button class="btn-icon" title="测试"><i class="fa fa-plug"></i></button>
-                     <button class="btn-icon" title="编辑"><i class="fa fa-edit"></i></button>
-                     <button class="btn-icon" title="删除"><i class="fa fa-trash"></i></button>
-                </td>
-            </tr>
+            -->
          </tbody>
      </table>
  </div>
   <div class="pagination">
-     <!-- 分页 -->
- </div> 
+     <!-- 分页控件将由 JS 动态生成 -->
+ </div>
+
+ <!-- 添加/编辑代理的模态框模板 -->
+ <template id="tpl-modal-proxy-form">
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <button class="modal-close-btn">&times;</button>
+            <h3 class="modal-title">添加/编辑代理配置</h3>
+            <form id="proxy-form" class="modal-content">
+                <input type="hidden" name="id" value="">
+                <div class="form-group">
+                    <label for="proxy-name">名称/标识 <span class="required">*</span></label>
+                    <input type="text" id="proxy-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="proxy-type">类型 <span class="required">*</span></label>
+                    <select id="proxy-type" name="type" required>
+                        <option value="HTTP">HTTP</option>
+                        <option value="HTTPS">HTTPS</option>
+                        <option value="SOCKS5">SOCKS5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="proxy-host">主机地址 <span class="required">*</span></label>
+                    <input type="text" id="proxy-host" name="host" required>
+                </div>
+                <div class="form-group">
+                    <label for="proxy-port">端口 <span class="required">*</span></label>
+                    <input type="number" id="proxy-port" name="port" required min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label for="proxy-username">用户名 (可选)</label>
+                    <input type="text" id="proxy-username" name="username">
+                </div>
+                 <div class="form-group">
+                    <label for="proxy-password">密码 (可选)</label>
+                    <input type="password" id="proxy-password" name="password" placeholder="留空则不修改">
+                </div>
+                <div class="form-group">
+                    <label for="proxy-group">分组 (可选)</label>
+                    <select id="proxy-group" name="group_id">
+                        <option value="">-- 无分组 --</option>
+                        <!-- 分组选项将由 JS 动态加载 -->
+                    </select>
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                <button class="btn btn-primary" id="modal-save-proxy-btn"><i class="fa fa-save"></i> 保存</button>
+            </div>
+        </div>
+    </div>
+</template> 

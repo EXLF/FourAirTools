@@ -31,6 +31,15 @@ contextBridge.exposeInMainWorld('dbAPI', {
     getAllSocialsWithLinkStatus: (walletId) => ipcRenderer.invoke('db:getAllSocialsWithLinkStatus', walletId),
     updateWalletSocialLinks: (walletId, linkedSocialIds) => ipcRenderer.invoke('db:updateWalletSocialLinks', walletId, linkedSocialIds),
 
+    // --- Proxies (新增) ---
+    addProxy: (proxyData) => ipcRenderer.invoke('db:addProxy', proxyData),
+    getProxies: (options) => ipcRenderer.invoke('db:getProxies', options),
+    getProxyById: (id) => ipcRenderer.invoke('db:getProxyById', id),
+    updateProxy: (id, updates) => ipcRenderer.invoke('db:updateProxy', id, updates),
+    deleteProxy: (id) => ipcRenderer.invoke('db:deleteProxy', id),
+    deleteProxiesByIds: (ids) => ipcRenderer.invoke('db:deleteProxiesByIds', ids),
+    // --- -------- ---
+
     // 应用级功能
     // 批量生成钱包: {count: 生成数量, groupId?: 分组ID}
     generateWallets: (options) => ipcRenderer.invoke('app:generateWallets', options),
@@ -65,11 +74,14 @@ const validSendChannels = [
 const validReceiveChannels = [
     'show-setup-password',
     'show-unlock-screen',
-    'app-unlocked-status' // 添加解锁状态通道
+    'app-unlocked-status', // 添加解锁状态通道
+    // *** 新增：代理测试结果通知通道 ***
+    'proxy:testResult'
 ];
 const validInvokeChannels = [
     'auth:setupPassword', 
     'auth:unlockApp', 
+    'auth:isUnlocked', // 添加 auth:isUnlocked 通道
     'db:getGroups', 'db:addGroup', 'db:renameGroup', 'db:deleteGroup', 
     'db:getWallets', 'db:addWallet', 'db:updateWallet', 'db:deleteWallet', 'db:deleteWalletsByIds', 'db:getWalletDetails', 
     'db:getWalletById',
@@ -89,7 +101,18 @@ const validInvokeChannels = [
     'app:decryptData',
     'app:lock',
     'wallet:getBalance',
-    'app:loadTutorials'
+    'app:loadTutorials',
+    // --- Proxies (新增) ---
+    'db:addProxy', 
+    'db:getProxies', 
+    'db:getProxyById', 
+    'db:updateProxy', 
+    'db:deleteProxy', 
+    'db:deleteProxiesByIds',
+    // --- -------- ---
+    // *** 新增：代理测试与设置通道 ***
+    'proxy:test', 
+    'proxy:set'
 ];
 
 contextBridge.exposeInMainWorld('electron', {
@@ -154,6 +177,27 @@ contextBridge.exposeInMainWorld('urlUtils', {
         } catch (e) {
             console.error(`[Preload] Error parsing URL: ${urlString}`, e);
             return null; // 返回 null 或抛出错误，根据你的错误处理策略
+        }
+    }
+});
+
+// *** 新增：暴露代理操作API ***
+contextBridge.exposeInMainWorld('proxyAPI', {
+    testProxies: (proxyIds) => ipcRenderer.invoke('proxy:test', proxyIds),
+    setProxy: (proxyId) => ipcRenderer.invoke('proxy:set', proxyId), // proxyId 为 null 表示禁用
+    onTestResult: (callback) => {
+        const channel = 'proxy:testResult';
+        if (validReceiveChannels.includes(channel)) {
+             // 注意：这里的回调会接收到包含 { proxyId, success, data } 的对象
+            const subscription = (event, result) => callback(result);
+            ipcRenderer.on(channel, subscription);
+            // 返回取消订阅函数
+            return () => {
+                 ipcRenderer.removeListener(channel, subscription);
+             };
+        } else {
+            console.warn(`尝试监听无效通道: ${channel}`);
+            return () => {};
         }
     }
 });

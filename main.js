@@ -6,6 +6,7 @@ const cryptoService = require('./src/js/core/cryptoService.js');
 
 const { setupDatabaseIpcHandlers } = require('./src/main/ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./src/main/ipcHandlers/appHandlers.js');
+const { setupProxyIpcHandlers } = require('./src/main/ipcHandlers/proxyHandlers.js');
 
 let mainWindow = null;
 
@@ -45,6 +46,7 @@ function createWindow() {
   // 在加载文件前设置 IPC Handlers 并传入 mainWindow
   setupDatabaseIpcHandlers();
   setupApplicationIpcHandlers(mainWindow);
+  setupProxyIpcHandlers(mainWindow);
 
   // --- 新增：处理设置主密码请求 --- 
   ipcMain.handle('auth:setupPassword', async (event, password) => {
@@ -117,6 +119,13 @@ function createWindow() {
           // Don't send detailed error messages back to renderer for security
           return { success: false, error: '密码不正确或解锁时发生错误。' }; 
       }
+  });
+  // --------------------------------
+
+  // --- 新增：处理检查应用是否解锁的请求 ---
+  ipcMain.handle('auth:isUnlocked', async (event) => {
+      console.log('[Main] Checking if app is unlocked');
+      return cryptoService.isUnlocked();
   });
   // --------------------------------
 
