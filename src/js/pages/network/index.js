@@ -216,7 +216,7 @@ function renderTable(proxies) {
 
         row.innerHTML = `
             <td><input type="checkbox" class="row-checkbox"></td>
-            <td data-field="name">${proxy.name || '-'}</td>
+            <td data-field="name">#${proxy.id}</td>
             <td data-field="type">${proxy.type || '-'}</td>
             <td data-field="host">${proxy.host || '-'}</td>
             <td data-field="port">${proxy.port || '-'}</td>

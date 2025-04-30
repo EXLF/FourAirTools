@@ -9,11 +9,11 @@ const cryptoService = require('../core/cryptoService'); // 导入加密服务
  */
 async function addProxy(db, proxyData) {
     return new Promise(async (resolve, reject) => {
-        const { name, type, host, port, username, password, group_id } = proxyData;
+        const { type, host, port, username, password, group_id } = proxyData;
 
         // 检查必填字段
-        if (!name || !type || !host || !port) {
-            return reject(new Error('缺少必要的代理信息 (name, type, host, port)'));
+        if (!type || !host || !port) {
+            return reject(new Error('缺少必要的代理信息 (type, host, port)'));
         }
 
         // 加密密码（如果存在）
@@ -30,18 +30,28 @@ async function addProxy(db, proxyData) {
             }
         }
 
-        const sql = `INSERT INTO proxies (name, type, host, port, username, password, group_id)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`;
-        const params = [name, type, host, port, username || null, encryptedPassword, group_id || null];
-
-        db.run(sql, params, function(err) {
+        // 获取当前最大ID，用于生成新的name
+        db.get('SELECT MAX(id) as maxId FROM proxies', [], function(err, row) {
             if (err) {
-                console.error('添加代理到数据库失败:', err.message);
-                reject(new Error(`添加代理失败: ${err.message}`));
-            } else {
-                console.log(`添加代理成功，ID: ${this.lastID}`);
-                resolve({ id: this.lastID });
+                return reject(new Error(`获取最大ID失败: ${err.message}`));
             }
+            
+            const nextId = (row.maxId || 0) + 1;
+            const name = `#${nextId}`;
+
+            const sql = `INSERT INTO proxies (name, type, host, port, username, password, group_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)`;
+            const params = [name, type, host, port, username || null, encryptedPassword, group_id || null];
+
+            db.run(sql, params, function(err) {
+                if (err) {
+                    console.error('添加代理到数据库失败:', err.message);
+                    reject(new Error(`添加代理失败: ${err.message}`));
+                } else {
+                    console.log(`添加代理成功，ID: ${this.lastID}`);
+                    resolve({ id: this.lastID });
+                }
+            });
         });
     });
 }
