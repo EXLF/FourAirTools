@@ -3,6 +3,7 @@
 /* Base Styles */
 @import url('base/reset.css');
 @import url('base/layout.css');
+@import url('base/typography.css');
 
 /* Components */
 @import url('components/buttons.css');
@@ -12,17 +13,20 @@
 @import url('components/tags.css');
 @import url('components/modals.css');
 @import url('components/network.css');  /* 添加网络组件样式 */
+@import url('components/toast.css');
+@import url('components/wallet-selection.css');
 
 /* Page-Specific Styles */
 @import url('pages/dashboard.css');
-@import url('pages/projects.css');
-/* @import url('pages/wallets.css');  -- Minimal specific styles, included in tables.css */
+@import url('pages/wallets.css');
 @import url('pages/social.css');
-@import url('pages/plugins.css'); /* -- Minimal specific styles, included in cards.css */
+@import url('pages/network.css');
+@import url('pages/settings.css');
 @import url('pages/tutorials.css');
-/* @import url('pages/network.css'); -- Currently no specific styles */
+@import url('pages/projects.css');
+@import url('pages/tools.css'); /* Add import for tools page styles */
+/* @import url('pages/plugins.css'); -- Minimal specific styles, included in cards.css */
 /* @import url('pages/community.css'); -- Currently no specific styles */
-/* @import url('pages/settings.css'); -- Currently no specific styles */
 
 /* Responsive Styles (Load Last) */
 @import url('base/responsive.css');

@@ -20,4 +20,15 @@ ipcMain.on('clear-discord-session', async (event) => {
             error: error.message || 'Unknown error' 
         });
     }
+});
+
+// 添加打开外部URL的处理器
+ipcMain.on('open-external-url', (event, url) => {
+    try {
+        const { shell } = require('electron');
+        console.log(`Opening external URL: ${url}`);
+        shell.openExternal(url);
+    } catch (error) {
+        console.error('Error opening external URL:', error);
+    }
 }); 
