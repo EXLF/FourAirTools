@@ -1,20 +1,63 @@
-<div class="page-header">
+<div class="page-header" style="display: flex; align-items: center; justify-content: space-between;">
     <h2>社区交流</h2>
- </div>
- <div class="community-layout">
-    <div class="card">
-         <h4><i class="fa fa-discord"></i> 加入官方 Discord</h4>
-         <p>获取最新资讯、参与讨论、寻求帮助。</p>
-         <a href="YOUR_DISCORD_INVITE_LINK" target="_blank" class="btn btn-primary">立即加入</a>
-     </div>
-     <div class="card">
-         <h4><i class="fa fa-telegram"></i> 加入官方 Telegram</h4>
-         <p>实时聊天、快速提问。</p>
-         <a href="YOUR_TELEGRAM_LINK" target="_blank" class="btn btn-primary">立即加入</a>
-     </div>
-     <div class="card card-large">
-         <h4><i class="fa fa-comments-o"></i> 内嵌讨论区 (占位)</h4>
-         <p>未来可能集成简单的论坛或聊天功能。</p>
-         <div style="height: 200px; background: #eee; display: flex; align-items: center; justify-content: center;">讨论区占位符</div>
-     </div>
- </div> 
+    <div id="discord-actions" class="hidden">
+        <button id="logout-discord-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-sign-out-alt"></i> 退出账户
+        </button>
+    </div>
+</div>
+
+<div class="community-container" style="overflow: hidden; position: relative;">
+    <div id="join-discord-section" style="text-align: center; padding: 50px 0;">
+        <p style="margin-bottom: 20px; color: #6c757d;">加入我们的 Discord 频道，与其他用户交流和获取最新信息。</p>
+        <button id="join-discord-btn" class="btn btn-primary btn-lg">
+            <i class="fab fa-discord"></i> 加入 Discord 频道
+        </button>
+    </div>
+
+    <div id="discord-webview-container" class="hidden" style="height: calc(100vh - 180px); position: relative; overflow: hidden;">
+        <!-- 
+            关键属性:
+            - id: 用于JS选择器
+            - partition: "persist:discord" 指定一个持久化分区，用于保存cookie等会话数据
+            - allowpopups: 允许 Discord 可能需要的弹出窗口 (例如登录流程)
+            - nodeintegration: 禁用node integration
+            - contextIsolation: 启用context isolation
+            - disablewebsecurity: 禁用web安全设置
+            - webpreferences: 设置web preferences
+         -->
+        <webview 
+            id="discord-webview" 
+            src="about:blank" 
+            style="width: 100%; height: 100%; border: 1px solid #e9ecef; border-radius: 6px; overflow: auto;"
+            partition="persist:discord"
+            allowpopups="true"
+            nodeintegration="false"
+            contextIsolation="true"
+            disablewebsecurity="false"
+            webpreferences="contextIsolation=true"
+        ></webview>
+    </div>
+</div>
+
+<script type="module" src="../js/pages/community/index.js"></script>
+
+<style>
+    .hidden {
+        display: none;
+    }
+    
+    /* 隐藏所有滚动条 */
+    ::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+    
+    /* 确保webview内容可以滚动但不显示滚动条 */
+    webview {
+        overflow: auto !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+</style> 

@@ -1,0 +1,23 @@
+// 添加清除Discord会话的处理器
+ipcMain.on('clear-discord-session', async (event) => {
+    try {
+        const { session } = require('electron');
+        if (session) {
+            await session.fromPartition('persist:discord').clearStorageData();
+            console.log('Discord session data cleared successfully');
+            event.reply('clear-discord-session-reply', { success: true });
+        } else {
+            console.error('Session module not available');
+            event.reply('clear-discord-session-reply', { 
+                success: false, 
+                error: 'Session module not available' 
+            });
+        }
+    } catch (error) {
+        console.error('Error clearing Discord session data:', error);
+        event.reply('clear-discord-session-reply', { 
+            success: false, 
+            error: error.message || 'Unknown error' 
+        });
+    }
+}); 

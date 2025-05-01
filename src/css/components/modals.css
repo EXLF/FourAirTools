@@ -618,4 +618,67 @@
     font-size: 12px;
     color: #666;
     padding: 0 10px;
+}
+
+/* 确认对话框样式 */
+.confirm-modal .modal-content {
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.confirm-modal .modal-header {
+    border-bottom: 1px solid #e9ecef;
+    padding: 15px 20px;
+}
+
+.confirm-modal .modal-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.confirm-modal .modal-body {
+    padding: 20px;
+}
+
+.confirm-modal .modal-body p {
+    margin: 0;
+    font-size: 16px;
+    color: #343a40;
+}
+
+.confirm-modal .modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-modal .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+.confirm-modal .btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+    color: white;
+}
+
+.confirm-modal .btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2653d4;
+}
+
+.confirm-modal .btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+    background-color: transparent;
+}
+
+.confirm-modal .btn-outline-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
 } 
