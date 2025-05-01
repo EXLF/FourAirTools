@@ -1,277 +1,534 @@
 <div class="page-header">
-    <h1>项目跟踪</h1>
+    <h2>项目跟踪</h2>
     <div class="header-actions">
-        <button class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新数据</button>
-        <button class="btn btn-primary"><i class="fas fa-plus"></i> 添加项目/活动</button>
+        <button id="refresh-projects-btn" class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新</button>
     </div>
 </div>
 
-<div class="filters-bar">
-    <div class="filter-group">
-        <i class="fas fa-filter filter-icon"></i>
-        <span class="filter-label">筛选:</span>
-        <select id="project-chain-filter" class="select-filter">
-            <option value="">所有链</option>
-            <option value="LayerZero">LayerZero</option>
-            <option value="zkSync">zkSync Era</option>
-            <option value="StarkNet">StarkNet</option>
-            <option value="Base">Base</option>
-            <option value="Linea">Linea</option>
-        </select>
-        <select id="project-type-filter" class="select-filter">
-            <option value="">所有项目类型</option>
-            <option value="Infrastructure">基础设施</option>
-            <option value="L2">Layer 2</option>
-            <option value="DeFi">DeFi</option>
-            <option value="NFT">NFT</option>
-        </select>
-        <select id="activity-status-filter" class="select-filter">
-            <option value="">所有活动状态</option>
-            <option value="new">新活动 <i class="fas fa-star"></i></option>
-            <option value="pending">待办 <i class="far fa-clock"></i></option>
-            <option value="done">已完成 <i class="far fa-check-circle"></i></option>
-             <option value="ignored">已忽略 <i class="fas fa-eye-slash"></i></option>
-        </select>
+<div class="project-tracking-container">
+    <!-- 左侧：项目列表 -->
+    <div class="project-list-panel">
+        <div class="section-header">
+            <h4>跟踪的项目</h4>
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="project-search-input" placeholder="搜索项目..." class="search-input">
+            </div>
+        </div>
+        <div id="project-list-container" class="project-list">
+            <!-- 项目列表项将通过JS动态加载 -->
+        </div>
     </div>
-    <div class="search-box table-search-box">
-         <i class="fas fa-search search-icon"></i>
-        <input type="text" class="table-search-input" placeholder="搜索项目或活动...">
+
+    <!-- 右侧：项目详情 -->
+    <div class="project-detail-panel">
+        <div id="project-detail-placeholder" class="empty-state">
+            <i class="fas fa-rocket"></i>
+            <p>请从左侧选择一个项目查看详情</p>
+        </div>
+
+        <div id="project-detail-content" class="hidden">
+            <!-- 项目头部信息 -->
+            <div class="project-header">
+                <div class="project-title-wrapper">
+                    <div id="detail-project-icon" class="project-icon"></div>
+                    <h3 id="detail-project-name"></h3>
+                </div>
+                <p id="detail-project-description" class="project-description"></p>
+                <div id="detail-tutorial-link-area" class="tutorial-link">
+                    <i class="fas fa-book"></i> 关联教程: 
+                    <a href="#" id="detail-tutorial-link"></a>
+                </div>
+            </div>
+
+            <!-- 任务列表区域 -->
+            <div class="tasks-panel">
+                <h4 class="section-title">任务列表</h4>
+                <div id="task-list-container">
+                    <!-- 任务项将通过JS动态加载 -->
+                </div>
+            </div>
+
+            <!-- 打卡日历区域 -->
+            <div class="calendar-panel">
+                <h4 class="section-title">打卡日历</h4>
+                <div id="check-in-calendar" class="calendar-container">
+                    <p class="placeholder-text">日历功能待实现...</p>
+                </div>
+            </div>
+            
+            <!-- 项目时间轴区域 -->
+            <div class="timeline-panel">
+                <h4 class="section-title">项目时间轴</h4>
+                <div id="project-timeline" class="timeline-container">
+                    <!-- 时间轴将通过JS动态加载 -->
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="project-container card-view">
-    <!-- Project Card 1: LayerZero -->
-    <div class="project-card" data-chain="LayerZero" data-type="Infrastructure" data-total-tasks="5" data-pending-tasks="1">
-        <div class="card-header">
-            <img src="https://via.placeholder.com/30/8888FF/FFFFFF?text=L0" alt="LayerZero" class="project-icon">
-            <div class="project-title">
-                <h5>LayerZero</h5>
-                <span><i class="fas fa-cogs"></i> 基础设施 / <i class="fas fa-link"></i> 跨链</span>
-            </div>
-        </div>
-        <div class="card-body project-activities">
-             <div class="project-summary">
-                <span>总活动: 5</span>
-                <span>待办: 1</span>
-                <span>上次交互: 8天前</span>
-            </div>
-            <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
-            <div class="activity-list-scroll-container">
-                <ul class="activity-list">
-                    <li data-status="new">
-                        <span class="activity-desc">Stargate 新增 Aptos 跨链支持</span>
-                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
-                        <span class="status status-new"><i class="fas fa-star"></i> 新活动</span>
-                        <span class="date">07-28</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="标记为待办"><i class="far fa-clock"></i></button>
-                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
-                            <button class="btn-icon" title="忽略"><i class="fas fa-eye-slash"></i></button>
-                        </div>
-                    </li>
-                    <li data-status="done">
-                        <span class="activity-desc">完成 Merkly 上的 L0 NFT Mint 和跨链</span>
-                        <span class="tag tag-green"><i class="fas fa-palette"></i> Mint</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">07-20</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                    <li data-status="done">
-                        <span class="activity-desc">Testnet 活动参与</span>
-                        <span class="tag tag-grey"><i class="fas fa-flask"></i> Testnet</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">06-15</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                    <li data-status="done">
-                        <span class="activity-desc">早期交互 - Stargate ETH 跨链</span>
-                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">05-01</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                    <li data-status="done">
-                        <span class="activity-desc">持有 STG 代币快照</span>
-                        <span class="tag tag-yellow"><i class="fas fa-coins"></i> Snapshot</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">04-10</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </div>
-        <div class="card-footer">
-             <div class="activity-progress">
-                 <span>活动完成度:</span>
-                 <div class="progress-bar"><div class="progress" style="width: 50%;"></div></div>
-                 <span>50%</span>
-             </div>
-            <button class="btn btn-primary btn-small" onclick="loadPageAndSetInteraction('script-plugins', 'Bridge')"><i class="fa fa-play"></i> 开始交互 (L0)</button>
-        </div>
-    </div>
+<script type="module" src="../js/pages/projects/index.js"></script>
 
-     <!-- Project Card 2: zkSync Era -->
-    <div class="project-card" data-chain="zkSync" data-type="L2" data-total-tasks="6" data-pending-tasks="2">
-        <div class="card-header">
-            <img src="https://via.placeholder.com/30/44AAFF/FFFFFF?text=ZK" alt="zkSync Era" class="project-icon">
-            <div class="project-title">
-                <h5>zkSync Era</h5>
-                <span><i class="fas fa-layer-group"></i> Layer 2 / ZK Rollup</span>
-            </div>
-        </div>
-         <div class="card-body project-activities">
-             <div class="project-summary">
-                <span>总活动: 6</span>
-                <span>待办: 2</span>
-                <span>上次交互: 3天前</span>
-            </div>
-            <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
-            <div class="activity-list-scroll-container">
-                <ul class="activity-list">
-                     <li data-status="pending">
-                         <span class="activity-desc">在 SyncSwap 完成一笔 10U 以上的 Swap</span>
-                        <span class="tag tag-purple"><i class="fas fa-sync-alt"></i> Swap</span>
-                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
-                         <span class="date">07-25</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
-                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
-                         </div>
-                    </li>
-                     <li data-status="pending">
-                         <span class="activity-desc">在 Mute.io 添加流动性 (可选)</span>
-                        <span class="tag tag-yellow"><i class="fas fa-water"></i> DeFi</span>
-                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
-                         <span class="date">07-22</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
-                            <button class="btn-icon" title="开始交互"><i class="fas fa-arrow-right"></i></button>
-                         </div>
-                    </li>
-                     <li data-status="done">
-                         <span class="activity-desc">Mint ZK Domain Name</span>
-                         <span class="tag tag-green"><i class="fas fa-id-card"></i> Domain</span>
-                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">07-10</span>
-                         <div class="actions">
-                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                         </div>
-                     </li>
-                     <li data-status="done">
-                         <span class="activity-desc">官方桥 首次跨链</span>
-                         <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
-                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">07-01</span>
-                         <div class="actions">
-                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                         </div>
-                     </li>
-                      <li data-status="ignored">
-                         <span class="activity-desc">参与 IDO (已错过)</span>
-                         <span class="tag tag-red"><i class="fas fa-rocket"></i> IDO</span>
-                         <span class="status status-ignored"><i class="fas fa-eye-slash"></i> 已忽略</span>
-                         <span class="date">06-20</span>
-                         <div class="actions">
-                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                         </div>
-                     </li>
-                     <li data-status="done">
-                         <span class="activity-desc">完成 zkSync Lite 任务</span>
-                         <span class="tag tag-grey"><i class="fas fa-tasks"></i> Task</span>
-                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">05-15</span>
-                         <div class="actions">
-                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                         </div>
-                     </li>
-                </ul>
-            </div>
-        </div>
-         <div class="card-footer">
-             <div class="activity-progress">
-                 <span>活动完成度:</span>
-                 <div class="progress-bar"><div class="progress" style="width: 60%;"></div></div>
-                 <span>60%</span>
-             </div>
-             <button class="btn btn-primary btn-small" onclick="loadPageAndSetInteraction('script-plugins', 'Swap')"><i class="fa fa-play"></i> 开始交互 (zkSync)</button>
-        </div>
-    </div>
+<!-- 项目跟踪页面专用样式 -->
+<style>
+    /* 整体布局 */
+    .project-tracking-container {
+        display: flex;
+        height: calc(100vh - 170px);
+        margin-top: 10px;
+    }
 
-    <!-- Project Card 3: Base -->
-     <div class="project-card" data-chain="Base" data-type="L2" data-total-tasks="4" data-pending-tasks="1">
-        <div class="card-header">
-            <img src="https://via.placeholder.com/30/0052FF/FFFFFF?text=B" alt="Base" class="project-icon">
-            <div class="project-title">
-                <h5>Base</h5>
-                <span><i class="fas fa-layer-group"></i> Layer 2</span>
-            </div>
-        </div>
-        <div class="card-body project-activities">
-            <div class="project-summary">
-                <span>总活动: 4</span>
-                <span>待办: 1</span>
-                <span>上次交互: 13天前</span>
-            </div>
-             <h6><i class="fas fa-list-ul"></i> 近期活动:</h6>
-            <div class="activity-list-scroll-container">
-                <ul class="activity-list">
-                     <li data-status="pending">
-                        <span class="activity-desc">关注 Base 官方 Twitter 并转发指定推文</span>
-                        <span class="tag tag-orange"><i class="fab fa-twitter"></i> 社交</span>
-                        <span class="status status-pending"><i class="far fa-clock"></i> 待办</span>
-                        <span class="date">07-29</span>
-                        <div class="actions">
-                             <button class="btn-icon" title="标记为完成"><i class="far fa-check-circle"></i></button>
-                             <button class="btn-icon" title="跳转任务"><i class="fas fa-external-link-alt"></i></button>
-                         </div>
-                    </li>
-                    <li data-status="done">
-                         <span class="activity-desc">在 Base 链上 Mint 一个免费 NFT</span>
-                         <span class="tag tag-green"><i class="fas fa-palette"></i> Mint</span>
-                         <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                         <span class="date">07-15</span>
-                         <div class="actions">
-                             <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                         </div>
-                     </li>
-                     <li data-status="done">
-                        <span class="activity-desc">体验 BaseSwap</span>
-                        <span class="tag tag-purple"><i class="fas fa-sync-alt"></i> Swap</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                        <span class="date">07-10</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                    <li data-status="done">
-                        <span class="activity-desc">跨链 ETH 到 Base (官方桥)</span>
-                        <span class="tag tag-blue"><i class="fas fa-exchange-alt"></i> Bridge</span>
-                        <span class="status status-done"><i class="far fa-check-circle"></i> 已完成</span>
-                        <span class="date">07-05</span>
-                        <div class="actions">
-                            <button class="btn-icon" title="查看记录"><i class="fas fa-history"></i></button>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </div>
-         <div class="card-footer">
-             <div class="activity-progress">
-                 <span>活动完成度:</span>
-                 <div class="progress-bar"><div class="progress" style="width: 33%;"></div></div>
-                 <span>33%</span>
-             </div>
-            <button class="btn btn-primary btn-small"><i class="fa fa-play"></i> 开始交互 (Base)</button>
-        </div>
-    </div>
+    /* 左侧项目列表 */
+    .project-list-panel {
+        width: 260px;
+        border-right: 1px solid #e9ecef;
+        background-color: #f8f9fa;
+        padding: 15px 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
 
-    <!-- Add more project cards -->
-</div> 
+    .section-header {
+        padding: 0 15px 10px 15px;
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        z-index: 10;
+    }
+
+    .section-header h4 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+        color: #343a40;
+    }
+
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 10px;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 7px 10px 7px 30px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .project-list {
+        overflow-y: auto;
+        flex: 1;
+        padding: 0 15px;
+    }
+
+    .project-list-item {
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid #e9ecef;
+        position: relative;
+    }
+
+    .project-list-item.selected {
+        background: #f0f4ff;
+        border-color: #6c5ce7;
+    }
+
+    .project-list-item:hover:not(.selected) {
+        background: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+    .project-list-item .project-icon {
+        margin-right: 10px;
+        display: inline-flex;
+    }
+
+    .project-list-item .project-name {
+        font-weight: 500;
+        font-size: 14px;
+        color: #333;
+        display: inline-block;
+        vertical-align: middle;
+        max-width: calc(100% - 40px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .project-list-item .status-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 12px;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    .project-list-item .status-update {
+        background: #f03e3e;
+    }
+
+    .project-list-item .status-daily {
+        background: #4dabf7;
+    }
+
+    .project-list-item .status-checked {
+        background: #40c057;
+    }
+
+    /* 右侧详情面板 */
+    .project-detail-panel {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: #ced4da;
+        padding-top: 80px;
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+
+    .empty-state p {
+        font-size: 16px;
+    }
+
+    .project-header {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .project-title-wrapper {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .project-icon {
+        margin-right: 15px;
+    }
+
+    #detail-project-name {
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0;
+        color: #333;
+    }
+
+    .project-description {
+        font-size: 14px;
+        color: #6c757d;
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+
+    .tutorial-link {
+        font-size: 13px;
+        color: #6c757d;
+    }
+
+    .tutorial-link a {
+        color: #6c5ce7;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .tutorial-link a:hover {
+        text-decoration: underline;
+    }
+
+    /* 任务面板 */
+    .tasks-panel, .timeline-panel, .calendar-panel {
+        margin-bottom: 25px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #343a40;
+        display: flex;
+        align-items: center;
+    }
+
+    .section-title::before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 16px;
+        background: #6c5ce7;
+        margin-right: 8px;
+        border-radius: 2px;
+    }
+
+    /* 任务样式 */
+    .task-item {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: flex-start;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .task-item.daily-task {
+        background-color: #f8f9ff;
+        border-left: 3px solid #4dabf7;
+    }
+
+    .task-item.timed-task {
+        background-color: #fff9f0;
+        border-left: 3px solid #fd7e14;
+    }
+
+    .task-item.tutorial-update-task {
+        background-color: #f9f0ff;
+        border-left: 3px solid #cc5de8;
+    }
+
+    .task-item.general-task {
+        background-color: #fff;
+        border-left: 3px solid #adb5bd;
+    }
+
+    .task-icon {
+        margin-right: 15px;
+        width: 36px;
+        height: 36px;
+        background: #f8f9fa;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .task-item.daily-task .task-icon {
+        color: #4dabf7;
+        background: #e7f5ff;
+    }
+
+    .task-item.timed-task .task-icon {
+        color: #fd7e14;
+        background: #fff4e6;
+    }
+
+    .task-item.tutorial-update-task .task-icon {
+        color: #cc5de8;
+        background: #f3f0ff;
+    }
+
+    .task-item.general-task .task-icon {
+        color: #495057;
+        background: #f8f9fa;
+    }
+
+    .task-content {
+        flex: 1;
+    }
+
+    .task-title {
+        font-weight: 500;
+        font-size: 15px;
+        margin-bottom: 5px;
+        color: #343a40;
+    }
+
+    .task-description {
+        font-size: 13px;
+        color: #6c757d;
+        margin-bottom: 8px;
+    }
+
+    .task-deadline {
+        font-size: 12px;
+        color: #e03131;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+    }
+
+    .task-deadline i {
+        margin-right: 5px;
+    }
+
+    .task-actions {
+        margin-left: 15px;
+    }
+
+    /* 打卡日历 */
+    .calendar-container {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 20px;
+        min-height: 250px;
+    }
+
+    .placeholder-text {
+        text-align: center;
+        color: #adb5bd;
+        padding-top: 100px;
+    }
+
+    /* 辅助类 */
+    .hidden {
+        display: none !important;
+    }
+
+    /* 时间轴样式 */
+    .timeline-container {
+        position: relative;
+        padding: 20px 0 0 0;
+        max-height: 420px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        background: white;
+        padding: 15px;
+    }
+
+    .timeline-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 12px;
+        width: 3px;
+        background: #e9ecef;
+        border-radius: 3px;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 40px;
+        margin-bottom: 20px;
+    }
+
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        z-index: 2;
+    }
+
+    .timeline-marker.past {
+        background-color: #40c057;
+    }
+
+    .timeline-marker.current {
+        background-color: #4dabf7;
+        box-shadow: 0 0 0 4px rgba(77, 171, 247, 0.2);
+    }
+
+    .timeline-marker.future {
+        background-color: #adb5bd;
+    }
+
+    .timeline-marker.milestone {
+        background-color: #fd7e14;
+    }
+
+    .timeline-marker.completed {
+        background-color: #40c057;
+    }
+
+    .timeline-content {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 15px;
+        position: relative;
+    }
+
+    .timeline-date {
+        font-size: 13px;
+        color: #6c757d;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+    }
+
+    .timeline-date i {
+        margin-right: 5px;
+        color: #adb5bd;
+    }
+
+    .timeline-title {
+        font-weight: 500;
+        font-size: 15px;
+        color: #343a40;
+        margin-bottom: 5px;
+    }
+
+    .timeline-description {
+        font-size: 13px;
+        color: #6c757d;
+    }
+
+    .timeline-status {
+        display: inline-block;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-top: 5px;
+    }
+
+    .timeline-status.completed {
+        background: #ebfbee;
+        color: #2b8a3e;
+    }
+
+    .timeline-status.active {
+        background: #e7f5ff;
+        color: #1971c2;
+    }
+
+    .timeline-status.upcoming {
+        background: #f8f9fa;
+        color: #495057;
+    }
+
+    .timeline-empty {
+        text-align: center;
+        color: #adb5bd;
+        padding: 20px 0;
+    }
+</style> 
