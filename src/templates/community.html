@@ -1,42 +1,77 @@
 <div class="page-header" style="display: flex; align-items: center; justify-content: space-between;">
     <h2>社区交流</h2>
-    <div id="discord-actions" class="hidden">
-        <button id="logout-discord-btn" class="btn btn-outline-secondary">
+    <div style="display: flex; align-items: center;">
+        <div id="platform-toggle" class="btn-group" role="group" style="margin-right: 10px;">
+            <button id="toggle-discord" class="btn btn-primary active" style="min-width: 100px;">
+                <i class="fab fa-discord"></i> Discord
+            </button>
+            <button id="toggle-x" class="btn btn-outline-dark" style="min-width: 100px;">
+                <i class="fab fa-x-twitter"></i> X
+            </button>
+        </div>
+        <button id="logout-btn" class="btn btn-outline-secondary hidden">
             <i class="fas fa-sign-out-alt"></i> 退出账户
         </button>
     </div>
 </div>
 
 <div class="community-container" style="overflow: hidden; position: relative;">
-    <div id="join-discord-section" style="text-align: center; padding: 50px 0;">
-        <p style="margin-bottom: 20px; color: #6c757d;">加入我们的 Discord 频道，与其他用户交流和获取最新信息。</p>
-        <button id="join-discord-btn" class="btn btn-primary btn-lg">
-            <i class="fab fa-discord"></i> 加入 Discord 频道
-        </button>
+    <!-- Discord 相关内容 -->
+    <div id="discord-content" class="platform-content">
+        <div id="join-discord-section" style="text-align: center; padding: 50px 0;">
+            <p style="margin-bottom: 20px; color: #6c757d;">加入我们的 Discord 频道，与其他用户交流和获取最新信息。</p>
+            <button id="join-discord-btn" class="btn btn-primary btn-lg">
+                <i class="fab fa-discord"></i> 加入 Discord 频道
+            </button>
+        </div>
+
+        <div id="discord-webview-container" class="hidden" style="height: calc(100vh - 180px); position: relative; overflow: hidden;">
+            <!-- 
+                关键属性:
+                - id: 用于JS选择器
+                - partition: "persist:discord" 指定一个持久化分区，用于保存cookie等会话数据
+                - allowpopups: 允许 Discord 可能需要的弹出窗口 (例如登录流程)
+                - nodeintegration: 禁用node integration
+                - contextIsolation: 启用context isolation
+                - disablewebsecurity: 禁用web安全设置
+                - webpreferences: 设置web preferences
+             -->
+            <webview 
+                id="discord-webview" 
+                src="about:blank" 
+                style="width: 100%; height: 100%; border: 1px solid #e9ecef; border-radius: 6px; overflow: auto;"
+                partition="persist:discord"
+                allowpopups="true"
+                nodeintegration="false"
+                contextIsolation="true"
+                disablewebsecurity="false"
+                webpreferences="contextIsolation=true"
+            ></webview>
+        </div>
     </div>
 
-    <div id="discord-webview-container" class="hidden" style="height: calc(100vh - 180px); position: relative; overflow: hidden;">
-        <!-- 
-            关键属性:
-            - id: 用于JS选择器
-            - partition: "persist:discord" 指定一个持久化分区，用于保存cookie等会话数据
-            - allowpopups: 允许 Discord 可能需要的弹出窗口 (例如登录流程)
-            - nodeintegration: 禁用node integration
-            - contextIsolation: 启用context isolation
-            - disablewebsecurity: 禁用web安全设置
-            - webpreferences: 设置web preferences
-         -->
-        <webview 
-            id="discord-webview" 
-            src="about:blank" 
-            style="width: 100%; height: 100%; border: 1px solid #e9ecef; border-radius: 6px; overflow: auto;"
-            partition="persist:discord"
-            allowpopups="true"
-            nodeintegration="false"
-            contextIsolation="true"
-            disablewebsecurity="false"
-            webpreferences="contextIsolation=true"
-        ></webview>
+    <!-- X (Twitter) 相关内容 -->
+    <div id="x-content" class="platform-content hidden">
+        <div id="join-x-section" style="text-align: center; padding: 50px 0;">
+            <p style="margin-bottom: 20px; color: #6c757d;">关注我们的官方X（推特）账号，获取最新动态和资讯。</p>
+            <button id="follow-x-btn" class="btn btn-dark btn-lg">
+                <i class="fab fa-x-twitter"></i> 关注官方推特
+            </button>
+        </div>
+
+        <div id="x-webview-container" class="hidden" style="height: calc(100vh - 180px); position: relative; overflow: hidden;">
+            <webview 
+                id="x-webview" 
+                src="about:blank" 
+                style="width: 100%; height: 100%; border: 1px solid #e9ecef; border-radius: 6px; overflow: auto;"
+                partition="persist:x-twitter"
+                allowpopups="true"
+                nodeintegration="false"
+                contextIsolation="true"
+                disablewebsecurity="false"
+                webpreferences="contextIsolation=true"
+            ></webview>
+        </div>
     </div>
 </div>
 
@@ -47,17 +82,57 @@
         display: none;
     }
     
-    /* 隐藏所有滚动条 */
-    ::-webkit-scrollbar {
+    /* 针对Discord的滚动条隐藏 */
+    #discord-webview::-webkit-scrollbar {
         display: none !important;
         width: 0 !important;
         height: 0 !important;
     }
     
-    /* 确保webview内容可以滚动但不显示滚动条 */
-    webview {
+    #discord-webview {
         overflow: auto !important;
         scrollbar-width: none !important;
         -ms-overflow-style: none !important;
+    }
+    
+    /* X平台的滚动条样式 */
+    #x-webview::-webkit-scrollbar {
+        width: 8px !important;
+        height: 8px !important;
+        display: block !important;
+    }
+    
+    #x-webview::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
+        border-radius: 4px !important;
+    }
+    
+    #x-webview::-webkit-scrollbar-thumb {
+        background: #c1c1c1 !important;
+        border-radius: 4px !important;
+    }
+    
+    #x-webview::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8 !important;
+    }
+    
+    #x-webview {
+        overflow: auto !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: #c1c1c1 #f1f1f1 !important;
+    }
+
+    /* 平台切换按钮样式 */
+    #platform-toggle .btn {
+        transition: all 0.2s;
+    }
+    
+    #platform-toggle .btn.active {
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    /* 内容切换效果 */
+    .platform-content {
+        transition: opacity 0.3s;
     }
 </style> 
