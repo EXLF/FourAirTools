@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
 const db = require('./src/js/db/index.js');
@@ -25,6 +25,9 @@ function createWindow() {
       webviewTag: true // 启用 webview 标签支持
     }
   });
+
+  // 移除默认菜单栏
+  Menu.setApplicationMenu(null);
 
   // *** 新增：设置窗口打开处理程序 ***
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
