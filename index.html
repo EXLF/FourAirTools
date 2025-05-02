@@ -318,56 +318,114 @@
     <template id="tpl-social-account-form">
         <div class="modal-overlay">
             <div class="modal-box social-account-form-modal">
-                <button class="modal-close-btn">&times;</button>
-                <h3 class="modal-title">添加社交账户</h3>
-                <div class="modal-content">
-                    <form id="social-account-form-actual">
-                        <input type="hidden" name="account-id" value=""> <!-- 用于编辑模式 -->
-
-                        <div class="option-group">
-                            <label for="social-platform">平台 <span class="required">*</span></label>
-                            <select id="social-platform" name="social-platform" required>
-                                <option value="" disabled selected>请选择平台</option>
-                                <option value="Twitter">Twitter</option>
-                                <option value="Discord">Discord</option>
-                                <option value="Telegram">Telegram</option>
-                                <option value="Email">Email</option>
-                                <!-- <option value="Other">其他</option> -->
-                            </select>
-                        </div>
-
-                        <div class="option-group">
-                            <label for="social-username">用户名/Handle <span class="required">*</span></label>
-                            <input type="text" id="social-username" name="social-username" placeholder="例如 @username 或 user#1234" required>
-                        </div>
+                 <button class="modal-close-btn">&times;</button>
+                 <h3 class="modal-title">社交账户表单</h3>
+                 <div class="modal-content">
+                     <form id="social-account-form-actual">
+                         <input type="hidden" name="account-id" value="">
 
                          <div class="option-group">
-                            <label for="social-binding">绑定邮箱/手机</label>
-                            <input type="text" id="social-binding" name="social-binding" placeholder="例如 xxx@email.com 或 +1 **** 1234">
-                        </div>
-
-                        <div class="option-group group-selection-group">
-                            <label for="social-group">分组</label>
-                            <div class="group-controls" style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                                <select id="social-group" name="social-group" style="flex: 1; min-width: 0;">
-                                    <option value="">无分组</option>
-                                    <!-- Options will be loaded by JS -->
-                                </select>
-                                <input type="text" class="new-group-name-input" placeholder="输入新分组" title="输入新分组名称，然后按回车键创建" style="width: 150px; flex-shrink: 0;">
-                            </div>
-                        </div>
+                             <label for="social-platform">平台 <span class="required">*</span></label>
+                             <select id="social-platform" name="social-platform" required>
+                                 <option value="Twitter" selected>Twitter</option>
+                                 <option value="Discord">Discord</option>
+                                 <option value="Telegram">Telegram</option>
+                                 <option value="Email">Email</option>
+                                 <!-- Add other platforms if needed -->
+                             </select>
+                         </div>
 
                          <div class="option-group">
-                            <label for="social-notes">备注</label>
-                            <input type="text" id="social-notes" name="social-notes" placeholder="关于此账户的说明...">
-                        </div>
+                             <label for="social-identifier">账户/邮箱 <span class="required">*</span></label>
+                             <input type="text" id="social-identifier" name="social-identifier" required placeholder="例如: Twitter用户名, Discord用户名, 邮箱地址">
+                         </div>
 
-                    </form>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary modal-cancel-btn">取消</button>
-                    <button type="submit" form="social-account-form-actual" class="btn btn-primary modal-save-btn">保存</button>
-                </div>
+                         <!-- Generic Password Field (Common to most) -->
+                         <div class="option-group">
+                             <label for="social-password">密码</label>
+                             <input type="password" id="social-password" name="social-password" placeholder="账户密码 (留空则不更新)">
+                         </div>
+
+                         <!-- Twitter Specific Fields -->
+                         <div class="platform-fields-twitter" style="display: none;">
+                             <fieldset class="platform-fieldset">
+                                 <legend>Twitter 附加信息</legend>
+                                 <div class="option-group">
+                                     <label for="social-twitter-2fa">2FA 备用码</label>
+                                     <input type="text" id="social-twitter-2fa" name="social-twitter-2fa" placeholder="两步验证备用码 (留空则不更新)">
+                                 </div>
+                                  <div class="option-group">
+                                     <label for="social-twitter-email">绑定邮箱</label>
+                                     <input type="email" id="social-twitter-email" name="social-twitter-email" placeholder="绑定的邮箱地址 (留空则不更新)">
+                                 </div>
+                                  <div class="option-group">
+                                     <label for="social-twitter-recovery-email">辅助邮箱</label>
+                                     <input type="email" id="social-twitter-recovery-email" name="social-twitter-recovery-email" placeholder="用于恢复的邮箱 (留空则不更新)">
+                                 </div>
+                             </fieldset>
+                         </div>
+
+                         <!-- Discord Specific Fields -->
+                         <div class="platform-fields-discord" style="display: none;">
+                              <fieldset class="platform-fieldset">
+                                 <legend>Discord 附加信息</legend>
+                                 <!-- Discord often uses token login, password might be less common -->
+                                 <div class="option-group">
+                                     <label for="social-discord-password">密码 (可选)</label>
+                                     <input type="password" id="social-discord-password" name="social-discord-password" placeholder="Discord 密码 (留空则不更新)">
+                                 </div>
+                                 <div class="option-group">
+                                     <label for="social-discord-token">Token</label>
+                                     <input type="text" id="social-discord-token" name="social-discord-token" placeholder="Discord 用户 Token (留空则不更新)">
+                                 </div>
+                              </fieldset>
+                         </div>
+
+                         <!-- Telegram Specific Fields -->
+                          <div class="platform-fields-telegram" style="display: none;">
+                              <fieldset class="platform-fieldset">
+                                 <legend>Telegram 附加信息</legend>
+                                 <div class="option-group">
+                                     <label for="social-telegram-password">两步验证密码</label>
+                                     <input type="password" id="social-telegram-password" name="social-telegram-password" placeholder="Telegram 两步验证密码 (留空则不更新)">
+                                 </div>
+                                 <div class="option-group">
+                                     <label for="social-telegram-login-api">登录 API 信息</label>
+                                      <textarea id="social-telegram-login-api" name="social-telegram-login-api" rows="3" placeholder="用于脚本登录的 API ID/Hash 或 Session String (留空则不更新)"></textarea>
+                                 </div>
+                             </fieldset>
+                         </div>
+
+                         <!-- Email Specific Fields (Currently only common password needed) -->
+                         <div class="platform-fields-email" style="display: none;">
+                            <fieldset class="platform-fieldset">
+                                <legend>Email 附加信息</legend>
+                                <!-- No specific fields currently, generic password covers it -->
+                                <p class="text-sm text-gray-500">暂无 Email 特定附加信息。</p>
+                            </fieldset>
+                         </div>
+
+                         <div class="option-group">
+                             <label for="social-group">分组</label>
+                             <div class="group-selection-container">
+                                 <select id="social-group" name="social-group">
+                                     <option value="">无分组</option>
+                                     <!-- 分组选项将由 JS 动态填充 -->
+                                 </select>
+                                 <input type="text" class="new-group-name-input" placeholder="或输入新分组名后按回车添加">
+                             </div>
+                         </div>
+
+                         <div class="option-group">
+                             <label for="social-notes">备注</label>
+                             <textarea id="social-notes" name="social-notes" rows="3" placeholder="关于此账户的说明..."></textarea>
+                         </div>
+                     </form>
+                 </div>
+                 <div class="modal-actions">
+                     <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                     <button type="submit" form="social-account-form-actual" class="btn btn-primary modal-save-btn">保存</button>
+                 </div>
             </div>
         </div>
     </template>

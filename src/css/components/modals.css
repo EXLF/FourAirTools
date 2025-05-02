@@ -681,4 +681,125 @@
     color: #fff;
     background-color: #6c757d;
     border-color: #6c757d;
+}
+
+/* === 社交账户模态框样式增强 === */
+
+/* 确保所有输入框样式统一 */
+.social-account-form-modal input[type="text"],
+.social-account-form-modal input[type="email"],
+.social-account-form-modal input[type="password"],
+.social-account-form-modal textarea,
+.social-account-form-modal select {
+    width: 100%;
+    height: 38px; /* 统一高度 */
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #495057;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    box-sizing: border-box;
+}
+
+/* 文本区域特殊处理 */
+.social-account-form-modal textarea {
+    height: auto;
+    min-height: 38px;
+    resize: vertical;
+}
+
+/* 输入框焦点状态 */
+.social-account-form-modal input[type="text"]:focus,
+.social-account-form-modal input[type="email"]:focus,
+.social-account-form-modal input[type="password"]:focus,
+.social-account-form-modal textarea:focus,
+.social-account-form-modal select:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.15);
+}
+
+/* 分组选择容器样式 */
+.social-account-form-modal .group-selection-container {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+}
+
+/* 分组下拉框样式 */
+.social-account-form-modal #social-group {
+    flex: 1;
+}
+
+/* 新分组输入框样式 */
+.social-account-form-modal .new-group-name-input {
+    flex: 1;
+    max-width: 240px;
+}
+
+/* 选项分组间距优化 */
+.social-account-form-modal .option-group {
+    margin-bottom: 16px;
+}
+
+/* 标签样式优化 */
+.social-account-form-modal .option-group > label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #343a40;
+}
+
+/* 必填标记样式 */
+.social-account-form-modal .required {
+    color: #dc3545;
+    margin-left: 2px;
+}
+
+/* 特定平台字段组标题样式优化 */
+.social-account-form-modal .platform-fieldset legend {
+    color: #495057;
+    font-weight: 600;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+/* 在标识符和密码字段之间添加更多间距 */
+.social-account-form-modal .option-group:nth-child(3) {
+    margin-bottom: 24px;
+}
+
+/* 所有输入框的占位符文本颜色统一 */
+.social-account-form-modal ::placeholder {
+    color: #adb5bd;
+    opacity: 1;
+}
+
+/* 平台特定字段容器样式 */
+.social-account-form-modal .platform-fieldset {
+    border: none;
+    margin: 15px 0 0 0;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+/* 平台特定字段组内的选项组样式 */
+.social-account-form-modal .platform-fieldset .option-group {
+    margin-bottom: 12px;
+    padding-left: 0;
+}
+
+.social-account-form-modal .platform-fieldset .option-group:last-child {
+    margin-bottom: 0;
+}
+
+/* 平台特定字段组内的文本样式 */
+.social-account-form-modal .platform-fieldset p.text-sm {
+    margin: 0;
+    color: #6c757d;
 } 

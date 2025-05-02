@@ -45,12 +45,15 @@ function initializeDatabase() {
                     else console.log('Initial groups inserted (or ignored if exist).');
                     // 2. 创建钱包表
                     createWalletsTableAndTestData();
-                    // 3. 创建社交账户表
-                    createSocialAccountsTable();
-                    // *** 4. 新增：创建钱包-社交账户关联表 ***
-                    createWalletSocialLinksTable();
-                    // *** 5. 新增：创建代理表 ***
-                    createProxiesTable();
+                    // 3. 先检查社交账户表并迁移
+                    migrateSocialAccountsTable(() => {
+                        // 4. 创建/更新社交账户表
+                        createSocialAccountsTable();
+                        // *** 5. 创建钱包-社交账户关联表 ***
+                        createWalletSocialLinksTable();
+                        // *** 6. 创建代理表 ***
+                        createProxiesTable();
+                    });
                 });
             }
         });
@@ -101,6 +104,145 @@ function createWalletsTableAndTestData() {
 }
 
 /**
+ * 检查并迁移社交账户表，从旧结构迁移到新结构
+ * @param {Function} callback - 完成后的回调函数
+ */
+function migrateSocialAccountsTable(callback) {
+    // 1. 检查表是否存在
+    db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='social_accounts'", (err, result) => {
+        if (err) {
+            console.error('Error checking social_accounts table:', err.message);
+            return callback();
+        }
+        
+        // 如果表不存在，无需迁移
+        if (!result) {
+            console.log("social_accounts表不存在，将创建新表。");
+            return callback();
+        }
+        
+        // 2. 检查表结构
+        db.get("PRAGMA table_info(social_accounts)", (err, rows) => {
+            if (err) {
+                console.error('Error checking social_accounts columns:', err.message);
+                return callback();
+            }
+            
+            // 获取所有列名
+            db.all("PRAGMA table_info(social_accounts)", (err, columns) => {
+                if (err) {
+                    console.error('Error getting social_accounts columns:', err.message);
+                    return callback();
+                }
+                
+                const columnNames = columns.map(col => col.name);
+                
+                // 检查是否存在旧结构的特定列（如 username, binding, groupId）
+                if (columnNames.includes('username') && 
+                    columnNames.includes('groupId') && 
+                    !columnNames.includes('identifier') && 
+                    !columnNames.includes('group_id')) {
+                    
+                    console.log("检测到社交账户表使用旧结构，开始迁移数据...");
+                    
+                    // 3. 创建新表并迁移数据
+                    db.serialize(() => {
+                        // 创建临时表
+                        const createTempTableSQL = `
+                            CREATE TABLE social_accounts_new (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                platform TEXT NOT NULL,
+                                identifier TEXT NOT NULL,
+                                password TEXT,
+                                notes TEXT,
+                                group_id INTEGER,
+                                twitter_2fa TEXT,
+                                twitter_email TEXT,
+                                email_recovery_email TEXT,
+                                discord_token TEXT,
+                                telegram_login_api TEXT,
+                                createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                                updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                                FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
+                                UNIQUE (platform, identifier)
+                            );
+                        `;
+                        
+                        db.run(createTempTableSQL, (err) => {
+                            if (err) {
+                                console.error('Error creating temporary social_accounts table:', err.message);
+                                return callback();
+                            }
+                            
+                            // 复制数据，将username映射到identifier, groupId映射到group_id
+                            const copyDataSQL = `
+                                INSERT INTO social_accounts_new (
+                                    id, platform, identifier, notes, group_id, 
+                                    twitter_email, email_recovery_email, createdAt, updatedAt
+                                )
+                                SELECT 
+                                    id, platform, username, notes, groupId,
+                                    CASE 
+                                        WHEN platform = 'Twitter' THEN binding 
+                                        ELSE NULL 
+                                    END,
+                                    CASE 
+                                        WHEN platform = 'Email' THEN binding 
+                                        ELSE NULL 
+                                    END,
+                                    createdAt, updatedAt
+                                FROM social_accounts;
+                            `;
+                            
+                            db.run(copyDataSQL, (err) => {
+                                if (err) {
+                                    console.error('Error copying social_accounts data:', err.message);
+                                    // 如果复制失败，删除临时表
+                                    db.run("DROP TABLE IF EXISTS social_accounts_new", () => callback());
+                                    return;
+                                }
+                                
+                                console.log("数据迁移完成，正在替换旧表...");
+                                
+                                // 删除旧表并重命名新表
+                                db.run("DROP TABLE social_accounts", (err) => {
+                                    if (err) {
+                                        console.error('Error dropping old social_accounts table:', err.message);
+                                        return callback();
+                                    }
+                                    
+                                    db.run("ALTER TABLE social_accounts_new RENAME TO social_accounts", (err) => {
+                                        if (err) {
+                                            console.error('Error renaming social_accounts_new table:', err.message);
+                                        } else {
+                                            console.log("社交账户表结构更新完成！");
+                                        }
+                                        callback();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                } else if (columnNames.includes('identifier') && columnNames.includes('group_id')) {
+                    console.log("社交账户表已使用新结构，无需迁移。");
+                    callback();
+                } else {
+                    console.log("社交账户表结构不明确，将尝试重新创建表。");
+                    // 如果结构不明确，可以选择删除旧表并创建新表
+                    // 注意: 这将丢失所有现有数据
+                    db.run("DROP TABLE IF EXISTS social_accounts", (err) => {
+                        if (err) {
+                            console.error('Error dropping social_accounts table:', err.message);
+                        }
+                        callback();
+                    });
+                }
+            });
+        });
+    });
+}
+
+/**
  * 创建社交账户表和相关触发器（自动更新时间戳）
  */
 function createSocialAccountsTable() {
@@ -108,14 +250,19 @@ function createSocialAccountsTable() {
         CREATE TABLE IF NOT EXISTS social_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             platform TEXT NOT NULL,
-            username TEXT NOT NULL,
-            binding TEXT,
+            identifier TEXT NOT NULL,
+            password TEXT,
             notes TEXT,
-            groupId INTEGER,
+            group_id INTEGER,
+            twitter_2fa TEXT,
+            twitter_email TEXT,
+            email_recovery_email TEXT,
+            discord_token TEXT,
+            telegram_login_api TEXT,
             createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-            FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE SET NULL,
-            UNIQUE (platform, username)
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
+            UNIQUE (platform, identifier)
         );
     `;
     const createTriggerSQL = `

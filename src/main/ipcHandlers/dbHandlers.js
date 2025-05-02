@@ -1,5 +1,35 @@
 const { ipcMain } = require('electron');
 const db = require('../../js/db/index.js'); // Adjust path relative to this file
+const cryptoService = require('../../js/core/cryptoService.js'); // **新增：导入加密服务**
+
+/**
+ * 辅助函数：加密社交账户数据中的敏感字段
+ * @param {object} data - 账户数据对象
+ * @returns {object} - 包含加密后字段的数据对象
+ */
+function encryptSocialData(data) {
+    const encryptedData = { ...data }; // 创建副本以避免修改原始对象
+    const fieldsToEncrypt = ['password', 'twitter_2fa', 'discord_token', 'telegram_login_api'];
+
+    if (!cryptoService.isUnlocked()) {
+        // 如果应用未解锁，不能加密，抛出错误或返回未加密数据？
+        // 最好是抛出错误，强制要求在解锁状态下操作
+        throw new Error('应用未解锁，无法加密敏感数据。');
+    }
+
+    for (const field of fieldsToEncrypt) {
+        if (encryptedData[field]) { // 只加密非空字段
+            try {
+                encryptedData[field] = cryptoService.encryptWithSessionKey(encryptedData[field]);
+            } catch (error) {
+                console.error(`Error encrypting field ${field}:`, error);
+                // 根据需要处理错误，例如抛出、记录或清除字段
+                throw new Error(`加密字段 ${field} 失败: ${error.message}`);
+            }
+        }
+    }
+    return encryptedData;
+}
 
 function setupDatabaseIpcHandlers() {
     console.log('[IPC] Setting up Database IPC handlers...');
@@ -72,19 +102,100 @@ function setupDatabaseIpcHandlers() {
     // --- Social Accounts ---
     ipcMain.handle('db:addSocialAccount', async (event, accountData) => {
         console.log('[IPC] Received: db:addSocialAccount', accountData);
-        return await db.addSocialAccount(db.db, accountData);
+        try {
+            const updatedData = {...accountData};
+            if ('username' in updatedData) {
+                updatedData.identifier = updatedData.username;
+                delete updatedData.username;
+            }
+            if ('groupId' in updatedData) {
+                updatedData.group_id = updatedData.groupId;
+                delete updatedData.groupId;
+            }
+            const encryptedData = encryptSocialData(updatedData);
+            return await db.addSocialAccount(db.db, encryptedData);
+        } catch (error) {
+            console.error("Error in db:addSocialAccount handler:", error);
+            throw error;
+        }
     });
     ipcMain.handle('db:getSocialAccounts', async (event, options) => {
         console.log('[IPC] Received: db:getSocialAccounts', options);
-        return await db.getSocialAccounts(db.db, options);
+        try {
+            const updatedOptions = { ...options };
+            if (updatedOptions.groupId !== undefined) {
+                updatedOptions.group_id = updatedOptions.groupId;
+                delete updatedOptions.groupId;
+            }
+
+            // Fetch accounts from DB
+            const result = await db.getSocialAccounts(db.db, updatedOptions);
+
+            // **解密敏感字段**
+            if (result && result.accounts && result.accounts.length > 0) {
+                if (!cryptoService.isUnlocked()) {
+                     console.warn('[IPC] db:getSocialAccounts - App not unlocked, returning encrypted data with error flag.');
+                    result.accounts.forEach(account => {
+                        account.decryptionError = '应用未解锁';
+                    });
+                 } else {
+                    const sensitiveFields = [
+                        'password', 'twitter_2fa', 'discord_password',
+                        'discord_token', 'telegram_password', 'telegram_login_api'
+                    ];
+                    console.log(`[IPC] Decrypting sensitive fields for ${result.accounts.length} accounts...`); // 添加日志
+                    result.accounts.forEach(account => {
+                        for (const field of sensitiveFields) {
+                            if (account[field]) {
+                                const encryptedValue = account[field]; // Store for logging
+                                try {
+                                    account[field] = cryptoService.decryptWithSessionKey(encryptedValue);
+                                    // console.log(`[IPC] Decrypted ${field} for account ${account.id}`); // 详细日志（可选）
+                                } catch (decryptError) {
+                                    console.error(`[IPC] Failed to decrypt field ${field} for account ${account.id}. Value: ${encryptedValue}`, decryptError);
+                                    account[field] = '[解密失败]'; // Mark decryption failure
+                                    account.decryptionError = '部分字段解密失败';
+                                }
+                            }
+                        }
+                    });
+                    console.log('[IPC] Finished decrypting fields.'); // 添加日志
+                 }
+            }
+
+            return result; // Return the result possibly containing decrypted data
+        } catch (error) {
+            console.error('Error occurred in handler for \'db:getSocialAccounts\':', error);
+            throw error;
+        }
     });
     ipcMain.handle('db:getSocialAccountById', async (event, id) => {
         console.log('[IPC] Received: db:getSocialAccountById', id);
-        return await db.getSocialAccountById(db.db, id);
+        try {
+            return await db.getSocialAccountById(db.db, id);
+        } catch (error) {
+            console.error(`Error in db:getSocialAccountById handler for ID ${id}:`, error);
+            throw error;
+        }
     });
     ipcMain.handle('db:updateSocialAccount', async (event, id, accountData) => {
         console.log('[IPC] Received: db:updateSocialAccount', id, accountData);
-        return await db.updateSocialAccount(db.db, id, accountData);
+        try {
+            const updatedData = {...accountData};
+            if ('username' in updatedData) {
+                updatedData.identifier = updatedData.username;
+                delete updatedData.username;
+            }
+            if ('groupId' in updatedData) {
+                updatedData.group_id = updatedData.groupId;
+                delete updatedData.groupId;
+            }
+            const encryptedData = encryptSocialData(updatedData);
+            return await db.updateSocialAccount(db.db, id, encryptedData);
+        } catch (error) {
+            console.error(`Error in db:updateSocialAccount handler for ID ${id}:`, error);
+            throw error;
+        }
     });
     ipcMain.handle('db:deleteSocialAccount', async (event, id) => {
         console.log('[IPC] Received: db:deleteSocialAccount', id);
