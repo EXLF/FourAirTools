@@ -71,6 +71,8 @@
         *   使用FontAwesome图标美化界面
         *   工具项支持外部链接，点击在系统默认浏览器中打开网站
         *   **IPC通信**: 使用Electron的shell.openExternal安全打开外部链接
+        *   **（优化）** 链接处理方式已重构：使用 `data-url` 属性替代 JS `switch` 语句进行 URL 映射，提高了代码健壮性和可维护性。
+        *   **（修复）** 修复了渲染进程与主进程之间 IPC 事件名称不匹配导致链接无法打开的问题（`open-external-url` vs `open-external-link`）。
 *   **教程中心**: 提供Web3知识和教程 (开发中)。
 *   **社区交流 (功能已完善)**:
     *   支持在应用内直接访问Discord社区，无需打开浏览器

@@ -163,10 +163,11 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/settings/index.js';
             initFunctionName = 'initSettingsPage';
             break;
-        // 工具页面（静态内容，无需初始化）
+        // 工具页面（现在需要初始化）
         case 'tools':
-            console.log("正在加载常用工具页面(静态内容)");
-            return;
+            modulePath = '../pages/tools/index.js';
+            initFunctionName = 'initToolsPage';
+            break;
         // 未定义的页面
         default:
             console.log(`未为页面定义特定的JS模块: ${pageId}`);

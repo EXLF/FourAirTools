@@ -5,126 +5,216 @@
 <div class="tools-container">
     <p class="tools-description">这里汇集了常用的Web3工具和资源，方便您快速访问。</p>
 
-    <div class="tool-section tool-section-columns">
-        <!-- Column 1: Data Analysis & Dashboard -->
-        <div class="tool-column">
-            <h3 class="column-title"><i class="fas fa-chart-line"></i> 数据分析 & 看板</h3>
-            <ul class="tool-list">
-                <li class="tool-item">
-                    <i class="fas fa-chart-bar tool-icon"></i>
-                    <a href="https://dune.com/" class="tool-link" target="_blank">Dune Analytics</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-chart-pie tool-icon"></i>
-                    <a href="https://defillama.com/" class="tool-link" target="_blank">DeFiLlama</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-chart-line tool-icon"></i>
-                    <a href="https://tokenterminal.com/" class="tool-link" target="_blank">Token Terminal</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-chart-area tool-icon"></i>
-                    <a href="https://www.artemis.xyz/" class="tool-link" target="_blank">Artemis</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-network-wired tool-icon"></i>
-                    <a href="https://glassnode.com/" class="tool-link" target="_blank">Glassnode</a>
-                </li>
-            </ul>
-        </div>
-
-        <!-- Column 2: Blockchain Explorers -->
-        <div class="tool-column">
-            <h3 class="column-title"><i class="fas fa-cubes"></i> 链上浏览器</h3>
-            <ul class="tool-list">
-                <li class="tool-item">
-                    <i class="fab fa-ethereum tool-icon"></i>
-                    <a href="https://etherscan.io/" class="tool-link" target="_blank">Etherscan <span class="tool-tag">(Ethereum)</span></a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-search tool-icon"></i>
-                    <a href="https://bscscan.com/" class="tool-link" target="_blank">BscScan <span class="tool-tag">(BSC)</span></a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-search tool-icon"></i>
-                    <a href="https://polygonscan.com/" class="tool-link" target="_blank">PolygonScan</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-search tool-icon"></i>
-                    <a href="https://arbiscan.io/" class="tool-link" target="_blank">Arbiscan <span class="tool-tag">(Arbitrum)</span></a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-search tool-icon"></i>
-                    <a href="https://optimistic.etherscan.io/" class="tool-link" target="_blank">OptimismScan</a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-search tool-icon"></i>
-                    <a href="https://solscan.io/" class="tool-link" target="_blank">Solscan <span class="tool-tag">(Solana)</span></a>
-                </li>
-            </ul>
-        </div>
-
-        <!-- Column 3: Security & Approval Management -->
-        <div class="tool-column">
-            <h3 class="column-title"><i class="fas fa-shield-alt"></i> 安全 & 授权管理</h3>
-            <ul class="tool-list">
-                <li class="tool-item">
-                    <i class="fas fa-ban tool-icon"></i>
-                    <a href="https://revoke.cash/" class="tool-link" target="_blank">Revoke.cash <span class="tool-tag">(授权管理)</span></a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-wallet tool-icon"></i>
-                    <a href="https://debank.com/" class="tool-link" target="_blank">DeBank <span class="tool-tag">(资产看板 & 授权)</span></a>
-                </li>
-                <li class="tool-item">
-                    <i class="fas fa-check-circle tool-icon"></i>
-                    <a href="https://etherscan.io/tokenapprovalchecker" class="tool-link" target="_blank">Etherscan Token Approval</a>
-                </li>
-            </ul>
+    <!-- 交易所 -->
+    <div class="tool-section">
+        <h3 class="section-title"><i class="fas fa-exchange-alt"></i> 交易所</h3>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="exchange" data-url="https://accounts.marketwebb.io/register?ref=562711852&utm_medium=web_share_copy">
+                <img src="src/assets/icons/binance.png" alt="Binance" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Binance</h4>
+                    <p>全球最大的加密货币交易所，提供多种币种交易和丰富的金融服务</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="exchange" data-url="https://ouxyi.link/ul/YbU25D?channelId=6869864">
+                <img src="src/assets/icons/okx.png" alt="OKX" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>OKX</h4>
+                    <p>专业的数字资产交易平台，支持现货、合约和NFT等多种交易类型</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="exchange" data-url="https://www.gate.io/">
+                <img src="src/assets/icons/gate.png" alt="Gate.io" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Gate.io</h4>
+                    <p>老牌加密货币交易所，支持大量小市值代币和新项目</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="exchange" data-url="https://www.bybit.com/">
+                <img src="src/assets/icons/bybit.png" alt="Bybit" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Bybit</h4>
+                    <p>专注于衍生品交易的加密货币交易所，提供优质的合约交易体验</p>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="tool-section tool-section-practical">
+    <!-- 钱包插件 -->
+    <div class="tool-section">
+        <h3 class="section-title"><i class="fas fa-wallet"></i> 钱包插件</h3>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="wallet" data-url="https://metamask.io/">
+                <img src="src/assets/icons/metamask.png" alt="MetaMask" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>MetaMask</h4>
+                    <p>最受欢迎的以太坊钱包插件，支持EVM兼容链和Web3应用交互</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="wallet" data-url="https://rabby.io/">
+                <img src="src/assets/icons/rabby.png" alt="Rabby" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Rabby</h4>
+                    <p>专为DeFi用户设计的钱包插件，提供增强的安全功能和多链支持</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="wallet" data-url="https://www.okx.com/web3/wallet">
+                <img src="src/assets/icons/okx-wallet.png" alt="OKX Wallet" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>OKX Wallet</h4>
+                    <p>支持多链的综合Web3钱包，可无缝连接DeFi、NFT和GameFi应用</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="wallet" data-url="https://phantom.app/">
+                <img src="src/assets/icons/phantom.png" alt="Phantom" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Phantom</h4>
+                    <p>专为Solana生态系统设计的钱包插件，用户界面友好</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据分析 & 看板 -->
+    <div class="tool-section">
+        <h3 class="section-title"><i class="fas fa-chart-line"></i> 数据分析 & 看板</h3>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="analytics" data-url="https://dune.com/">
+                <img src="src/assets/icons/dune.png" alt="Dune Analytics" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Dune Analytics</h4>
+                    <p>链上数据分析平台，提供丰富的仪表盘和SQL查询功能</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="analytics" data-url="https://defillama.com/">
+                <img src="src/assets/icons/defillama.png" alt="DeFiLlama" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>DeFiLlama</h4>
+                    <p>最全面的DeFi TVL和数据分析平台，跟踪所有区块链的协议</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="analytics" data-url="https://tokenterminal.com/">
+                <img src="src/assets/icons/tokenterminal.png" alt="Token Terminal" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Token Terminal</h4>
+                    <p>加密项目财务数据分析平台，提供项目收入和估值指标</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="analytics" data-url="https://www.artemis.xyz/">
+                <img src="src/assets/icons/artemis.png" alt="Artemis" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Artemis</h4>
+                    <p>区块链数据分析工具，专注于Layer 2和新兴生态系统</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="analytics" data-url="https://glassnode.com/">
+                <img src="src/assets/icons/glassnode.png" alt="Glassnode" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Glassnode</h4>
+                    <p>链上数据分析平台，提供比特币和以太坊等链上指标</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 链上浏览器 -->
+    <div class="tool-section">
+        <h3 class="section-title"><i class="fas fa-cubes"></i> 链上浏览器</h3>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://etherscan.io/">
+                <img src="src/assets/icons/etherscan.png" alt="Etherscan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Etherscan</h4>
+                    <p>以太坊区块链浏览器，查询交易、合约和地址详情</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://bscscan.com/">
+                <img src="src/assets/icons/bscscan.png" alt="BscScan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>BscScan <span class="tool-tag">(BSC)</span></h4>
+                    <p>币安智能链区块链浏览器，查询BNB Chain上的交易和数据</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://polygonscan.com/">
+                <img src="src/assets/icons/polygonscan.png" alt="PolygonScan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>PolygonScan</h4>
+                    <p>Polygon网络区块链浏览器，查询交易和智能合约</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://arbiscan.io/">
+                <img src="src/assets/icons/arbiscan.png" alt="Arbiscan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Arbiscan <span class="tool-tag">(Arbitrum)</span></h4>
+                    <p>Arbitrum网络区块链浏览器，Layer 2扩展解决方案</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://optimistic.etherscan.io/">
+                <img src="src/assets/icons/optimism.png" alt="OptimismScan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>OptimismScan</h4>
+                    <p>Optimism网络区块链浏览器，以太坊Layer 2解决方案</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="explorer" data-url="https://solscan.io/">
+                <img src="src/assets/icons/solscan.png" alt="Solscan" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Solscan <span class="tool-tag">(Solana)</span></h4>
+                    <p>Solana区块链浏览器，高性能的公链</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 安全 & 授权管理 -->
+    <div class="tool-section">
+        <h3 class="section-title"><i class="fas fa-shield-alt"></i> 安全 & 授权管理</h3>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="security" data-url="https://revoke.cash/">
+                <img src="src/assets/icons/revoke.png" alt="Revoke.cash" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Revoke.cash <span class="tool-tag">(授权管理)</span></h4>
+                    <p>查找并撤销您对智能合约的授权，保护您的代币安全</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="wallet" data-url="https://debank.com/">
+                <img src="src/assets/icons/debank.png" alt="DeBank" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>DeBank <span class="tool-tag">(资产看板 & 授权)</span></h4>
+                    <p>Web3钱包资产跟踪工具，支持多链资产查看和授权管理</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="security" data-url="https://etherscan.io/tokenapprovalchecker">
+                <img src="src/assets/icons/etherscan.png" alt="Etherscan Token Approval" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Etherscan Token Approval</h4>
+                    <p>Etherscan提供的代币授权检查工具，方便管理授权</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实用工具 -->
+    <div class="tool-section">
         <h3 class="section-title"><i class="fas fa-tools"></i> 实用工具</h3>
-        <ul class="tool-list practical-tool-list">
-            <li class="tool-item">
-                <i class="fas fa-link tool-icon"></i>
-                <a href="https://chainlist.org/" class="tool-link" target="_blank">Chainlist <span class="tool-tag">(网络配置)</span></a>
-            </li>
-            <li class="tool-item">
-                <i class="fas fa-exchange-alt tool-icon"></i>
-                <a href="https://rabby.io/swap" class="tool-link" target="_blank">Rabby Swap <span class="tool-tag">(聚合交易)</span></a>
-            </li>
-        </ul>
+        <div class="exchange-grid">
+            <div class="exchange-item" data-tool-type="chain" data-url="https://chainlist.org/">
+                <img src="src/assets/icons/chainlist.png" alt="Chainlist" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Chainlist <span class="tool-tag">(网络配置)</span></h4>
+                    <p>帮助用户将EVM网络添加到钱包的工具，简化网络配置</p>
+                </div>
+            </div>
+            <div class="exchange-item" data-tool-type="swap" data-url="https://rabby.io/swap">
+                <img src="src/assets/icons/rabby.png" alt="Rabby Swap" class="exchange-logo" onerror="this.onerror=null; this.src=''; this.classList.add('missing-icon'); this.parentNode.classList.add('missing-icon-container')">
+                <div class="exchange-info">
+                    <h4>Rabby Swap <span class="tool-tag">(聚合交易)</span></h4>
+                    <p>跨DEX的交易聚合器，为用户寻找最优交易路径和价格</p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-
-<script type="module">
-    // 处理所有链接点击
-    document.addEventListener('DOMContentLoaded', () => {
-        // 获取所有工具链接
-        const toolLinks = document.querySelectorAll('.tool-link');
-        
-        // 为每个链接添加点击事件处理
-        toolLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault(); // 阻止默认行为
-                
-                const url = link.getAttribute('href');
-                // 使用Electron的shell.openExternal打开外部链接
-                // 这需要通过IPC与主进程通信
-                if (window.electron && window.electron.ipcRenderer) {
-                    window.electron.ipcRenderer.send('open-external-url', url);
-                    console.log(`请求打开外部链接: ${url}`);
-                } else {
-                    console.warn('IPC渲染器不可用，无法打开外部链接');
-                    // 备用方案：使用窗口打开
-                    window.open(url, '_blank');
-                }
-            });
-        });
-    });
-</script>
 
 <style>
 .tool-categories {
