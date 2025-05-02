@@ -62,12 +62,15 @@
 *   **常用工具 (功能已完善)**:
     *   提供常用Web3工具和资源的快速访问入口
     *   **分类展示**:
-        *   数据分析 & 看板: Dune Analytics, DeFiLlama, Token Terminal等
-        *   链上浏览器: Etherscan, BscScan, PolygonScan等各区块链浏览器
-        *   安全 & 授权管理: Revoke.cash, DeBank, Etherscan Token Approval
-        *   实用工具: Chainlist, Rabby Swap等
+        *   交易所: Binance, OKX (移除了 Gate.io, Bybit)
+        *   钱包插件: MetaMask, OKX Wallet, Phantom
+        *   数据分析 & 看板: Dune Analytics, DeFiLlama, Token Terminal
+        *   跨链桥 (新增): Stargate Finance, Hop Protocol, Across Protocol, Synapse Protocol, LI.FI (移除了 Celer cBridge, Orbiter Finance)
+        *   链上浏览器: Etherscan, BscScan, PolygonScan, Arbiscan, OptimismScan, Solscan
+        *   安全授权 & 工具管理: Revoke.cash, DeBank, Chainlist
+        *   (原 "安全 & 授权管理" 和 "实用工具" 已合并调整)
     *   **界面交互**:
-        *   三栏响应式布局，清晰分类展示不同工具类型
+        *   清晰分类展示不同工具类型 (原为三栏布局，根据内容调整)
         *   使用FontAwesome图标美化界面
         *   工具项支持外部链接，点击在系统默认浏览器中打开网站
         *   **IPC通信**: 使用Electron的shell.openExternal安全打开外部链接
