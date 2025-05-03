@@ -9,7 +9,10 @@ const cryptoService = require('../../js/core/cryptoService.js'); // **新增：�
  */
 function encryptSocialData(data) {
     const encryptedData = { ...data }; // 创建副本以避免修改原始对象
-    const fieldsToEncrypt = ['password', 'twitter_2fa', 'discord_token', 'telegram_login_api'];
+    const fieldsToEncrypt = [
+        'password', 'twitter_2fa', 'discord_password', 'discord_token',
+        'telegram_password', 'telegram_login_api'
+    ];
 
     if (!cryptoService.isUnlocked()) {
         // 如果应用未解锁，不能加密，抛出错误或返回未加密数据？
@@ -21,10 +24,8 @@ function encryptSocialData(data) {
         if (encryptedData[field]) { // 只加密非空字段
             try {
                 encryptedData[field] = cryptoService.encryptWithSessionKey(encryptedData[field]);
-            } catch (error) {
-                console.error(`Error encrypting field ${field}:`, error);
-                // 根据需要处理错误，例如抛出、记录或清除字段
-                throw new Error(`加密字段 ${field} 失败: ${error.message}`);
+            } catch (err) {
+                console.error(`Error encrypting ${field}:`, err);
             }
         }
     }
@@ -140,8 +141,8 @@ function setupDatabaseIpcHandlers() {
                     });
                  } else {
                     const sensitiveFields = [
-                        'password', 'twitter_2fa', 'discord_password',
-                        'discord_token', 'telegram_password', 'telegram_login_api'
+                        'password', 'twitter_2fa', 'discord_password', 'discord_token',
+                        'telegram_password', 'telegram_login_api'
                     ];
                     console.log(`[IPC] Decrypting sensitive fields for ${result.accounts.length} accounts...`); // 添加日志
                     result.accounts.forEach(account => {

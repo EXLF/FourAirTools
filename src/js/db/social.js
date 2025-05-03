@@ -3,15 +3,15 @@
 /**
  * 添加新社交账户 (已更新以适应新表结构)
  * @param {sqlite3.Database} db - 数据库实例
- * @param {object} accountData - 账户信息对象，包含 platform, identifier, password?, notes?, group_id?, twitter_2fa?, twitter_email?, email_recovery_email?, discord_token?, telegram_login_api?
+ * @param {object} accountData - 账户信息对象，包含 platform, identifier, password?, notes?, group_id?, twitter_2fa?, twitter_email?, email_recovery_email?, discord_token?, telegram_password?, telegram_login_api?
  * @returns {Promise<number>} - 新账户ID
  */
 function addSocialAccount(db, accountData) {
     // 注意：加密应该在调用此函数之前完成（例如在IPC Handler中）
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO social_accounts
-                     (platform, identifier, password, notes, group_id, twitter_2fa, twitter_email, email_recovery_email, discord_token, telegram_login_api)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                     (platform, identifier, password, notes, group_id, twitter_2fa, twitter_email, email_recovery_email, discord_password, discord_token, telegram_password, telegram_login_api)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         const params = [
             accountData.platform,
             accountData.identifier, // 使用 identifier
@@ -21,7 +21,9 @@ function addSocialAccount(db, accountData) {
             accountData.twitter_2fa || null,    // 新增: Twitter 2FA (应为加密后的)
             accountData.twitter_email || null,  // 新增: Twitter Email
             accountData.email_recovery_email || null, // 新增: Email Recovery Email
+            accountData.discord_password || null, // 新增: Discord 密码 (应为加密后的)
             accountData.discord_token || null,  // 新增: Discord Token (应为加密后的)
+            accountData.telegram_password || null, // 新增: Telegram 密码 (应为加密后的)
             accountData.telegram_login_api || null // 新增: Telegram API Info (应为加密后的)
         ];
         db.run(sql, params, function(err) {
@@ -29,7 +31,7 @@ function addSocialAccount(db, accountData) {
                 console.error('Error adding social account:', err.message);
                 // 更新唯一约束检查
                 if (err.message.includes('UNIQUE constraint failed: social_accounts.platform, social_accounts.identifier')) {
-                    reject(new Error(`平台 "${accountData.platform}" 下已存在标识符 "${accountData.identifier}"`));
+                    reject(new Error(`平台 "${accountData.platform}" 下已存在账户 "${accountData.identifier}"`));
                 } else {
                     reject(err);
                 }
@@ -53,7 +55,7 @@ function getSocialAccounts(db, options = {}) {
         // 更新 SELECT 语句以包含新列，并使用正确的别名
         let baseSql = `SELECT sa.id, sa.platform, sa.identifier, sa.notes, sa.group_id, 
                               sa.password, sa.twitter_2fa, sa.twitter_email, sa.email_recovery_email, 
-                              sa.discord_token, sa.telegram_login_api, 
+                              sa.discord_token, sa.telegram_password, sa.telegram_login_api, 
                               sa.createdAt, sa.updatedAt, g.name as groupName
                        FROM social_accounts sa
                        LEFT JOIN groups g ON sa.group_id = g.id`; // 使用 group_id
@@ -140,7 +142,7 @@ function getSocialAccountById(db, id) {
         // 更新 SELECT 语句
         const sql = `SELECT sa.id, sa.platform, sa.identifier, sa.notes, sa.group_id, 
                             sa.password, sa.twitter_2fa, sa.twitter_email, sa.email_recovery_email, 
-                            sa.discord_token, sa.telegram_login_api, 
+                            sa.discord_token, sa.telegram_password, sa.telegram_login_api, 
                             sa.createdAt, sa.updatedAt, g.name as groupName
                        FROM social_accounts sa
                        LEFT JOIN groups g ON sa.group_id = g.id 
@@ -172,7 +174,7 @@ function updateSocialAccount(db, id, accountData) {
         const allowedKeys = [
             'platform', 'identifier', 'password', 'notes', 'group_id', 
             'twitter_2fa', 'twitter_email', 'email_recovery_email', 
-            'discord_token', 'telegram_login_api'
+            'discord_password', 'discord_token', 'telegram_password', 'telegram_login_api'
         ];
         for (const key in accountData) {
             if (allowedKeys.includes(key) && Object.hasOwnProperty.call(accountData, key) && key !== 'id') {
@@ -198,7 +200,7 @@ function updateSocialAccount(db, id, accountData) {
                 console.error('Error updating social account:', err.message);
                  // 更新唯一约束检查
                  if (err.message.includes('UNIQUE constraint failed: social_accounts.platform, social_accounts.identifier')) {
-                    reject(new Error(`平台 "${accountData.platform}" 下已存在标识符 "${accountData.identifier}"`));
+                    reject(new Error(`平台 "${accountData.platform}" 下已存在账户 "${accountData.identifier}"`));
                 } else {
                     reject(err);
                 }

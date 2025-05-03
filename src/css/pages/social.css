@@ -50,4 +50,20 @@
     color: #6c5ce7; /* Use var(--color-primary) */
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-} 
+}
+
+/* Add styles for the social page if needed */
+
+/* Style for copyable table cells */
+.social-table tbody td.copyable-cell {
+    cursor: pointer;
+    /* Optional: Add a subtle visual cue on hover */
+    /* transition: background-color 0.15s ease-in-out; */
+}
+
+/* Optional: Hover effect */
+/*
+.social-table tbody tr:hover td.copyable-cell {
+    background-color: #eef2ff; 
+}
+*/ 

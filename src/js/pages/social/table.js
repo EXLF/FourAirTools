@@ -45,7 +45,6 @@ const platformColumns = {
         { header: '账户/邮箱', key: 'identifier' },
         { header: '密码', key: 'password', sensitive: true },
         { header: '推特邮箱', key: 'twitter_email' },
-        { header: '推特辅助邮箱', key: 'twitter_recovery_email' },
         { header: '推特2FA', key: 'twitter_2fa', sensitive: true, truncatable: true },
         { header: '备注', key: 'notes' },
         { header: '分组', key: 'groupName' }
@@ -67,6 +66,7 @@ const platformColumns = {
     email: [
         { header: '账户/邮箱', key: 'identifier' },
         { header: '密码', key: 'password', sensitive: true },
+        { header: '辅助邮箱', key: 'email_recovery_email' },
         { header: '备注', key: 'notes' },
         { header: '分组', key: 'groupName' }
     ]
@@ -118,7 +118,7 @@ export function initSocialTable(contentArea) {
     setupGroupFilterListener();
     setupSearchListener();
     setupTableRowClickListener();
-    setupCopyButtonListener();
+    setupCellCopyListener();
 
     // Load initial data and filters
     loadGroupFiltersForSocial();
@@ -212,9 +212,8 @@ export async function loadAndRenderSocialAccounts(page = currentPage, limit = it
 
 /**
  * Creates a table row (<tr>) element for a social account.
- * Renders potentially decrypted plaintext, handles decryption errors, truncates long values,
- * adds copy buttons for originally sensitive fields if successfully decrypted.
- * @param {object} account - The social account data object (may contain decrypted values or error flags).
+ * Renders plaintext, truncates long values, adds copy functionality to cells.
+ * @param {object} account - The social account data object.
  * @param {Array<object>} columns - Array of column definitions for the current platform.
  * @returns {HTMLTableRowElement} The created table row element.
  */
@@ -222,32 +221,35 @@ function createSocialAccountRowElement(account, columns) {
     const row = document.createElement('tr');
     row.dataset.accountId = account.id;
 
-    // Helper function to get display value (handles truncation and empty values, no sensitive check needed here)
     const getDisplayValue = (value, isTruncatable = false) => {
-        if (value === null || value === undefined || value === '') {
-            return '-';
-        }
+        if (value === null || value === undefined || value === '') return '-';
         const strValue = String(value);
-
-        // Check for decryption error markers BEFORE truncation/display
         if (strValue === '[解密失败]' || strValue === '[应用未解锁]') {
-            return `<span class="text-red-500 text-xs">${strValue}</span>`; // Display error prominently
+            return `<span class="text-red-500 text-xs">${strValue}</span>`;
         }
-
-        const TRUNCATE_LENGTH = 20;
-        const TRUNCATE_EDGE = 8;
-
+        const TRUNCATE_LENGTH = 20, TRUNCATE_EDGE = 8;
         if (isTruncatable && strValue.length > TRUNCATE_LENGTH) {
             return `${strValue.substring(0, TRUNCATE_EDGE)}...${strValue.substring(strValue.length - TRUNCATE_EDGE)}`;
         }
-        return strValue.replace(/[<>]/g, char => ({ '<': '&lt;', '>': '&gt;' }[char])); // Basic XSS escape
+        return strValue.replace(/[<>]/g, char => ({ '<': '&lt;', '>': '&gt;' }[char]));
     };
 
     columns.forEach(col => {
         const td = document.createElement('td');
-        const rawValue = account[col.key]; // This might be decrypted plaintext or an error marker
+        let rawValue = account[col.key];
+        
+        // Discord 平台特殊处理，同时检查两个密码字段
+        if (col.key === 'discord_password' && (!rawValue || rawValue === '')) {
+            rawValue = account['password']; // 尝试使用通用密码字段
+            console.log('使用通用密码字段作为 Discord 密码');
+        }
+        
+        // 调试输出
+        if (col.key === 'email_recovery_email') {
+            console.log(`账户 ${account.id} 的辅助邮箱: ${rawValue}, 类型: ${typeof rawValue}`);
+        }
+        
         const isOriginallySensitive = SENSITIVE_FIELDS_FOR_COPY.includes(col.key);
-        // Check if the value indicates a decryption problem for this specific field
         const hasValueError = rawValue === '[解密失败]' || rawValue === '[应用未解锁]';
 
         switch (col.key) {
@@ -283,24 +285,15 @@ function createSocialAccountRowElement(account, columns) {
                  break;
             default: // Handle data fields
                 const displayValue = getDisplayValue(rawValue, col.truncatable);
-                td.innerHTML = `<span class="cell-value">${displayValue}</span>`; // Wrap value
+                td.innerHTML = displayValue; // Directly set innerHTML for potential error styling
 
-                // Add copy button ONLY if the field was originally sensitive AND decryption was successful (rawValue exists and is not an error marker)
+                // Add copyable class and data attribute if the field is copyable and successfully retrieved
                 if (isOriginallySensitive && rawValue && !hasValueError) {
-                    const copyBtn = document.createElement('button');
-                    copyBtn.className = 'btn-icon btn-icon-sm copy-btn';
-                    copyBtn.title = '复制';
-                    copyBtn.innerHTML = '<i class="fa fa-copy"></i>';
-                    copyBtn.dataset.copyValue = escapeAttribute(rawValue); // Store the potentially decrypted value
-                    td.appendChild(copyBtn);
-
-                    td.style.display = 'flex';
-                    td.style.alignItems = 'center';
-                    td.style.justifyContent = 'space-between';
-                    td.style.gap = '5px';
-                } else if (isOriginallySensitive && hasValueError) {
-                     // Optionally add a disabled/error icon instead of copy button if decryption failed
-                     // td.innerHTML += '<i class="fa fa-exclamation-triangle text-red-500 ml-1" title="解密失败"></i>';
+                    td.classList.add('copyable-cell');
+                    td.dataset.copyValue = escapeAttribute(rawValue); // Store raw value for copying
+                    td.title = '点击复制'; // Add title tooltip
+                } else if (hasValueError) {
+                    td.title = rawValue; // Show error in title
                 }
                 break;
         }
@@ -414,14 +407,22 @@ function setupSearchListener() {
 
 /**
  * Sets up click listener on table rows to toggle the checkbox.
+ * Ignores clicks on interactive elements AND copyable cells.
  */
 function setupTableRowClickListener() {
     if (!tableBody) return;
     tableBody.addEventListener('click', (event) => {
         const target = event.target;
         const row = target.closest('tr');
-        // Ensure it's a valid row with an ID and not a click on an interactive element
-        if (!row || !row.dataset.accountId || target.closest('button, a, input, select')) {
+
+        // Ensure it's a valid row with an ID
+        if (!row || !row.dataset.accountId) {
+            return;
+        }
+
+        // Ignore clicks on interactive elements (buttons, inputs, links, etc.)
+        // AND ignore clicks if the direct target or its parent is a copyable cell
+        if (target.closest('button, a, input, select, .copyable-cell')) {
             return;
         }
 
@@ -429,10 +430,8 @@ function setupTableRowClickListener() {
         const checkbox = row.querySelector('.row-checkbox');
         if (checkbox) {
             checkbox.checked = !checkbox.checked;
-            // Dispatch change event for checkAll functionality
             checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-            // Update row selection visual style if needed
-             row.classList.toggle('selected', checkbox.checked); // Add a 'selected' class maybe
+            row.classList.toggle('selected', checkbox.checked);
         }
     });
 }
@@ -640,28 +639,31 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
     paginationControls.appendChild(createButton('&raquo;', currentPage + 1, currentPage === totalPages));
 }
 
-// --- Copy Button Functionality ---
-function setupCopyButtonListener() {
+// --- Copy Cell Functionality ---
+// Renamed from setupCopyButtonListener
+function setupCellCopyListener() {
     if (!tableBody) return;
 
+    // Listen on the table body for clicks
     tableBody.addEventListener('click', async (event) => {
-        const button = event.target.closest('.copy-btn');
-        if (!button) return; // Click was not on a copy button
+        // Check if the clicked element is a TD with the copyable class
+        const targetCell = event.target.closest('td.copyable-cell');
+        if (!targetCell) return; // Click was not on a copyable cell
 
-        event.stopPropagation(); // Prevent row click toggle
+        // No need for stopPropagation here unless it interferes with row selection unexpectedly
 
-        const valueToCopy = button.dataset.copyValue;
-        if (!valueToCopy) {
+        const valueToCopy = targetCell.dataset.copyValue;
+        if (valueToCopy === undefined || valueToCopy === null) { // Check for undefined or null
             showToast('没有可复制的内容', 'warning');
             return;
         }
 
         try {
             await navigator.clipboard.writeText(valueToCopy);
-            showToast('已复制到剪贴板', 'success');
+            showToast('已复制到剪贴板', 'success'); // Use existing toast
         } catch (err) {
             console.error('复制失败:', err);
-            showToast('复制失败，请检查浏览器权限或使用 HTTPS', 'error');
+            showToast('复制失败', 'error'); // Simpler error message
         }
     });
 } 

@@ -358,10 +358,6 @@
                                      <label for="social-twitter-email">绑定邮箱</label>
                                      <input type="email" id="social-twitter-email" name="social-twitter-email" placeholder="绑定的邮箱地址 (留空则不更新)">
                                  </div>
-                                  <div class="option-group">
-                                     <label for="social-twitter-recovery-email">辅助邮箱</label>
-                                     <input type="email" id="social-twitter-recovery-email" name="social-twitter-recovery-email" placeholder="用于恢复的邮箱 (留空则不更新)">
-                                 </div>
                              </fieldset>
                          </div>
 
@@ -369,10 +365,10 @@
                          <div class="platform-fields-discord" style="display: none;">
                               <fieldset class="platform-fieldset">
                                  <legend>Discord 附加信息</legend>
-                                 <!-- Discord often uses token login, password might be less common -->
+                                 <!-- 添加 Discord 密码字段 -->
                                  <div class="option-group">
-                                     <label for="social-discord-password">密码 (可选)</label>
-                                     <input type="password" id="social-discord-password" name="social-discord-password" placeholder="Discord 密码 (留空则不更新)">
+                                     <label for="social-discord-password">密码</label>
+                                     <input type="password" id="social-discord-password" name="social-discord-password" placeholder="Discord 账户密码 (留空则不更新)">
                                  </div>
                                  <div class="option-group">
                                      <label for="social-discord-token">Token</label>
@@ -386,22 +382,24 @@
                               <fieldset class="platform-fieldset">
                                  <legend>Telegram 附加信息</legend>
                                  <div class="option-group">
-                                     <label for="social-telegram-password">两步验证密码</label>
-                                     <input type="password" id="social-telegram-password" name="social-telegram-password" placeholder="Telegram 两步验证密码 (留空则不更新)">
+                                     <label for="social-telegram-password">Telegram 登录密码</label>
+                                     <input type="password" id="social-telegram-password" name="social-telegram-password" placeholder="Telegram 登录密码 (留空则不更新)">
                                  </div>
                                  <div class="option-group">
-                                     <label for="social-telegram-login-api">登录 API 信息</label>
+                                     <label for="social-telegram-login-api">API 信息</label>
                                       <textarea id="social-telegram-login-api" name="social-telegram-login-api" rows="3" placeholder="用于脚本登录的 API ID/Hash 或 Session String (留空则不更新)"></textarea>
                                  </div>
                              </fieldset>
                          </div>
 
-                         <!-- Email Specific Fields (Currently only common password needed) -->
+                         <!-- Email Specific Fields -->
                          <div class="platform-fields-email" style="display: none;">
                             <fieldset class="platform-fieldset">
                                 <legend>Email 附加信息</legend>
-                                <!-- No specific fields currently, generic password covers it -->
-                                <p class="text-sm text-gray-500">暂无 Email 特定附加信息。</p>
+                                <div class="option-group">
+                                     <label for="social-email-recovery-email">辅助/恢复邮箱</label>
+                                     <input type="email" id="social-email-recovery-email" name="social-email-recovery-email" placeholder="用于恢复的辅助邮箱地址 (留空则不更新)">
+                                 </div>
                             </fieldset>
                          </div>
 

@@ -26,18 +26,42 @@ export function initSocialModals(contentArea) {
 
 // --- Modal Logic ---
 
-// Helper function to show/hide platform-specific fields
+// Helper function to show/hide platform-specific fields AND the generic password field
 function updatePlatformFieldsVisibility(modalElement, selectedPlatform) {
+    console.log(`更新平台特定字段可见性: ${selectedPlatform}`);
     const allPlatformFieldsets = modalElement.querySelectorAll('[class^="platform-fields-"]');
+    const genericPasswordGroup = modalElement.querySelector('#social-password')?.closest('.option-group'); // Find the container group
+
+    // Hide all platform-specific sections initially
     allPlatformFieldsets.forEach(fieldset => {
-        fieldset.style.display = 'none'; // Hide all initially
+        fieldset.style.display = 'none';
     });
 
+    // Show the relevant platform-specific section
     if (selectedPlatform) {
         const specificFieldset = modalElement.querySelector(`.platform-fields-${selectedPlatform.toLowerCase()}`);
         if (specificFieldset) {
-            specificFieldset.style.display = 'block'; // Show the relevant one
+            specificFieldset.style.display = 'block';
+            console.log(`显示平台特定字段: .platform-fields-${selectedPlatform.toLowerCase()}`);
+        } else {
+            console.log(`找不到平台特定字段: .platform-fields-${selectedPlatform.toLowerCase()}`);
         }
+    }
+
+    // Show/Hide the generic password field based on platform
+    if (genericPasswordGroup) {
+        const platformLower = selectedPlatform?.toLowerCase() || '';
+        if (platformLower === 'discord' || platformLower === 'telegram') {
+            // Hide generic password if Discord or Telegram is selected (they have specific password fields)
+            genericPasswordGroup.style.display = 'none';
+            console.log(`隐藏通用密码字段，因为选择了 ${selectedPlatform}`);
+        } else {
+            // Show generic password for other platforms (like Twitter, Email)
+            genericPasswordGroup.style.display = 'block';
+            console.log(`显示通用密码字段，因为选择了 ${selectedPlatform}`);
+        }
+    } else {
+        console.log(`警告: 找不到通用密码字段组`);
     }
 }
 
@@ -95,9 +119,12 @@ export async function openSocialAccountModal(accountId = null) {
             // DO NOT populate password or other sensitive fields. Leave them blank or with placeholder.
             // Example: Add placeholders in the HTML template or clear them here:
             const sensitiveFields = [
-                'social-password', 'social-twitter-2fa', 'social-twitter-email', 'social-twitter-recovery-email',
-                'social-discord-password', 'social-discord-token',
-                'social-telegram-password', 'social-telegram-login-api'
+                'social-password',
+                'social-twitter-2fa',
+                'social-discord-password',
+                'social-discord-token',
+                'social-telegram-password',
+                'social-telegram-login-api'
             ];
              sensitiveFields.forEach(fieldName => {
                 if (form.elements[fieldName]) {
@@ -111,6 +138,9 @@ export async function openSocialAccountModal(accountId = null) {
             form.reset(); // Reset all fields for add mode
             accountIdInput.value = '';
         }
+        
+        // 确保立即应用字段可见性
+        updatePlatformFieldsVisibility(modalElement, form.elements['social-platform'].value);
 
         // Load groups into the dropdown
         let defaultGroupId = null;
@@ -193,36 +223,58 @@ export async function openSocialAccountModal(accountId = null) {
             const formData = new FormData(form);
             const selectedPlatform = formData.get('social-platform');
 
-            // Basic data structure
+            // 敏感字段列表
+            const sensitiveFields = [
+                'social-password',
+                'social-twitter-2fa',
+                'social-discord-password',
+                'social-discord-token',
+                'social-telegram-password',
+                'social-telegram-login-api'
+            ];
+            
+            // 非敏感但需要特殊处理的字段
+            const specialFields = [
+                'social-twitter-email',
+                'social-email-recovery-email'
+            ];
+
+            // 收集表单数据
             const dataToSave = {
                 platform: selectedPlatform,
                 identifier: formData.get('social-identifier').trim(),
-                notes: formData.get('social-notes').trim() || null,
-                 // **Use group_id, parsing as integer**
-                group_id: formData.get('social-group') ? parseInt(formData.get('social-group')) : null,
-                 // Initialize sensitive fields - collect only if *new* value is entered
-                 // Backend will handle encryption
-                password: formData.get('social-password')?.trim() || (isEditMode ? undefined : null), // Send undefined if editing and empty, null if adding and empty
-                twitter_2fa: formData.get('social-twitter-2fa')?.trim() || (isEditMode ? undefined : null),
-                twitter_email: formData.get('social-twitter-email')?.trim() || (isEditMode ? undefined : null),
-                twitter_recovery_email: formData.get('social-twitter-recovery-email')?.trim() || (isEditMode ? undefined : null),
-                discord_password: formData.get('social-discord-password')?.trim() || (isEditMode ? undefined : null),
-                discord_token: formData.get('social-discord-token')?.trim() || (isEditMode ? undefined : null),
-                telegram_password: formData.get('social-telegram-password')?.trim() || (isEditMode ? undefined : null),
-                telegram_login_api: formData.get('social-telegram-login-api')?.trim() || (isEditMode ? undefined : null),
-             };
-
-            // Clean up dataToSave: remove fields that are not applicable to the selected platform
-            // AND remove sensitive fields if they were empty during an edit (sent as undefined)
-            Object.keys(dataToSave).forEach(key => {
-                if (dataToSave[key] === undefined) {
-                     delete dataToSave[key]; // Remove fields marked as undefined (empty during edit)
-                 }
-                // Optional: More specific cleanup based on platform
-                // e.g., if platform is 'Twitter', remove discord_* and telegram_* fields
-                // This might be better handled server-side or in the DB function, but can be done here too.
-             });
-
+                notes: formData.get('social-notes').trim() || '',
+                group_id: formData.get('social-group') ? parseInt(formData.get('social-group')) : null
+            };
+            
+            // 处理特殊非敏感字段
+            specialFields.forEach(fieldId => {
+                // 使用元素值而不是formData.get，以确保获取正确的值
+                const inputElement = modalElement.querySelector(`#${fieldId}`);
+                if (inputElement) {
+                    const key = fieldId.replace('social-', '').replace(/-/g, '_');
+                    dataToSave[key] = inputElement.value.trim();
+                    console.log(`收集特殊字段 ${fieldId} -> ${key}: "${inputElement.value.trim()}"`);
+                } else {
+                    console.warn(`未找到字段元素: ${fieldId}`);
+                }
+            });
+            
+            // 仅当有新值输入时才收集敏感字段（如密码、token等）
+            sensitiveFields.forEach(fieldId => {
+                const input = formData.get(fieldId);
+                if (input && input.trim()) {
+                    // 修改键名，去除 social- 前缀
+                    const key = fieldId.replace('social-', '').replace(/-/g, '_');
+                    dataToSave[key] = input.trim();
+                    
+                    // Discord 特殊处理：将 discord_password 同时保存为 password 字段
+                    if (selectedPlatform === 'Discord' && fieldId === 'social-discord-password') {
+                        dataToSave['password'] = input.trim();
+                        console.log('为 Discord 同时设置 password 字段');
+                    }
+                }
+            });
 
             // **Validation: Check identifier**
             if (!dataToSave.platform || !dataToSave.identifier) {
