@@ -81,7 +81,8 @@ const validReceiveChannels = [
 const validInvokeChannels = [
     'auth:setupPassword', 
     'auth:unlockApp', 
-    'auth:isUnlocked', // 添加 auth:isUnlocked 通道
+    'auth:isUnlocked',
+    'execute-simple-script', // 添加新的通道
     'db:getGroups', 'db:addGroup', 'db:renameGroup', 'db:deleteGroup', 
     'db:getWallets', 'db:addWallet', 'db:updateWallet', 'db:deleteWallet', 'db:deleteWalletsByIds', 'db:getWalletDetails', 
     'db:getWalletById',

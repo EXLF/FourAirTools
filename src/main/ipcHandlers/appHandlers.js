@@ -351,6 +351,17 @@ function setupApplicationIpcHandlers(mainWindow) {
         }
     });
 
+    // 执行简单脚本的处理器
+    ipcMain.handle('execute-simple-script', async (event) => {
+        try {
+            console.log('123'); // 简单打印123
+            return { success: true, message: '脚本执行成功' };
+        } catch (error) {
+            console.error('执行脚本时出错:', error);
+            return { success: false, message: error.message };
+        }
+    });
+
     // --- 添加其他应用级 Handlers (例如: 打开外部链接, 文件操作等) ---
     // ipcMain.on('open-external-link', (event, url) => { ... });
 

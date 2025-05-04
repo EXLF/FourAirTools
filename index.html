@@ -7,6 +7,8 @@
     <!-- <link rel="stylesheet" href="styles.css"> -->
     <link rel="stylesheet" href="src/css/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- 添加 axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <!-- 可选: 引入图表库 -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -500,6 +502,22 @@
                          <i class="fa fa-unlock-alt"></i> 解锁
                      </button>
                  </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Message Modal Template -->
+    <template id="tpl-modal-message">
+        <div class="modal-overlay">
+            <div class="modal-box message-modal">
+                <button class="modal-close-btn">&times;</button>
+                <h3 class="modal-title">消息提示</h3>
+                <div class="modal-content">
+                    <!-- 消息内容将通过 JS 动态填充 -->
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary modal-close-btn-footer">确定</button>
+                </div>
             </div>
         </div>
     </template>

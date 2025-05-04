@@ -12,38 +12,34 @@ import { addLogEntry } from '../../utils/index.js';
  */
 export function initScriptPluginPage(contentArea) {
     console.log("Initializing Script Plugins Page...");
+    loadAndRenderPlugins(contentArea);
+    setupFilteringAndSearch(contentArea, '.filters-bar', '#plugin-list-container .plugin-card', filterPluginCard);
 
-    // Refactor: Move these responsibilities
-    // --- Start Refactor Block ---
-    loadAndRenderPlugins(contentArea); // Refactor: Should be in table.js or similar
-    setupFilteringAndSearch(contentArea, '.filters-bar', '#plugin-list-container .plugin-card', filterPluginCard); // Refactor: Move to table.js
-
-    const addBtn = contentArea.querySelector('.header-actions .btn-primary'); // Refactor: Move to actions.js
-    const manageBtn = contentArea.querySelector('.header-actions .btn-secondary');
-    if (addBtn) addBtn.addEventListener('click', () => alert('添加/发现插件 (未实现)')); // TODO: Call actions.handleAddPlugin()
-    if (manageBtn) manageBtn.addEventListener('click', () => alert('管理本地脚本 (未实现)')); // TODO: Call actions.handleManageLocalScripts()
-
-    const pluginContainer = contentArea.querySelector('#plugin-list-container'); // Refactor: Move to actions.js
+    const pluginContainer = contentArea.querySelector('#plugin-list-container');
     if (pluginContainer) {
         pluginContainer.addEventListener('click', handlePluginCardAction);
     }
-    // --- End Refactor Block ---
 }
 
 /**
- * 加载和渲染插件卡片的占位符函数。
- * Refactor: Move to table.js or a dedicated rendering module.
+ * 加载和渲染插件卡片。
  */
 function loadAndRenderPlugins(contentArea) {
     const container = contentArea.querySelector('#plugin-list-container');
     if (!container) return;
-    // Sample data - replace with actual data loading
+    
     const plugins = [
-        { id: 'p1', name: '批量跨链 (LayerZero)', type: 'official', functions: ['bridge'], description: '使用 Stargate/Merkly 等进行跨链交互。', author: '官方', version: '1.1.0' },
-        { id: 'p2', name: '批量Swap (zkSync)', type: 'official', functions: ['swap', 'defi'], description: '在 SyncSwap/Mute 等 DEX 上执行兑换。', author: '官方', version: '1.0.5' },
-        { id: 'p3', name: '邮箱钱包生成', type: 'community', functions: ['wallet', 'other'], description: '批量生成 burner 邮箱钱包。', author: '社区开发者 A', version: '0.9.0' },
-        { id: 'p4', name: '每日签到 (多链)', type: 'local', functions: ['checkin'], description: '自动执行支持的 DApp 每日签到。', author: '本地', version: 'N/A' },
+        { 
+            id: 'print123', 
+            name: '发送POST请求', 
+            type: 'local', 
+            functions: ['test'], 
+            description: '向指定接口发送POST请求，并在日志窗口显示请求过程。', 
+            author: '本地', 
+            version: '1.0.0' 
+        }
     ];
+    
     container.innerHTML = plugins.map(plugin => `
         <div class="plugin-card" data-plugin-id="${plugin.id}" data-plugin-type="${plugin.type}" data-plugin-functions="${plugin.functions.join(',')}">
             <div class="card-header">
@@ -58,7 +54,6 @@ function loadAndRenderPlugins(contentArea) {
              <div class="card-footer">
                  <span class="plugin-meta">作者: ${plugin.author} | V${plugin.version}</span>
                  <div class="plugin-actions">
-                     <button class="btn btn-secondary btn-small btn-config" title="配置"><i class="fas fa-cog"></i> 配置</button>
                      <button class="btn btn-primary btn-small btn-run" title="运行"><i class="fas fa-play"></i> 运行</button>
                  </div>
              </div>
@@ -68,7 +63,6 @@ function loadAndRenderPlugins(contentArea) {
 
 /**
  * 插件卡片的筛选函数。
- * Refactor: Move to table.js.
  */
 function filterPluginCard(cardElement, filterValues) {
     const type = cardElement.dataset.pluginType?.toLowerCase() || '';
@@ -87,26 +81,59 @@ function filterPluginCard(cardElement, filterValues) {
 }
 
 /**
- * 处理从插件容器委托的点击事件。
- * Refactor: Move to actions.js.
+ * 处理插件卡片的点击事件。
  */
 function handlePluginCardAction(e) {
     const target = e.target;
     const runButton = target.closest('.btn-run');
-    const configButton = target.closest('.btn-config');
     const card = target.closest('.plugin-card');
-    if (!card) return;
+    if (!card || !runButton) return;
+    
+    e.stopPropagation();
     const pluginId = card.dataset.pluginId;
-    const pluginName = card.querySelector('.plugin-title h5')?.textContent || '未知插件';
 
-    if (runButton) {
-        e.stopPropagation();
-        console.log(`Run button clicked for plugin: ${pluginName} (${pluginId})`);
-        openRunPluginModal(pluginName, pluginId); // Refactor: Call modals.openRunModal()
-    } else if (configButton) {
-        e.stopPropagation();
-        console.log(`Config button clicked for plugin: ${pluginName} (${pluginId})`);
-        openConfigPluginModal(pluginName, pluginId); // Refactor: Call modals.openConfigModal()
+    if (pluginId === 'print123') {
+        showModal('tpl-modal-run-plugin', async (modalElement) => {
+            const logContainer = modalElement.querySelector('.modal-log-container');
+            const startBtn = modalElement.querySelector('#modal-start-execution-btn');
+            
+            // 更新模态框标题
+            modalElement.querySelector('#run-plugin-name').textContent = '发送POST请求';
+            
+            startBtn.onclick = async () => {
+                try {
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
+                    
+                    // 添加初始日志
+                    addLogEntry('info', '系统', '开始执行脚本...', logContainer);
+                    addLogEntry('info', '系统', '准备发送POST请求...', logContainer);
+                    
+                    // 发送POST请求
+                    const testUrl = 'https://httpbin.org/post';
+                    const testData = {
+                        test: true,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    addLogEntry('info', '系统', `请求URL: ${testUrl}`, logContainer);
+                    addLogEntry('info', '系统', `请求数据: ${JSON.stringify(testData)}`, logContainer);
+                    
+                    const response = await axios.post(testUrl, testData);
+                    
+                    addLogEntry('success', '系统', '请求发送成功！', logContainer);
+                    addLogEntry('info', '系统', `响应状态: ${response.status}`, logContainer);
+                    addLogEntry('info', '系统', `响应数据: ${JSON.stringify(response.data)}`, logContainer);
+                    
+                    startBtn.innerHTML = '<i class="fas fa-check"></i> 执行完成';
+                } catch (error) {
+                    addLogEntry('error', '系统', `执行出错: ${error.message}`, logContainer);
+                    startBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 执行失败';
+                } finally {
+                    startBtn.disabled = false;
+                }
+            };
+        });
     }
 }
 
