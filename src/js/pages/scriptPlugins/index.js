@@ -1,9 +1,14 @@
 // Import helpers and modules
 import { setupFilteringAndSearch } from '../../components/tableHelper.js'; // Note: Using this for cards for now
 import { showModal } from '../../components/modal.js';
+import { renderScriptDetailView, setCurrentScriptId, addLogEntry } from './detail.js';
 // import * as table from './table.js'; // If using a table layout
 // import * as modals from './modals.js';
 // import * as actions from './actions.js';
+
+// 视图状态
+let currentView = 'cards'; // 'cards' or 'detail'
+let contentAreaRef = null; // 保存内容区域引用
 
 /**
  * 初始化脚本插件页面。
@@ -11,179 +16,156 @@ import { showModal } from '../../components/modal.js';
  */
 export function initScriptPluginPage(contentArea) {
     console.log("Initializing Script Plugins Page...");
+    contentAreaRef = contentArea;
+    
+    // 初始化卡片视图
+    initializeCardsView(contentArea);
+    
+    // 为全局添加导航和脚本加载方法
+    window.navigateToScriptCards = navigateToScriptCards;
+    window.loadScriptDetail = loadScriptDetail;
+}
+
+/**
+ * 初始化卡片视图
+ * @param {HTMLElement} contentArea - 内容区域元素
+ */
+function initializeCardsView(contentArea) {
+    // 设置当前视图
+    currentView = 'cards';
+    
+    // 创建卡片容器
+    contentArea.innerHTML = `
+        <div class="page-header">
+            <h1>脚本插件</h1>
+            <p>管理脚本任务，提高Web3操作效率</p>
+                 </div>
+        
+        <div class="scripts-filter-bar">
+            <div class="search-box">
+                <input type="text" id="scriptSearchInput" placeholder="搜索脚本...">
+                <i class="fas fa-search"></i>
+             </div>
+            <div class="filter-actions">
+                <select id="scriptTypeFilter">
+                    <option value="">全部类型</option>
+                    <option value="local">本地脚本</option>
+                    <option value="remote">远程脚本</option>
+                </select>
+                <select id="scriptStatusFilter">
+                    <option value="">全部状态</option>
+                    <option value="active">可用</option>
+                    <option value="inactive">不可用</option>
+                </select>
+                 </div>
+             </div>
+        
+        <div class="script-cards-grid" id="scriptCardsContainer">
+            <!-- 脚本卡片将在这里动态生成 -->
+         </div>
+    `;
+    
+    // 初始化脚本卡片
     initializeScriptCards();
+    
+    // 初始化搜索和筛选功能
     initializeSearchFunction();
 }
 
 /**
- * 加载和渲染插件卡片。
+ * 初始化详情视图
+ * @param {HTMLElement} contentArea - 内容区域元素
+ * @param {string} scriptId - 脚本ID
  */
-function loadAndRenderPlugins(contentArea) {
-    const container = contentArea.querySelector('#plugin-list-container');
-    if (!container) return;
+function initializeDetailView(contentArea, scriptId) {
+    // 设置当前视图和脚本ID
+    currentView = 'detail';
+    setCurrentScriptId(scriptId);
     
-    const plugins = [
-        { 
-            id: 'print123', 
-            name: '发送POST请求', 
-            type: 'local', 
-            functions: ['test'], 
-            description: '向指定接口发送POST请求，并在日志窗口显示请求过程。', 
-            author: '本地', 
-            version: '1.0.0' 
-        }
-    ];
+    // 获取脚本数据
+    const scriptData = getScriptData(scriptId);
+    if (!scriptData) {
+        console.error(`Script with ID ${scriptId} not found.`);
+        navigateToScriptCards();
+        return;
+    }
     
-    container.innerHTML = plugins.map(plugin => `
-        <div class="plugin-card" data-plugin-id="${plugin.id}" data-plugin-type="${plugin.type}" data-plugin-functions="${plugin.functions.join(',')}">
-            <div class="card-header">
-                 <i class="fas fa-plug plugin-icon"></i>
-                 <div class="plugin-title">
-                     <h5>${plugin.name}</h5>
-                     <span>${plugin.functions.map(f => `<span class="tag tag-blue">${f}</span>`).join(' ')}</span>
-                 </div>
-                 <span class="plugin-type ${plugin.type}">${plugin.type}</span>
-             </div>
-             <div class="card-body"><p class="plugin-description">${plugin.description}</p></div>
-             <div class="card-footer">
-                 <span class="plugin-meta">作者: ${plugin.author} | V${plugin.version}</span>
-                 <div class="plugin-actions">
-                     <button class="btn btn-primary btn-small btn-run" title="运行"><i class="fas fa-play"></i> 运行</button>
-                 </div>
-             </div>
-         </div>
-     `).join('');
+    // 初始化详情视图，使用从detail.js导入的函数
+    renderScriptDetailView(contentArea, scriptData);
 }
 
 /**
- * 插件卡片的筛选函数。
+ * 导航到卡片视图
  */
-function filterPluginCard(cardElement, filterValues) {
-    const type = cardElement.dataset.pluginType?.toLowerCase() || '';
-    const functions = (cardElement.dataset.pluginFunctions?.toLowerCase() || '').split(',');
-    const name = cardElement.querySelector('.plugin-title h5')?.textContent.toLowerCase() || '';
-    const description = cardElement.querySelector('.plugin-description')?.textContent.toLowerCase() || '';
-    const author = cardElement.querySelector('.plugin-meta')?.textContent.toLowerCase() || '';
-    const searchContent = `${type} ${functions.join(' ')} ${name} ${description} ${author}`;
-    const typeFilter = filterValues['plugin-type-filter'] || '';
-    const functionFilter = filterValues['plugin-function-filter'] || '';
-    const searchTerm = filterValues.search || '';
-    const typeMatch = !typeFilter || type === typeFilter;
-    const functionMatch = !functionFilter || functions.some(fn => fn.trim() === functionFilter);
-    const searchMatch = !searchTerm || searchContent.includes(searchTerm);
-    return typeMatch && functionMatch && searchMatch;
-}
-
-/**
- * 处理插件卡片的点击事件。
- */
-function handlePluginCardAction(e) {
-    const target = e.target;
-    const runButton = target.closest('.btn-run');
-    const card = target.closest('.plugin-card');
-    if (!card || !runButton) return;
-    
-    e.stopPropagation();
-    const pluginId = card.dataset.pluginId;
-
-    if (pluginId === 'print123') {
-        showModal('tpl-modal-run-plugin', async (modalElement) => {
-            const logContainer = modalElement.querySelector('.modal-log-container');
-            const startBtn = modalElement.querySelector('#modal-start-execution-btn');
-            
-            // 更新模态框标题
-            modalElement.querySelector('#run-plugin-name').textContent = '发送POST请求';
-            
-            startBtn.onclick = async () => {
-                try {
-                    startBtn.disabled = true;
-                    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
-                    
-                    // 添加初始日志
-                    addLogEntry('info', '系统', '开始执行脚本...', logContainer);
-                    addLogEntry('info', '系统', '准备发送POST请求...', logContainer);
-                    
-                    // 发送POST请求
-                    const testUrl = 'https://httpbin.org/post';
-                    const testData = {
-                        test: true,
-                        timestamp: new Date().toISOString()
-                    };
-                    
-                    addLogEntry('info', '系统', `请求URL: ${testUrl}`, logContainer);
-                    addLogEntry('info', '系统', `请求数据: ${JSON.stringify(testData)}`, logContainer);
-                    
-                    const response = await axios.post(testUrl, testData);
-                    
-                    addLogEntry('success', '系统', '请求发送成功！', logContainer);
-                    addLogEntry('info', '系统', `响应状态: ${response.status}`, logContainer);
-                    addLogEntry('info', '系统', `响应数据: ${JSON.stringify(response.data)}`, logContainer);
-                    
-                    startBtn.innerHTML = '<i class="fas fa-check"></i> 执行完成';
-                } catch (error) {
-                    addLogEntry('error', '系统', `执行出错: ${error.message}`, logContainer);
-                    startBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 执行失败';
-                } finally {
-                    startBtn.disabled = false;
-                }
-            };
-        });
+function navigateToScriptCards() {
+    if (contentAreaRef) {
+        initializeCardsView(contentAreaRef);
     }
 }
 
-// --- Modal functions (Refactor: Move these to modals.js) --- 
-
 /**
- * 打开"运行插件"模态框。
+ * 加载脚本详情
+ * @param {string} scriptId - 脚本ID
  */
-function openRunPluginModal(pluginName, pluginId) {
-    showModal('tpl-modal-run-plugin', (modalElement) => {
-        modalElement.querySelector('#run-plugin-name').textContent = pluginName;
-        const startBtn = modalElement.querySelector('#modal-start-execution-btn');
-        const logContainer = modalElement.querySelector('.modal-log-container');
-        const walletCountSpan = modalElement.querySelector('#modal-selected-wallet-count');
-        // TODO: Load actual wallets instead of placeholders
-        const walletCheckboxes = modalElement.querySelectorAll('.wallet-checkboxes-compact-modal input[type="checkbox"]');
-        const updateTotal = () => {
-            const count = modalElement.querySelectorAll('.wallet-checkboxes-compact-modal input[type="checkbox"]:checked').length;
-            walletCountSpan.textContent = count;
-        };
-        walletCheckboxes.forEach(cb => cb.addEventListener('change', updateTotal));
-        updateTotal();
-
-        startBtn.onclick = () => {
-             const selectedWallets = modalElement.querySelectorAll('.wallet-checkboxes-compact-modal input[type="checkbox"]:checked');
-             if (selectedWallets.length === 0) {
-                 addLogEntry('error', '系统', '请至少选择一个钱包！', logContainer);
-                 return;
-             }
-            addLogEntry('info', '系统', `开始执行插件 "${pluginName}"，作用于 ${selectedWallets.length} 个钱包...`, logContainer);
-             startBtn.disabled = true;
-             startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
-             setTimeout(() => { // Simulate execution
-                 addLogEntry('success', '系统', '插件执行完成 (模拟)。', logContainer);
-                 startBtn.disabled = false;
-                 startBtn.innerHTML = '<i class="fa fa-play"></i> 重新执行';
-             }, 3000);
-            // TODO: Implement actual plugin execution via IPC
-        };
-    });
+function loadScriptDetail(scriptId) {
+    if (contentAreaRef) {
+        initializeDetailView(contentAreaRef, scriptId);
+    }
 }
 
 /**
- * 打开"配置插件"模态框。
+ * 获取脚本数据
+ * @param {string} scriptId - 脚本ID
+ * @returns {Object|null} 脚本数据对象或null
  */
-function openConfigPluginModal(pluginName, pluginId) {
-    showModal('tpl-modal-config-plugin', (modalElement) => {
-        modalElement.querySelector('#config-plugin-name').textContent = pluginName;
-        const saveBtn = modalElement.querySelector('#modal-save-config-btn');
-        const configArea = modalElement.querySelector('#config-options-area');
-        // TODO: Load actual config options based on pluginId
-        saveBtn.onclick = () => {
-            alert(`保存插件 "${pluginName}" 的配置 (未实现)`);
-            // TODO: Implement saving config via IPC
-        };
-    });
+function getScriptData(scriptId) {
+    // 模拟从数据源获取脚本数据
+    const scripts = [
+        {
+            id: 'print123',
+            name: '打印123',
+            description: '简单的测试脚本，用于打印数字123。',
+            type: '本地脚本',
+            status: 'active',
+            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png',
+            author: '系统',
+            createdAt: '2024-05-01',
+            updatedAt: '2024-05-29'
+        },
+        {
+            id: 'noimage',
+            name: '无图片脚本',
+            description: '这个脚本没有图片，将显示默认图标。演示发送HTTP请求以获取数据。',
+            type: '本地脚本',
+            status: 'active',
+            author: '系统',
+            createdAt: '2024-05-10',
+            updatedAt: '2024-05-28'
+        },
+        {
+            id: 'script3',
+            name: '示例脚本3',
+            description: '远程脚本示例，目前处于不可用状态。',
+            type: '远程脚本',
+            status: 'inactive',
+            author: 'Remote User',
+            createdAt: '2024-05-15',
+            updatedAt: '2024-05-20'
+        },
+        {
+            id: 'script4',
+            name: '示例脚本4',
+            description: '另一个本地脚本示例，用于测试各种功能。',
+            type: '本地脚本',
+            status: 'active',
+            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png',
+            author: '系统',
+            createdAt: '2024-05-12',
+            updatedAt: '2024-05-25'
+        }
+    ];
+    
+    return scripts.find(script => script.id === scriptId) || null;
 }
 
 // 初始化脚本卡片
@@ -194,28 +176,45 @@ function initializeScriptCards() {
     // 清空容器
     scriptCardsContainer.innerHTML = '';
     
-    // 添加示例脚本卡片
-    const scriptCard = createScriptCard({
-        id: 'print123',
-        name: '打印123',
-        description: '简单的测试脚本，用于打印数字123。',
-        type: '本地脚本',
-        status: 'active',
-        imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png' // 添加示例图片URL
-    });
+    // 获取所有脚本数据
+    const scripts = [
+        {
+            id: 'print123',
+            name: '打印123',
+            description: '简单的测试脚本，用于打印数字123。',
+            type: '本地脚本',
+            status: 'active',
+            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png'
+        },
+        {
+            id: 'noimage',
+            name: '无图片脚本',
+            description: '这个脚本没有图片，将显示默认图标。',
+            type: '本地脚本',
+            status: 'active'
+        },
+        {
+            id: 'script3',
+            name: '示例脚本3',
+            description: '远程脚本示例，目前处于不可用状态。',
+            type: '远程脚本',
+            status: 'inactive'
+        },
+        {
+            id: 'script4',
+            name: '示例脚本4',
+            description: '另一个本地脚本示例，用于测试各种功能。',
+            type: '本地脚本',
+            status: 'active',
+            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png'
+        }
+    ];
     
-    // 添加第二个无图片的示例卡片
-    const scriptCard2 = createScriptCard({
-        id: 'noimage',
-        name: '无图片脚本',
-        description: '这个脚本没有图片，将显示默认图标。',
-        type: '本地脚本',
-        status: 'active'
-        // 没有imageUrl字段
+    // 创建脚本卡片
+    scripts.forEach(scriptData => {
+        const card = createScriptCard(scriptData);
+        scriptCardsContainer.appendChild(card);
     });
-    
-    scriptCardsContainer.appendChild(scriptCard);
-    scriptCardsContainer.appendChild(scriptCard2);
 }
 
 // 创建脚本卡片元素
@@ -223,6 +222,8 @@ function createScriptCard(scriptData) {
     const card = document.createElement('div');
     card.className = 'script-card';
     card.setAttribute('data-script-id', scriptData.id);
+    card.setAttribute('data-script-type', scriptData.type === '远程脚本' ? 'remote' : 'local');
+    card.setAttribute('data-script-status', scriptData.status);
     
     // 卡片图标部分 - 支持图片URL或默认图标
     const iconHTML = scriptData.imageUrl 
@@ -245,110 +246,235 @@ function createScriptCard(scriptData) {
         </div>
     `;
     
-    // 绑定卡片点击事件
+    // 绑定卡片点击事件，切换到详情视图
     card.addEventListener('click', () => {
-        openScriptConfigModal(scriptData);
+        const scriptId = card.getAttribute('data-script-id');
+        loadScriptDetail(scriptId);
     });
     
     return card;
 }
 
 /**
- * 添加日志条目到日志容器
- * @param {string} type - 日志类型：info, success, error, warning
- * @param {string} message - 日志消息内容
- * @param {HTMLElement} container - 日志容器元素
+ * 初始化搜索和筛选功能
  */
-function addLogEntry(type, message, container) {
-    const now = new Date();
-    const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    
-    // 简单直接的HTML插入方式
-    const html = `
-        <div class="log-entry ${type}">
-            <span class="time">${timeString}</span>
-            <span class="source">系统</span>
-            <span class="message">${message}</span>
-        </div>
-    `;
-    
-    // 添加到容器
-    container.insertAdjacentHTML('beforeend', html);
-    
-    // 自动滚动到底部
-    container.scrollTop = container.scrollHeight;
-}
-
-// 打开脚本配置模态框
-function openScriptConfigModal(scriptData) {
-    showModal('tpl-modal-run-plugin', async (modalElement) => {
-        const logContainer = modalElement.querySelector('#logContainer');
-        const startBtn = modalElement.querySelector('#modal-start-execution-btn');
-        
-        // 更新模态框标题
-        modalElement.querySelector('#run-plugin-name').textContent = scriptData.name;
-        
-        // 绑定关闭按钮事件
-        modalElement.querySelector('.close-btn').addEventListener('click', () => {
-            modalElement.closest('.modal-overlay').remove();
-        });
-        
-        // 绑定底部关闭按钮事件
-        modalElement.querySelector('#closeConfigBtn').addEventListener('click', () => {
-            modalElement.closest('.modal-overlay').remove();
-        });
-        
-        // 绑定运行按钮事件
-        startBtn.onclick = async () => {
-            try {
-                // 清空之前的日志
-                logContainer.innerHTML = '';
-                
-                startBtn.disabled = true;
-                startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
-                
-                // 添加初始日志
-                addLogEntry('info', '开始执行脚本...', logContainer);
-                
-                // 执行脚本
-                await window.electron.ipcRenderer.invoke('execute-simple-script');
-                
-                // 添加成功日志
-                addLogEntry('success', '脚本执行成功！', logContainer);
-                
-                // 更新按钮状态
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<i class="fas fa-check"></i> 执行完成';
-            } catch (error) {
-                addLogEntry('error', `执行出错: ${error.message}`, logContainer);
-                
-                // 更新按钮状态
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 执行失败';
-            }
-        };
-    });
-}
-
-// 初始化搜索功能
 function initializeSearchFunction() {
     const searchInput = document.getElementById('scriptSearchInput');
-    if (!searchInput) return;
+    const typeFilter = document.getElementById('scriptTypeFilter');
+    const statusFilter = document.getElementById('scriptStatusFilter');
     
-    const scriptCards = document.querySelectorAll('.script-card');
+    if (!searchInput || !typeFilter || !statusFilter) return;
     
-    searchInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
+    // 搜索功能
+    searchInput.addEventListener('input', filterScriptCards);
+    
+    // 类型筛选
+    typeFilter.addEventListener('change', filterScriptCards);
+    
+    // 状态筛选
+    statusFilter.addEventListener('change', filterScriptCards);
+}
+
+/**
+ * 筛选脚本卡片
+ */
+function filterScriptCards() {
+    const searchInput = document.getElementById('scriptSearchInput');
+    const typeFilter = document.getElementById('scriptTypeFilter');
+    const statusFilter = document.getElementById('scriptStatusFilter');
+    const cards = document.querySelectorAll('.script-card');
+    
+    if (!searchInput || !typeFilter || !statusFilter || !cards.length) return;
+    
+    const searchTerm = searchInput.value.toLowerCase();
+    const typeValue = typeFilter.value;
+    const statusValue = statusFilter.value;
+    
+    cards.forEach(card => {
+        const title = card.querySelector('.card-title').textContent.toLowerCase();
+        const description = card.querySelector('.card-description').textContent.toLowerCase();
+        const type = card.getAttribute('data-script-type');
+        const status = card.getAttribute('data-script-status');
         
-        scriptCards.forEach(card => {
-            const title = card.querySelector('.card-title').textContent.toLowerCase();
-            const description = card.querySelector('.card-description').textContent.toLowerCase();
-            
-            if (title.includes(searchTerm) || description.includes(searchTerm)) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
+        const matchesSearch = title.includes(searchTerm) || description.includes(searchTerm);
+        const matchesType = !typeValue || type === typeValue;
+        const matchesStatus = !statusValue || status === statusValue;
+        
+        if (matchesSearch && matchesType && matchesStatus) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * 初始化脚本详情页面
+ * @param {Object} scriptInfo - 脚本信息对象
+ */
+function setupScriptDetailView(scriptInfo) {
+    const container = document.querySelector('.script-detail-wrapper');
+    if (!container) {
+        console.error('脚本详情页容器不存在');
+        return;
+    }
+    
+    // 确保能访问到详情页模块
+    if (window.ScriptDetail && typeof window.ScriptDetail.init === 'function') {
+        window.ScriptDetail.init(container, scriptInfo);
+    } else {
+        console.error('未找到ScriptDetail模块');
+    }
+}
+
+/**
+ * 导航到脚本详情页
+ * @param {string} scriptId - 脚本ID
+ */
+function navigateToScriptDetail(scriptId) {
+    // 暂时使用模拟数据
+    const scriptInfo = getMockScriptInfo(scriptId);
+    
+    // 隐藏卡片视图，显示详情视图
+    document.querySelector('.script-cards-wrapper').style.display = 'none';
+    document.querySelector('.script-detail-wrapper').style.display = 'block';
+    
+    // 初始化详情页
+    setupScriptDetailView(scriptInfo);
+    
+    // 更新页面URL（如果需要）
+    // history.pushState(null, null, `?view=detail&id=${scriptId}`);
+}
+
+/**
+ * 导航回脚本列表页
+ */
+function navigateToScriptList() {
+    document.querySelector('.script-cards-wrapper').style.display = 'flex';
+    document.querySelector('.script-detail-wrapper').style.display = 'none';
+    
+    // 更新页面URL（如果需要）
+    // history.pushState(null, null, '?view=list');
+}
+
+/**
+ * 获取模拟脚本数据
+ * @param {string} scriptId - 脚本ID
+ * @returns {Object} 脚本信息对象
+ */
+function getMockScriptInfo(scriptId) {
+    // 模拟脚本数据库
+    const mockScripts = [
+        {
+            id: 'script1',
+            name: 'Uniswap自动兑换',
+            description: '在Uniswap上自动进行ETH与指定代币的兑换交易',
+            type: 'swap',
+            status: 'active',
+            updateTime: '2023-05-15',
+            config: {
+                tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f', // DAI
+                slippage: 0.5,
+                useGasOptimizer: true
+            },
+            requiresWallet: true
+        },
+        {
+            id: 'script2',
+            name: 'NFT抢购助手',
+            description: '监控NFT上新并自动参与抢购，支持多市场',
+            type: 'mint',
+            status: 'active',
+            updateTime: '2023-06-22',
+            config: {
+                marketplaces: ['opensea', 'blur'],
+                maxPrice: 0.5,
+                autoConfirm: false
+            },
+            requiresWallet: true
+        },
+        {
+            id: 'script3',
+            name: '多链资产查询',
+            description: '一键查询多链钱包余额和代币价值',
+            type: 'query',
+            status: 'active',
+            updateTime: '2023-04-08',
+            config: {
+                chains: ['ethereum', 'bsc', 'polygon'],
+                includeNFTs: true,
+                refreshInterval: 60
+            },
+            requiresWallet: true
+        },
+        {
+            id: 'script4',
+            name: '跨链资产桥接',
+            description: '在不同区块链网络间安全转移资产',
+            type: 'bridge',
+            status: 'active',
+            updateTime: '2023-07-11',
+            config: {
+                sourceChain: 'ethereum',
+                targetChain: 'polygon',
+                useFastMode: false
+            },
+            requiresWallet: true
+        }
+    ];
+    
+    return mockScripts.find(script => script.id === scriptId) || mockScripts[0];
+}
+
+/**
+ * 初始化页面
+ */
+function init() {
+    // 创建脚本卡片
+    const scriptCards = [
+        { id: 'script1', name: 'Uniswap自动兑换', description: '在Uniswap上自动进行ETH与指定代币的兑换交易', status: 'active' },
+        { id: 'script2', name: 'NFT抢购助手', description: '监控NFT上新并自动参与抢购，支持多市场', status: 'active' },
+        { id: 'script3', name: '多链资产查询', description: '一键查询多链钱包余额和代币价值', status: 'active' },
+        { id: 'script4', name: '跨链资产桥接', description: '在不同区块链网络间安全转移资产', status: 'active' },
+        { id: 'script5', name: '交易数据分析', description: '分析历史交易数据，提供优化建议', status: 'inactive' },
+        { id: 'script6', name: '定时DCA投资', description: '设置定时定额购买策略，实现数字资产的平均成本投资', status: 'inactive' }
+    ];
+    
+    const cardsContainer = document.querySelector('.script-cards');
+    scriptCards.forEach(card => {
+        const cardElement = createScriptCard(card);
+        cardsContainer.appendChild(cardElement);
+        
+        // 添加点击事件以跳转到详情页
+        cardElement.addEventListener('click', () => {
+            navigateToScriptDetail(card.id);
         });
     });
-} 
+    
+    // 绑定搜索功能
+    const searchInput = document.querySelector('.search-box input');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const keyword = this.value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.script-card');
+            
+            cards.forEach(card => {
+                const name = card.querySelector('.card-title').textContent.toLowerCase();
+                const description = card.querySelector('.card-desc').textContent.toLowerCase();
+                
+                if (name.includes(keyword) || description.includes(keyword)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // 将函数导出到全局
+    window.navigateToScriptDetail = navigateToScriptDetail;
+    window.navigateToScriptList = navigateToScriptList;
+}
+
+// 在DOM加载完成后初始化
+document.addEventListener('DOMContentLoaded', init); 

@@ -7,6 +7,7 @@ const cryptoService = require('./src/js/core/cryptoService.js');
 const { setupDatabaseIpcHandlers } = require('./src/main/ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./src/main/ipcHandlers/appHandlers.js');
 const { setupProxyIpcHandlers } = require('./src/main/ipcHandlers/proxyHandlers.js');
+const scriptEngine = require('./src/main/scriptEngine.js');
 
 let mainWindow = null;
 
@@ -50,6 +51,9 @@ function createWindow() {
   setupDatabaseIpcHandlers();
   setupApplicationIpcHandlers(mainWindow);
   setupProxyIpcHandlers(mainWindow);
+  // 设置脚本引擎的主窗口引用
+  scriptEngine.setMainWindow(mainWindow);
+  console.log('[Main] 脚本引擎已初始化');
 
   // --- 新增：处理设置主密码请求 --- 
   ipcMain.handle('auth:setupPassword', async (event, password) => {

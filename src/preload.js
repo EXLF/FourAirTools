@@ -76,13 +76,18 @@ const validReceiveChannels = [
     'show-unlock-screen',
     'app-unlocked-status', // 添加解锁状态通道
     // *** 新增：代理测试结果通知通道 ***
-    'proxy:testResult'
+    'proxy:testResult',
+    // *** 新增：脚本日志通道 ***
+    'script:log'
 ];
 const validInvokeChannels = [
     'auth:setupPassword', 
     'auth:unlockApp', 
     'auth:isUnlocked',
     'execute-simple-script', // 添加新的通道
+    // *** 新增：脚本相关通道 ***
+    'script:getAll',
+    'script:execute',
     'db:getGroups', 'db:addGroup', 'db:renameGroup', 'db:deleteGroup', 
     'db:getWallets', 'db:addWallet', 'db:updateWallet', 'db:deleteWallet', 'db:deleteWalletsByIds', 'db:getWalletDetails', 
     'db:getWalletById',
@@ -196,6 +201,26 @@ contextBridge.exposeInMainWorld('proxyAPI', {
             return () => {
                  ipcRenderer.removeListener(channel, subscription);
              };
+        } else {
+            console.warn(`尝试监听无效通道: ${channel}`);
+            return () => {};
+        }
+    }
+});
+
+// *** 新增：暴露脚本API ***
+contextBridge.exposeInMainWorld('scriptAPI', {
+    getAllScripts: () => ipcRenderer.invoke('script:getAll'),
+    executeScript: (scriptId, wallets, config, proxyId) => 
+        ipcRenderer.invoke('script:execute', { scriptId, wallets, config, proxyId }),
+    onLog: (callback) => {
+        const channel = 'script:log';
+        if (validReceiveChannels.includes(channel)) {
+            const subscription = (event, logData) => callback(logData);
+            ipcRenderer.on(channel, subscription);
+            return () => {
+                ipcRenderer.removeListener(channel, subscription);
+            };
         } else {
             console.warn(`尝试监听无效通道: ${channel}`);
             return () => {};

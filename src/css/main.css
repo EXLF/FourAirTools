@@ -15,6 +15,8 @@
 @import url('components/network.css');  /* 添加网络组件样式 */
 @import url('components/toast.css');
 @import url('components/wallet-selection.css');
+@import url('components/scriptCards.css');  /* 添加脚本卡片样式 */
+@import url('components/scriptDetail.css');  /* 添加脚本详情样式 */
 
 /* Page-Specific Styles */
 @import url('pages/dashboard.css');

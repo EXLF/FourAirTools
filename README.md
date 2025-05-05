@@ -189,6 +189,14 @@
 
 ## 近期重要更新
 
+* **脚本插件模块架构更新 (2024-06-01)**
+  * 实现了模块化脚本架构设计，采用清晰的目录结构组织本地脚本
+  * 设计了统一的脚本格式，包含元数据和执行函数，方便管理和运行
+  * 添加了验证码处理模块，支持多种验证码类型的检测和处理
+  * 设计了通用工具库，提供Web3操作、HTTP请求、钱包交互等常用功能
+  * 实现了脚本执行引擎，通过IPC通信在渲染进程和主进程间传递数据
+  * 支持实时日志显示，用户可监控脚本执行状态和进度
+
 * **脚本插件模块优化 (2024-05-29)**
   * 重构了脚本执行界面，添加实时日志窗口功能
   * 优化了日志显示样式，采用类终端的暗色主题
@@ -268,3 +276,255 @@
     *   使用PM2进行进程管理，确保服务持久运行
     *   配置防火墙开放必要端口
     *   客户端通过服务器IP+端口访问API服务
+
+## 脚本插件架构
+
+脚本插件模块采用模块化设计，提供统一的目录结构和API接口，方便扩展和维护。
+
+### 目录结构
+
+```
+user_scripts/
+├── common/                # 通用工具库
+│   ├── utils.js           # 通用工具函数
+│   ├── web3.js            # Web3相关功能
+│   ├── http.js            # HTTP请求工具
+│   ├── captcha/           # 验证码处理模块
+│   │   ├── index.js       # 验证码处理入口
+│   │   ├── solvers.js     # 验证码解决方案
+│   │   ├── detection.js   # 验证码检测
+│   │   └── interaction.js # 用户交互处理
+│   └── logger.js          # 日志记录工具
+├── wallets/               # 钱包相关功能
+│   ├── address.js         # 地址操作工具
+│   ├── signature.js       # 签名功能
+│   └── transaction.js     # 交易操作
+├── protocols/             # 协议交互模块
+│   ├── uniswap.js         # Uniswap协议操作
+│   ├── aave.js            # Aave协议操作
+│   └── opensea.js         # OpenSea操作
+└── scripts/               # 具体脚本实现
+    ├── mint.js            # NFT铸造脚本
+    ├── swap.js            # 代币交换脚本
+    └── bridge.js          # 跨链桥接脚本
+```
+
+### 脚本格式
+
+每个脚本都遵循统一的格式，包含元数据和执行函数：
+
+```javascript
+// scripts/example.js
+module.exports = {
+  // 脚本元数据
+  metadata: {
+    id: "example_script",             // 唯一标识符
+    name: "示例脚本",                  // 显示名称
+    description: "这是一个示例脚本",   // 描述
+    version: "1.0.0",                 // 版本号
+    author: "FourAir",                // 作者
+    category: "测试",                  // 分类
+    icon: "code",                     // 图标 (FontAwesome)
+    requires: {
+      wallets: true,                  // 是否需要钱包
+      proxy: false                    // 是否需要代理
+    },
+    platforms: ["ETH", "Arbitrum"],   // 支持的平台
+    config: {
+      // 配置项定义，用于生成UI
+      delay: {
+        type: "number",
+        label: "延迟(秒)",
+        default: 5,
+        min: 1,
+        max: 60
+      }
+    }
+  },
+  
+  // 执行函数
+  async execute(wallets, config, utils) {
+    const { logger, http, web3 } = utils;
+    
+    logger.info("开始执行示例脚本");
+    
+    try {
+      // 脚本具体逻辑
+      logger.info(`使用配置: ${JSON.stringify(config)}`);
+      
+      // 处理钱包
+      if (wallets && wallets.length > 0) {
+        logger.info(`选择了 ${wallets.length} 个钱包`);
+        
+        for (const wallet of wallets) {
+          logger.info(`处理钱包: ${wallet.address}`);
+          // 执行具体操作...
+        }
+      }
+      
+      // 模拟延迟
+      logger.info(`等待 ${config.delay} 秒...`);
+      await new Promise(resolve => setTimeout(resolve, config.delay * 1000));
+      
+      logger.success("脚本执行成功");
+      return { success: true };
+    } catch (error) {
+      logger.error(`脚本执行失败: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+};
+```
+
+### 验证码处理模块
+
+验证码处理模块支持多种类型的验证码检测和处理：
+
+- **支持的验证码类型**:
+  - reCAPTCHA
+  - hCaptcha 
+  - 图形验证码
+  - 滑块验证码
+
+- **功能特点**:
+  - 自动检测页面中的验证码类型
+  - 尝试自动解决验证码(可选集成第三方验证码服务)
+  - 需要人工干预时提供用户交互界面
+  - 验证码截图展示和结果反馈
+
+- **使用方式**:
+  ```javascript
+  const { CaptchaHandler } = require('../common/captcha');
+  
+  // 创建验证码处理器
+  const captchaHandler = new CaptchaHandler(logger);
+  
+  // 处理页面上的验证码
+  const result = await captchaHandler.handleCaptcha(page, {
+    autoSolve: true,        // 尝试自动解决
+    allowUserInput: true    // 允许用户干预
+  });
+  
+  if (result) {
+    logger.success("验证码处理成功");
+  } else {
+    logger.error("验证码处理失败");
+  }
+  ```
+
+### 脚本执行引擎
+
+脚本执行引擎负责加载、管理和执行脚本：
+
+```javascript
+// main/scriptEngine.js
+const fs = require('fs').promises;
+const path = require('path');
+const { ipcMain } = require('electron');
+
+// 通用工具
+const logger = require('../user_scripts/common/logger');
+const http = require('../user_scripts/common/http');
+const web3 = require('../user_scripts/common/web3');
+const { CaptchaHandler } = require('../user_scripts/common/captcha');
+
+class ScriptEngine {
+  constructor() {
+    this.scriptsDir = path.join(__dirname, '../user_scripts/scripts');
+    this.scriptCache = new Map();
+    
+    // 注册IPC处理器
+    this.registerIpcHandlers();
+  }
+  
+  // 注册IPC处理器
+  registerIpcHandlers() {
+    ipcMain.handle('script:getAll', () => this.getAllScripts());
+    ipcMain.handle('script:execute', (event, { scriptId, wallets, config }) => 
+      this.executeScript(scriptId, wallets, config));
+  }
+  
+  // 获取所有可用脚本
+  async getAllScripts() {
+    try {
+      const files = await fs.readdir(this.scriptsDir);
+      const scriptFiles = files.filter(file => file.endsWith('.js'));
+      
+      const scripts = [];
+      for (const file of scriptFiles) {
+        const script = await this.loadScript(file);
+        if (script && script.metadata) {
+          scripts.push(script.metadata);
+        }
+      }
+      
+      return { success: true, scripts };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  
+  // 加载脚本
+  async loadScript(filename) {
+    const filePath = path.join(this.scriptsDir, filename);
+    
+    try {
+      // 清除缓存以确保加载最新版本
+      delete require.cache[require.resolve(filePath)];
+      return require(filePath);
+    } catch (error) {
+      console.error(`加载脚本 ${filename} 失败:`, error);
+      return null;
+    }
+  }
+  
+  // 执行脚本
+  async executeScript(scriptId, wallets, config) {
+    try {
+      // 查找脚本
+      const files = await fs.readdir(this.scriptsDir);
+      const scriptFiles = files.filter(file => file.endsWith('.js'));
+      
+      let targetScript = null;
+      let scriptModule = null;
+      
+      for (const file of scriptFiles) {
+        const script = await this.loadScript(file);
+        if (script && script.metadata && script.metadata.id === scriptId) {
+          targetScript = script.metadata;
+          scriptModule = script;
+          break;
+        }
+      }
+      
+      if (!scriptModule || !targetScript) {
+        return { success: false, error: `找不到脚本: ${scriptId}` };
+      }
+      
+      // 准备工具库
+      const utils = {
+        logger: logger.createLogger(),
+        http,
+        web3,
+        captcha: new CaptchaHandler(logger)
+      };
+      
+      // 执行脚本
+      return await scriptModule.execute(wallets, config, utils);
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+module.exports = new ScriptEngine();
+```
+
+### UI集成
+
+脚本插件UI分为卡片视图和详情视图两部分:
+
+1. **卡片视图**: 展示所有可用脚本，支持筛选和搜索
+2. **详情视图**: 提供脚本配置、执行和日志查看功能
+
+接口设计采用IPC通信，确保渲染进程和主进程之间的数据交换安全可靠。
