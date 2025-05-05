@@ -826,313 +826,282 @@ function setupScriptLogListener(container) {
 if (!window._selectedWalletIds) window._selectedWalletIds = new Set();
 
 async function loadWalletList(container) {
+    const walletSelectionList = container.querySelector('#walletSelectionList');
+    if (!walletSelectionList) {
+        console.error('钱包选择列表容器未找到');
+        return;
+    }
+    // 声明变量在 try 块外部，但在函数作用域内
+    let selectAllBtn = null;
+    let invertBtn = null;
+    let searchInput = null;
+
     try {
-        const walletSelectionList = container.querySelector('#walletSelectionList');
-        if (!walletSelectionList) {
-            console.error('钱包选择列表容器未找到');
-            return;
-        }
         walletSelectionList.innerHTML = '<div class="wallet-loading">加载钱包列表中...</div>';
-        try {
-            const groupsResult = await window.electron.ipcRenderer.invoke('db:getGroups');
-            let groups = [];
-            if (Array.isArray(groupsResult)) {
-                groups = groupsResult;
-            } else if (groupsResult && typeof groupsResult === 'object') {
-                if (Array.isArray(groupsResult.data)) {
-                    groups = groupsResult.data;
-                }
-            }
-            const defaultGroupExists = groups.some(g => g.id === 'default');
-            if (!defaultGroupExists) {
-                groups.push({ id: 'default', name: '默认分组' });
-            }
-            const walletsResult = await window.electron.ipcRenderer.invoke('db:getWallets');
-            let wallets = [];
-            if (walletsResult && Array.isArray(walletsResult.wallets)) {
-                wallets = walletsResult.wallets;
-            } else if (Array.isArray(walletsResult)) {
-                wallets = walletsResult;
-            } else if (walletsResult && typeof walletsResult === 'object') {
-                if (walletsResult.success && Array.isArray(walletsResult.wallets)) {
-                    wallets = walletsResult.wallets;
-                } else if (Array.isArray(walletsResult.data)) {
-                    wallets = walletsResult.data;
-                } else if (walletsResult.wallets && typeof walletsResult.wallets === 'object' && !Array.isArray(walletsResult.wallets)) {
-                    wallets = Object.values(walletsResult.wallets);
-                }
-            }
-            if (!wallets || wallets.length === 0) {
-                wallets = [
-                    { id: 1, address: '0x7fa092e525b65416305601e1', groupId: 'default' },
-                    { id: 2, address: '0x9b1000eef33b3ed723641e0b', groupId: 'default' },
-                    { id: 3, address: '0xb5ce6ddd55674c05dd3576', groupId: 'group1' },
-                    { id: 4, address: '0x4403c9610f64d4', groupId: 'group1' },
-                    { id: 5, address: '0x5078cda55e3fc', groupId: 'group1' },
-                    { id: 6, address: '0x6a1b2c3d4e5f6a7b8c9d', groupId: 'default' },
-                    { id: 7, address: '0x7b2c3d4e5f6a7b8c9d0e', groupId: 'default' },
-                    { id: 8, address: '0x8c3d4e5f6a7b8c9d0e1f', groupId: 'default' },
-                    { id: 9, address: '0x9d4e5f6a7b8c9d0e1f2g', groupId: 'default' },
-                    { id: 10, address: '0x0e5f6a7b8c9d0e1f2g3h', groupId: 'default' },
-                    { id: 11, address: '0x1f6a7b8c9d0e1f2g3h4i', groupId: 'group2' },
-                    { id: 12, address: '0x2g7b8c9d0e1f2g3h4i5j', groupId: 'group2' },
-                    { id: 13, address: '0x3h8c9d0e1f2g3h4i5j6k', groupId: 'group2' },
-                    { id: 14, address: '0x4i9d0e1f2g3h4i5j6k7l', groupId: 'group2' },
-                    { id: 15, address: '0x5j0e1f2g3h4i5j6k7l8m', groupId: 'group2' }
-                ];
-                if (!groups.some(g => g.id === 'group1')) {
-                    groups.push({ id: 'group1', name: '测试分组1' });
-                }
-                if (!groups.some(g => g.id === 'group2')) {
-                    groups.push({ id: 'group2', name: '测试分组2' });
-                }
-            }
-            const walletsByGroup = {};
-            groups.forEach(group => {
-                walletsByGroup[group.id] = {
-                    name: group.name,
-                    wallets: []
-                };
-            });
-            wallets.forEach(wallet => {
-                let groupId = wallet.groupId || 'default';
-                if (!walletsByGroup[groupId]) {
-                    groupId = 'default';
-                }
-                if (walletsByGroup[groupId]) {
-                    walletsByGroup[groupId].wallets.push({
-                        id: wallet.id,
-                        address: wallet.address || '',
-                        groupId: groupId
-                    });
-                }
-            });
-            let totalWallets = 0;
-            Object.values(walletsByGroup).forEach(group => {
-                totalWallets += group.wallets.length;
-            });
-            if (!window._walletGroupPages) window._walletGroupPages = {};
-            const PAGE_SIZE = 10;
-            const walletListHtml = [];
-            walletListHtml.push(`
-                <div class="selection-actions">
-                    <button class="btn-link" id="selectAllWallets">全选</button>
-                    <button class="btn-link" id="invertWalletSelection">反选</button>
-                    <div class="wallet-search-container">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="search" placeholder="搜索钱包..." id="walletSearchInput">
-                    </div>
-                </div>
-            `);
-            walletListHtml.push(`<div class="wallet-group-tabs">`);
-            walletListHtml.push(`<div class="group-tab-buttons">`);
-            const groupIds = Object.keys(walletsByGroup);
-            groupIds.forEach((groupId, index) => {
-                const group = walletsByGroup[groupId];
-                if (group.wallets.length > 0) {
-                    const isActive = index === 0 ? 'active' : '';
-                    walletListHtml.push(`
-                        <button class="group-tab-btn ${isActive}" data-group="${groupId}">
-                            ${group.name} <span class="wallet-count">(${group.wallets.length})</span>
-                        </button>
-                    `);
-                }
-            });
-            walletListHtml.push(`</div>`);
-            walletListHtml.push(`<div class="wallets-scroll-container" id="walletsScrollContainer">`);
-            let firstTabSet = false;
-            groupIds.forEach((groupId, index) => {
-                const group = walletsByGroup[groupId];
-                if (group.wallets.length > 0) {
-                    if (typeof window._walletGroupPages[groupId] !== 'number') window._walletGroupPages[groupId] = 1;
-                    const currentPage = window._walletGroupPages[groupId];
-                    const totalPages = Math.ceil(group.wallets.length / PAGE_SIZE);
-                    const isActive = !firstTabSet ? 'active' : '';
-                    if (!firstTabSet) firstTabSet = true;
-                    walletListHtml.push(`<div class="group-tab-content ${isActive}" data-group="${groupId}">`);
-                    const startIdx = (currentPage - 1) * PAGE_SIZE;
-                    const endIdx = Math.min(startIdx + PAGE_SIZE, group.wallets.length);
-                    for (let i = startIdx; i < endIdx; i++) {
-                        const wallet = group.wallets[i];
-                        let displayAddress = wallet.address;
-                        if (displayAddress && displayAddress.length > 12) {
-                            displayAddress = displayAddress.substring(0, 6) + '...' + displayAddress.substring(displayAddress.length - 4);
-                        }
-                        // checked属性根据全局Set决定
-                        const checked = window._selectedWalletIds.has(String(wallet.id)) ? 'checked' : '';
-                        walletListHtml.push(`
-                            <div class="wallet-cb-item">
-                                <input type="checkbox" id="wallet_${wallet.id}" data-address="${wallet.address}" data-group="${groupId}" value="${wallet.id}" ${checked}>
-                                <label for="wallet_${wallet.id}">${displayAddress}</label>
-                            </div>
-                        `);
-                    }
-                    if (totalPages > 1) {
-                        walletListHtml.push(`
-                            <div class="wallet-pagination" data-group="${groupId}">
-                                <button class="page-button prev-page" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>
-                                <span class="page-info">第 <span class="current-page-num">${currentPage}</span>/${totalPages} 页</span>
-                                <button class="page-button next-page" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>
-                            </div>
-                        `);
-                    }
-                    walletListHtml.push(`</div>`);
-                }
-            });
-            walletListHtml.push(`</div>`);
-            walletListHtml.push(`</div>`);
-            walletListHtml.push(`
-                <div class="wallet-list-footer">
-                    <p class="selected-count">已选: <span id="selectedWalletCount">0</span> 个钱包（共 ${totalWallets} 个）</p>
-                </div>
-            `);
-            walletSelectionList.innerHTML = walletListHtml.join('');
-            // 绑定分组选项卡切换事件
-            const tabButtons = container.querySelectorAll('.group-tab-btn');
-            const tabContents = container.querySelectorAll('.group-tab-content');
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const group = btn.getAttribute('data-group');
-                    tabButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    tabContents.forEach(content => {
-                        if (content.getAttribute('data-group') === group) {
-                            content.classList.add('active');
-                        } else {
-                            content.classList.remove('active');
-                        }
-                    });
+        const groupsResult = await window.electron.ipcRenderer.invoke('db:getGroups');
+        let groups = [];
+        if (Array.isArray(groupsResult)) {
+            groups = groupsResult;
+        } else if (groupsResult && typeof groupsResult === 'object' && groupsResult.data) {
+            groups = groupsResult.data;
+        }
+        if (!groups.some(g => g.id === 'default')) {
+            groups.push({ id: 'default', name: '默认分组' });
+        }
+        const walletsResult = await window.electron.ipcRenderer.invoke('db:getWallets');
+        let wallets = [];
+        if (walletsResult && Array.isArray(walletsResult.wallets)) {
+            wallets = walletsResult.wallets;
+        } else if (Array.isArray(walletsResult)) {
+            wallets = walletsResult;
+        } else if (walletsResult && typeof walletsResult === 'object' && walletsResult.data) {
+            wallets = walletsResult.data;
+        } else if (walletsResult && typeof walletsResult === 'object' && walletsResult.wallets) {
+             wallets = Array.isArray(walletsResult.wallets) ? walletsResult.wallets : Object.values(walletsResult.wallets);
+        }
+        if (!wallets || wallets.length === 0) {
+             wallets = [
+                { id: 1, address: '0x7fa092e525b65416305601e1', groupId: 'default' },
+                { id: 2, address: '0x9b1000eef33b3ed723641e0b', groupId: 'default' },
+                { id: 3, address: '0xb5ce6ddd55674c05dd3576', groupId: 'group1' },
+                { id: 4, address: '0x4403c9610f64d4', groupId: 'group1' },
+                { id: 5, address: '0x5078cda55e3fc', groupId: 'group1' },
+                { id: 6, address: '0x6a1b2c3d4e5f6a7b8c9d', groupId: 'default' },
+                { id: 7, address: '0x7b2c3d4e5f6a7b8c9d0e', groupId: 'default' },
+                { id: 8, address: '0x8c3d4e5f6a7b8c9d0e1f', groupId: 'default' },
+                { id: 9, address: '0x9d4e5f6a7b8c9d0e1f2g', groupId: 'default' },
+                { id: 10, address: '0x0e5f6a7b8c9d0e1f2g3h', groupId: 'default' },
+                { id: 11, address: '0x1f6a7b8c9d0e1f2g3h4i', groupId: 'group2' },
+                { id: 12, address: '0x2g7b8c9d0e1f2g3h4i5j', groupId: 'group2' },
+                { id: 13, address: '0x3h8c9d0e1f2g3h4i5j6k', groupId: 'group2' },
+                { id: 14, address: '0x4i9d0e1f2g3h4i5j6k7l', groupId: 'group2' },
+                { id: 15, address: '0x5j0e1f2g3h4i5j6k7l8m', groupId: 'group2' }
+            ];
+            if (!groups.some(g => g.id === 'group1')) groups.push({ id: 'group1', name: '测试分组1' });
+            if (!groups.some(g => g.id === 'group2')) groups.push({ id: 'group2', name: '测试分组2' });
+        }
+        const walletsByGroup = {};
+        groups.forEach(group => {
+            walletsByGroup[group.id] = {
+                name: group.name,
+                wallets: []
+            };
+        });
+        wallets.forEach(wallet => {
+            let groupId = wallet.groupId || 'default';
+            if (!walletsByGroup[groupId]) groupId = 'default';
+            if (walletsByGroup[groupId]) {
+                walletsByGroup[groupId].wallets.push({
+                    id: wallet.id,
+                    address: wallet.address || '',
+                    groupId: groupId
                 });
+            }
+        });
+        let totalWallets = wallets.length;
+        const walletListHtml = [];
+        walletListHtml.push(`
+            <div class="selection-actions">
+                <button class="btn-link" id="selectAllWallets">全选</button>
+                <button class="btn-link" id="invertWalletSelection">反选</button>
+                <div class="wallet-search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="search" placeholder="搜索钱包..." id="walletSearchInput">
+                </div>
+            </div>
+        `);
+        walletListHtml.push(`<div class="wallet-group-tabs">`);
+        walletListHtml.push(`<div class="group-tab-buttons">`);
+        const groupIds = Object.keys(walletsByGroup);
+        groupIds.forEach((groupId, index) => {
+            const group = walletsByGroup[groupId];
+            if (group.wallets.length > 0) {
+                const isActive = index === 0 ? 'active' : '';
+                walletListHtml.push(`
+                    <button class="group-tab-btn ${isActive}" data-group="${groupId}">
+                        ${group.name} <span class="wallet-count">(${group.wallets.length})</span>
+                    </button>
+                `);
+            }
+        });
+        walletListHtml.push(`</div>`);
+        walletListHtml.push(`<div class="wallets-scroll-container" id="walletsScrollContainer">`);
+        let firstTabSet = false;
+        groupIds.forEach((groupId, index) => {
+            const group = walletsByGroup[groupId];
+            if (group.wallets.length > 0) {
+                const isActive = !firstTabSet ? 'active' : '';
+                if (!firstTabSet) firstTabSet = true;
+                walletListHtml.push(`<div class="group-tab-content ${isActive}" data-group="${groupId}">`);
+                group.wallets.forEach(wallet => {
+                    let displayAddress = wallet.address;
+                    if (displayAddress && displayAddress.length > 12) {
+                        displayAddress = displayAddress.substring(0, 6) + '...' + displayAddress.substring(displayAddress.length - 4);
+                    }
+                    const checked = window._selectedWalletIds.has(String(wallet.id)) ? 'checked' : '';
+                    walletListHtml.push(`
+                        <div class="wallet-cb-item">
+                            <input type="checkbox" id="wallet_${wallet.id}" data-address="${wallet.address}" data-group="${groupId}" value="${wallet.id}" ${checked}>
+                            <label for="wallet_${wallet.id}">${displayAddress}</label>
+                        </div>
+                    `);
+                });
+                walletListHtml.push(`</div>`);
+            }
+        });
+        walletListHtml.push(`</div>`);
+        walletListHtml.push(`</div>`);
+        walletListHtml.push(`
+            <div class="wallet-list-footer">
+                <p class="selected-count">已选: <span id="selectedWalletCount">0</span> 个钱包（共 ${totalWallets} 个）</p>
+            </div>
+        `);
+        // **** 渲染HTML ****
+        walletSelectionList.innerHTML = walletListHtml.join('');
+
+        // **** 查询DOM元素 ****
+        const tabButtons = container.querySelectorAll('.group-tab-btn');
+        const tabContents = container.querySelectorAll('.group-tab-content');
+        const checkboxes = container.querySelectorAll('#walletSelectionList input[type="checkbox"]');
+        // 在DOM更新后查询按钮
+        selectAllBtn = container.querySelector('#selectAllWallets');
+        invertBtn = container.querySelector('#invertWalletSelection');
+        searchInput = container.querySelector('#walletSearchInput');
+
+        // **** 定义辅助函数 ****
+        function updateSelectAllBtnText() {
+            if (!selectAllBtn) {
+                // console.warn("updateSelectAllBtnText called before selectAllBtn is found");
+                return; // 如果按钮不存在，则不执行
+            }
+            const visibleCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
+            const allCheckedInGroup = visibleCheckboxes.length > 0 && visibleCheckboxes.every(cb => cb.checked);
+            selectAllBtn.textContent = allCheckedInGroup ? '取消全选' : '全选';
+        }
+
+        // **** 绑定事件 ****
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const group = btn.getAttribute('data-group');
+                tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.getAttribute('data-group') === group) {
+                        content.classList.add('active');
+                    }
+                });
+                updateSelectAllBtnText(); // 切换分组后更新按钮状态
             });
-            // 绑定分页按钮事件
-            const paginations = container.querySelectorAll('.wallet-pagination');
-            paginations.forEach(pagination => {
-                const groupId = pagination.getAttribute('data-group');
-                const prevBtn = pagination.querySelector('.prev-page');
-                const nextBtn = pagination.querySelector('.next-page');
-                if (prevBtn) {
-                    prevBtn.addEventListener('click', () => {
-                        if (window._walletGroupPages[groupId] > 1) {
-                            window._walletGroupPages[groupId]--;
-                            loadWalletList(container);
-                        }
-                    });
+        });
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const walletId = String(checkbox.value);
+                if (checkbox.checked) {
+                    window._selectedWalletIds.add(walletId);
+                } else {
+                    window._selectedWalletIds.delete(walletId);
                 }
-                if (nextBtn) {
-                    nextBtn.addEventListener('click', () => {
-                        const totalPages = Math.ceil(walletsByGroup[groupId].wallets.length / PAGE_SIZE);
-                        if (window._walletGroupPages[groupId] < totalPages) {
-                            window._walletGroupPages[groupId]++;
-                            loadWalletList(container);
-                        }
-                    });
-                }
+                updateSelectedWalletCount(container);
+                updateSelectAllBtnText(); // 单选后也更新按钮状态
             });
-            // 绑定钱包选择事件（多选核心逻辑）
-            const checkboxes = container.querySelectorAll('#walletSelectionList input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', (e) => {
-                    const walletId = String(checkbox.value);
-                    if (checkbox.checked) {
+        });
+
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                const activeGroupCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
+                const allChecked = activeGroupCheckboxes.length > 0 && activeGroupCheckboxes.every(cb => cb.checked);
+                activeGroupCheckboxes.forEach(cb => {
+                    const walletId = String(cb.value);
+                    if (!allChecked) {
+                        cb.checked = true;
+                        window._selectedWalletIds.add(walletId);
+                    } else {
+                        cb.checked = false;
+                        window._selectedWalletIds.delete(walletId);
+                    }
+                });
+                updateSelectedWalletCount(container);
+                updateSelectAllBtnText();
+            });
+        } else {
+             console.error("#selectAllWallets button not found.");
+        }
+
+        if (invertBtn) {
+            invertBtn.addEventListener('click', () => {
+                const activeGroupCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
+                activeGroupCheckboxes.forEach(cb => {
+                    cb.checked = !cb.checked;
+                    const walletId = String(cb.value);
+                    if (cb.checked) {
                         window._selectedWalletIds.add(walletId);
                     } else {
                         window._selectedWalletIds.delete(walletId);
                     }
-                    updateSelectedWalletCount(container);
                 });
+                updateSelectedWalletCount(container);
+                updateSelectAllBtnText();
             });
-            // 全选/反选按钮逻辑
-            const selectAllBtn = container.querySelector('#selectAllWallets');
-            const invertBtn = container.querySelector('#invertWalletSelection');
-            if (selectAllBtn) {
-                selectAllBtn.addEventListener('click', () => {
-                    // 只操作当前页
-                    const visibleCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
-                    const allChecked = visibleCheckboxes.every(cb => cb.checked);
-                    visibleCheckboxes.forEach(cb => {
-                        cb.checked = !allChecked;
-                        const walletId = String(cb.value);
-                        if (!allChecked) {
-                            window._selectedWalletIds.add(walletId);
-                        } else {
-                            window._selectedWalletIds.delete(walletId);
-                        }
-                    });
-                    updateSelectedWalletCount(container);
-                    // 更新按钮文本
-                    selectAllBtn.textContent = allChecked ? '全选' : '取消全选';
-                });
-            }
-            if (invertBtn) {
-                invertBtn.addEventListener('click', () => {
-                    // 只操作当前页
-                    const visibleCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
-                    visibleCheckboxes.forEach(cb => {
-                        cb.checked = !cb.checked;
-                        const walletId = String(cb.value);
-                        if (cb.checked) {
-                            window._selectedWalletIds.add(walletId);
-                        } else {
-                            window._selectedWalletIds.delete(walletId);
-                        }
-                    });
-                    updateSelectedWalletCount(container);
-                });
-            }
-            // 搜索功能，搜索时分页失效
-            const searchInput = container.querySelector('#walletSearchInput');
-            if (searchInput) {
-                searchInput.addEventListener('input', () => {
-                    const searchTerm = searchInput.value.toLowerCase().trim();
-                    const walletItems = container.querySelectorAll('.wallet-cb-item');
-                    if (searchTerm === '') {
-                        tabButtons.forEach(btn => {
-                            if (btn.classList.contains('active')) {
-                                const groupId = btn.getAttribute('data-group');
-                                tabContents.forEach(content => {
-                                    if (content.getAttribute('data-group') === groupId) {
-                                        content.classList.add('active');
-                                    } else {
-                                        content.classList.remove('active');
-                                    }
-                                });
-                            }
-                        });
-                        walletItems.forEach(item => {
-                            item.style.display = '';
-                        });
-                        container.querySelectorAll('.wallet-pagination').forEach(pg => pg.style.display = '');
-                    } else {
-                        tabContents.forEach(content => {
-                            content.classList.add('active');
-                        });
-                        walletItems.forEach(item => {
-                            const label = item.querySelector('label').textContent.toLowerCase();
-                            const isVisible = label.includes(searchTerm);
-                            item.style.display = isVisible ? '' : 'none';
-                        });
-                        container.querySelectorAll('.wallet-pagination').forEach(pg => pg.style.display = 'none');
-                    }
-                    updateSelectedWalletCount(container);
-                });
-            }
-            // 渲染后更新全选按钮文本
-            function updateSelectAllBtnText() {
-                if (!selectAllBtn) return;
-                const visibleCheckboxes = Array.from(container.querySelectorAll('.group-tab-content.active input[type="checkbox"]'));
-                const allChecked = visibleCheckboxes.length > 0 && visibleCheckboxes.every(cb => cb.checked);
-                selectAllBtn.textContent = allChecked ? '取消全选' : '全选';
-            }
-            updateSelectedWalletCount(container);
-            updateSelectAllBtnText();
-        } catch (error) {
-            walletSelectionList.innerHTML = `<div class="wallet-error">加载钱包数据出错: ${error.message}</div>`;
+        } else {
+            console.error("#invertWalletSelection button not found.");
         }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const walletItems = container.querySelectorAll('.wallet-cb-item');
+                const groupTabs = container.querySelector('.wallet-group-tabs');
+
+                if (searchTerm === '') {
+                    // 清除搜索，恢复分组视图
+                    if (groupTabs) groupTabs.style.display = '';
+                    tabButtons.forEach(btn => {
+                        if (btn.classList.contains('active')) {
+                            const groupId = btn.getAttribute('data-group');
+                            tabContents.forEach(content => {
+                                content.classList.remove('active');
+                                if (content.getAttribute('data-group') === groupId) {
+                                    content.classList.add('active');
+                                }
+                            });
+                        }
+                    });
+                    walletItems.forEach(item => {
+                        item.style.display = ''; // 显示所有钱包项
+                    });
+                    if(selectAllBtn) selectAllBtn.disabled = false;
+                    if(invertBtn) invertBtn.disabled = false;
+                } else {
+                    // 搜索时，隐藏分组tab按钮，显示所有分组内容区域以便搜索
+                    if (groupTabs) groupTabs.style.display = 'none';
+                    tabContents.forEach(content => {
+                        content.classList.add('active');
+                    });
+                    walletItems.forEach(item => {
+                        const labelElement = item.querySelector('label');
+                        const label = labelElement ? labelElement.textContent.toLowerCase() : '';
+                        const isVisible = label.includes(searchTerm);
+                        item.style.display = isVisible ? '' : 'none';
+                    });
+                    if(selectAllBtn) selectAllBtn.disabled = true;
+                    if(invertBtn) invertBtn.disabled = true;
+                }
+                updateSelectedWalletCount(container);
+                updateSelectAllBtnText();
+            });
+        } else {
+            console.error("#walletSearchInput not found.");
+        }
+
+        // **** 初始状态更新 ****
+        updateSelectedWalletCount(container);
+        updateSelectAllBtnText();
+
     } catch (error) {
-        const walletSelectionList = container.querySelector('#walletSelectionList');
-        if (walletSelectionList) {
-            walletSelectionList.innerHTML = `<div class="wallet-error">加载钱包列表失败: ${error.message}</div>`;
-        }
+        console.error("加载钱包列表时出错:", error);
+        walletSelectionList.innerHTML = `<div class="wallet-error">加载钱包数据出错: ${error.message || error}</div>`;
     }
 }
 
