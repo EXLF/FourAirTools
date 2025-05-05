@@ -1,7 +1,6 @@
 // Import helpers and modules
 import { setupFilteringAndSearch } from '../../components/tableHelper.js'; // Note: Using this for cards for now
 import { showModal } from '../../components/modal.js';
-import { addLogEntry } from '../../utils/index.js';
 // import * as table from './table.js'; // If using a table layout
 // import * as modals from './modals.js';
 // import * as actions from './actions.js';
@@ -12,13 +11,8 @@ import { addLogEntry } from '../../utils/index.js';
  */
 export function initScriptPluginPage(contentArea) {
     console.log("Initializing Script Plugins Page...");
-    loadAndRenderPlugins(contentArea);
-    setupFilteringAndSearch(contentArea, '.filters-bar', '#plugin-list-container .plugin-card', filterPluginCard);
-
-    const pluginContainer = contentArea.querySelector('#plugin-list-container');
-    if (pluginContainer) {
-        pluginContainer.addEventListener('click', handlePluginCardAction);
-    }
+    initializeScriptCards();
+    initializeSearchFunction();
 }
 
 /**
@@ -189,5 +183,172 @@ function openConfigPluginModal(pluginName, pluginId) {
             alert(`保存插件 "${pluginName}" 的配置 (未实现)`);
             // TODO: Implement saving config via IPC
         };
+    });
+}
+
+// 初始化脚本卡片
+function initializeScriptCards() {
+    const scriptCardsContainer = document.getElementById('scriptCardsContainer');
+    if (!scriptCardsContainer) return;
+    
+    // 清空容器
+    scriptCardsContainer.innerHTML = '';
+    
+    // 添加示例脚本卡片
+    const scriptCard = createScriptCard({
+        id: 'print123',
+        name: '打印123',
+        description: '简单的测试脚本，用于打印数字123。',
+        type: '本地脚本',
+        status: 'active',
+        imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png' // 添加示例图片URL
+    });
+    
+    // 添加第二个无图片的示例卡片
+    const scriptCard2 = createScriptCard({
+        id: 'noimage',
+        name: '无图片脚本',
+        description: '这个脚本没有图片，将显示默认图标。',
+        type: '本地脚本',
+        status: 'active'
+        // 没有imageUrl字段
+    });
+    
+    scriptCardsContainer.appendChild(scriptCard);
+    scriptCardsContainer.appendChild(scriptCard2);
+}
+
+// 创建脚本卡片元素
+function createScriptCard(scriptData) {
+    const card = document.createElement('div');
+    card.className = 'script-card';
+    card.setAttribute('data-script-id', scriptData.id);
+    
+    // 卡片图标部分 - 支持图片URL或默认图标
+    const iconHTML = scriptData.imageUrl 
+        ? `<div class="card-icon">
+             <img src="${scriptData.imageUrl}" alt="${scriptData.name}" class="script-image">
+           </div>`
+        : `<div class="card-icon code-icon">
+             <i class="fas fa-code"></i>
+           </div>`;
+    
+    card.innerHTML = `
+        ${iconHTML}
+        <div class="card-content">
+            <h3 class="card-title">${scriptData.name}</h3>
+            <p class="card-description">${scriptData.description}</p>
+        </div>
+        <div class="card-footer">
+            <span class="card-meta">${scriptData.type}</span>
+            <span class="card-status ${scriptData.status}">${scriptData.status === 'active' ? '可用' : '不可用'}</span>
+        </div>
+    `;
+    
+    // 绑定卡片点击事件
+    card.addEventListener('click', () => {
+        openScriptConfigModal(scriptData);
+    });
+    
+    return card;
+}
+
+/**
+ * 添加日志条目到日志容器
+ * @param {string} type - 日志类型：info, success, error, warning
+ * @param {string} message - 日志消息内容
+ * @param {HTMLElement} container - 日志容器元素
+ */
+function addLogEntry(type, message, container) {
+    const now = new Date();
+    const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    
+    // 简单直接的HTML插入方式
+    const html = `
+        <div class="log-entry ${type}">
+            <span class="time">${timeString}</span>
+            <span class="source">系统</span>
+            <span class="message">${message}</span>
+        </div>
+    `;
+    
+    // 添加到容器
+    container.insertAdjacentHTML('beforeend', html);
+    
+    // 自动滚动到底部
+    container.scrollTop = container.scrollHeight;
+}
+
+// 打开脚本配置模态框
+function openScriptConfigModal(scriptData) {
+    showModal('tpl-modal-run-plugin', async (modalElement) => {
+        const logContainer = modalElement.querySelector('#logContainer');
+        const startBtn = modalElement.querySelector('#modal-start-execution-btn');
+        
+        // 更新模态框标题
+        modalElement.querySelector('#run-plugin-name').textContent = scriptData.name;
+        
+        // 绑定关闭按钮事件
+        modalElement.querySelector('.close-btn').addEventListener('click', () => {
+            modalElement.closest('.modal-overlay').remove();
+        });
+        
+        // 绑定底部关闭按钮事件
+        modalElement.querySelector('#closeConfigBtn').addEventListener('click', () => {
+            modalElement.closest('.modal-overlay').remove();
+        });
+        
+        // 绑定运行按钮事件
+        startBtn.onclick = async () => {
+            try {
+                // 清空之前的日志
+                logContainer.innerHTML = '';
+                
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
+                
+                // 添加初始日志
+                addLogEntry('info', '开始执行脚本...', logContainer);
+                
+                // 执行脚本
+                await window.electron.ipcRenderer.invoke('execute-simple-script');
+                
+                // 添加成功日志
+                addLogEntry('success', '脚本执行成功！', logContainer);
+                
+                // 更新按钮状态
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-check"></i> 执行完成';
+            } catch (error) {
+                addLogEntry('error', `执行出错: ${error.message}`, logContainer);
+                
+                // 更新按钮状态
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 执行失败';
+            }
+        };
+    });
+}
+
+// 初始化搜索功能
+function initializeSearchFunction() {
+    const searchInput = document.getElementById('scriptSearchInput');
+    if (!searchInput) return;
+    
+    const scriptCards = document.querySelectorAll('.script-card');
+    
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        scriptCards.forEach(card => {
+            const title = card.querySelector('.card-title').textContent.toLowerCase();
+            const description = card.querySelector('.card-description').textContent.toLowerCase();
+            
+            if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
     });
 } 

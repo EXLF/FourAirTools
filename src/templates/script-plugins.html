@@ -1,26 +1,67 @@
-<div class="page-header">
-    <h2>脚本插件</h2>
+<!-- 脚本插件页面 -->
+<div class="page-container">
+    <div class="page-header">
+        <h2>脚本插件</h2>
+        <div class="search-box">
+            <input type="text" id="scriptSearchInput" placeholder="搜索脚本...">
+            <i class="fas fa-search"></i>
+        </div>
+    </div>
+
+    <!-- 脚本卡片网格 -->
+    <div class="script-cards-grid" id="scriptCardsContainer">
+        <!-- 示例卡片 - 将由JavaScript动态生成 -->
+        <div class="script-card" data-script-id="print123">
+            <div class="card-icon">
+                <i class="fas fa-terminal"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">打印123</h3>
+                <p class="card-description">简单的测试脚本，用于打印数字123。</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-meta">本地脚本</span>
+                <span class="card-status active">可用</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="filters-bar">
-    <div class="filter-group">
-        <i class="fa fa-filter filter-icon"></i>
-        <span class="filter-label">筛选:</span>
-        <select id="plugin-type-filter" class="select-filter">
-            <option value="">所有类型</option>
-            <option value="local">本地脚本</option>
-        </select>
-        <select id="plugin-function-filter" class="select-filter">
-            <option value="">所有功能</option>
-            <option value="test">测试</option>
-        </select>
+<!-- 运行脚本模态框模板 -->
+<template id="tpl-modal-run-plugin">
+    <div class="modal-overlay">
+        <div class="modal run-modal">
+            <div class="modal-header">
+                <h3>脚本配置 - <span id="run-plugin-name">打印123</span></h3>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-content">
+                <!-- 执行配置部分 -->
+                <div class="run-config-section">
+                    <h4>执行配置</h4>
+                    <div class="config-form-group">
+                        <label>执行模式</label>
+                        <select id="executionMode">
+                            <option value="single">单次执行</option>
+                            <option value="batch">批量执行</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 执行日志部分 -->
+                <div class="run-log-section">
+                    <h4>执行日志</h4>
+                    <div id="logContainer" class="modal-log-container">
+                        <!-- 日志内容将在这里动态显示 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeConfigBtn">关闭</button>
+                <button class="btn btn-primary" id="modal-start-execution-btn">
+                    <i class="fas fa-play"></i> 运行脚本
+                </button>
+            </div>
+        </div>
     </div>
-    <div class="search-box table-search-box">
-        <i class="fa fa-search search-icon"></i>
-        <input type="text" class="table-search-input" placeholder="搜索插件名称、描述、作者...">
-    </div>
-</div>
-
-<div class="plugin-container card-view" id="plugin-list-container">
-    <!-- 插件卡片将通过 JS 动态加载 -->
-</div> 
+</template> 
