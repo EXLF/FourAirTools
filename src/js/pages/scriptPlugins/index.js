@@ -9,6 +9,7 @@ import { renderScriptDetailView, setCurrentScriptId, addLogEntry } from './detai
 // 视图状态
 let currentView = 'cards'; // 'cards' or 'detail'
 let contentAreaRef = null; // 保存内容区域引用
+let availableScripts = []; // <--- 新增：用于存储从后端获取的脚本
 
 /**
  * 初始化脚本插件页面。
@@ -30,7 +31,7 @@ export function initScriptPluginPage(contentArea) {
  * 初始化卡片视图
  * @param {HTMLElement} contentArea - 内容区域元素
  */
-function initializeCardsView(contentArea) {
+async function initializeCardsView(contentArea) {
     // 设置当前视图
     currentView = 'cards';
     
@@ -48,28 +49,81 @@ function initializeCardsView(contentArea) {
              </div>
             <div class="filter-actions">
                 <select id="scriptTypeFilter">
-                    <option value="">全部类型</option>
-                    <option value="local">本地脚本</option>
-                    <option value="remote">远程脚本</option>
+                    <option value="">全部分类</option>
+                    <!-- 类型/分类选项可以后续动态生成 -->
                 </select>
                 <select id="scriptStatusFilter">
                     <option value="">全部状态</option>
                     <option value="active">可用</option>
-                    <option value="inactive">不可用</option>
+                    <!-- 可以添加其他状态 -->
                 </select>
                  </div>
              </div>
         
         <div class="script-cards-grid" id="scriptCardsContainer">
-            <!-- 脚本卡片将在这里动态生成 -->
+            <div class="loading-indicator">正在加载脚本列表...</div> <!-- 添加加载提示 -->
          </div>
     `;
     
     // 初始化脚本卡片
-    initializeScriptCards();
+    await loadAndRenderScriptCards();
     
     // 初始化搜索和筛选功能
     initializeSearchFunction();
+    // (可选) 动态填充筛选器选项
+    populateFilters();
+}
+
+/**
+ * 从后端加载脚本并渲染卡片
+ */
+async function loadAndRenderScriptCards() {
+    const scriptCardsContainer = document.getElementById('scriptCardsContainer');
+    if (!scriptCardsContainer) return;
+    
+    try {
+        console.log("Fetching scripts from backend...");
+        const result = await window.scriptAPI.getAllScripts();
+        console.log("Scripts fetched:", result);
+
+        scriptCardsContainer.innerHTML = ''; // 清空加载提示或旧卡片
+
+        if (result && result.success && Array.isArray(result.scripts)) {
+            availableScripts = result.scripts; // 存储获取到的脚本
+
+            if (availableScripts.length === 0) {
+                 scriptCardsContainer.innerHTML = '<p>未找到可用脚本。</p>';
+                 return;
+            }
+
+            // 创建脚本卡片
+            availableScripts.forEach(scriptMetadata => {
+                 // 准备传递给 createScriptCard 的数据
+                 const scriptDataForCard = {
+                     id: scriptMetadata.id,
+                     name: scriptMetadata.name,
+                     description: scriptMetadata.description || '无描述',
+                     // 使用 category 作为 type，如果没有则默认为 '未知分类'
+                     type: scriptMetadata.category || '未知分类',
+                     // 假设所有从后端获取的脚本都是可用的
+                     status: 'active',
+                     // 传递图标信息给 createScriptCard
+                     icon: scriptMetadata.icon,
+                     imageUrl: scriptMetadata.imageUrl // <--- 新增：传递图片URL
+                 };
+                 const card = createScriptCard(scriptDataForCard);
+                 scriptCardsContainer.appendChild(card);
+            });
+        } else {
+            console.error("Failed to load scripts:", result ? result.error : 'Unknown error');
+            scriptCardsContainer.innerHTML = `<p class="error-message">加载脚本列表失败: ${result ? result.error : '未知错误'}</p>`;
+            availableScripts = []; // 清空脚本列表
+        }
+    } catch (error) {
+        console.error("Error fetching scripts:", error);
+        scriptCardsContainer.innerHTML = `<p class="error-message">加载脚本列表时出错: ${error.message}</p>`;
+        availableScripts = []; // 清空脚本列表
+    }
 }
 
 /**
@@ -82,16 +136,24 @@ function initializeDetailView(contentArea, scriptId) {
     currentView = 'detail';
     setCurrentScriptId(scriptId);
     
-    // 获取脚本数据
-    const scriptData = getScriptData(scriptId);
-    if (!scriptData) {
-        console.error(`Script with ID ${scriptId} not found.`);
+    // 从存储的真实脚本数据中获取
+    const scriptMetadata = getScriptData(scriptId);
+    if (!scriptMetadata) {
+        console.error(`Script with ID ${scriptId} not found in available scripts.`);
+        // 可以显示错误消息或导航回列表
+        addLogEntry('error', '系统', `无法加载脚本 ${scriptId} 的数据。`);
         navigateToScriptCards();
         return;
     }
     
-    // 初始化详情视图，使用从detail.js导入的函数
-    renderScriptDetailView(contentArea, scriptData);
+    console.log(`Loading detail view for script: ${scriptId}`, scriptMetadata);
+    
+    // 注意：renderScriptDetailView 需要的是 scriptData 对象，其结构可能与 metadata 不同
+    // 我们需要确保传递给它的对象包含它需要的所有属性（如 name, description, author, createdAt, updatedAt 等）
+    // 这里直接传递后端返回的 metadata，如果 renderScriptDetailView 内部需要特定字段，
+    // 可能需要调整 renderScriptDetailView 或在这里适配数据结构。
+    // 假设 renderScriptDetailView 能处理 metadata 或已调整。
+    renderScriptDetailView(contentArea, scriptMetadata);
 }
 
 /**
@@ -114,125 +176,47 @@ function loadScriptDetail(scriptId) {
 }
 
 /**
- * 获取脚本数据
+ * 从已加载的脚本列表中获取脚本数据 (元数据)
  * @param {string} scriptId - 脚本ID
- * @returns {Object|null} 脚本数据对象或null
+ * @returns {Object|null} 脚本元数据对象或null
  */
 function getScriptData(scriptId) {
-    // 模拟从数据源获取脚本数据
-    const scripts = [
-        {
-            id: 'print123',
-            name: '打印123',
-            description: '简单的测试脚本，用于打印数字123。',
-            type: '本地脚本',
-            status: 'active',
-            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png',
-            author: '系统',
-            createdAt: '2024-05-01',
-            updatedAt: '2024-05-29'
-        },
-        {
-            id: 'noimage',
-            name: '无图片脚本',
-            description: '这个脚本没有图片，将显示默认图标。演示发送HTTP请求以获取数据。',
-            type: '本地脚本',
-            status: 'active',
-            author: '系统',
-            createdAt: '2024-05-10',
-            updatedAt: '2024-05-28'
-        },
-        {
-            id: 'script3',
-            name: '示例脚本3',
-            description: '远程脚本示例，目前处于不可用状态。',
-            type: '远程脚本',
-            status: 'inactive',
-            author: 'Remote User',
-            createdAt: '2024-05-15',
-            updatedAt: '2024-05-20'
-        },
-        {
-            id: 'script4',
-            name: '示例脚本4',
-            description: '另一个本地脚本示例，用于测试各种功能。',
-            type: '本地脚本',
-            status: 'active',
-            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png',
-            author: '系统',
-            createdAt: '2024-05-12',
-            updatedAt: '2024-05-25'
-        }
-    ];
-    
-    return scripts.find(script => script.id === scriptId) || null;
+    // <--- 不再使用模拟数据，从 availableScripts 查找
+    console.log(`Searching for scriptId: ${scriptId} in`, availableScripts);
+    return availableScripts.find(script => script.id === scriptId) || null;
 }
 
-// 初始化脚本卡片
-function initializeScriptCards() {
-    const scriptCardsContainer = document.getElementById('scriptCardsContainer');
-    if (!scriptCardsContainer) return;
-    
-    // 清空容器
-    scriptCardsContainer.innerHTML = '';
-    
-    // 获取所有脚本数据
-    const scripts = [
-        {
-            id: 'print123',
-            name: '打印123',
-            description: '简单的测试脚本，用于打印数字123。',
-            type: '本地脚本',
-            status: 'active',
-            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png'
-        },
-        {
-            id: 'noimage',
-            name: '无图片脚本',
-            description: '这个脚本没有图片，将显示默认图标。',
-            type: '本地脚本',
-            status: 'active'
-        },
-        {
-            id: 'script3',
-            name: '示例脚本3',
-            description: '远程脚本示例，目前处于不可用状态。',
-            type: '远程脚本',
-            status: 'inactive'
-        },
-        {
-            id: 'script4',
-            name: '示例脚本4',
-            description: '另一个本地脚本示例，用于测试各种功能。',
-            type: '本地脚本',
-            status: 'active',
-            imageUrl: 'https://public.rootdata.com/images/b6/1745979546369.png'
-        }
-    ];
-    
-    // 创建脚本卡片
-    scripts.forEach(scriptData => {
-        const card = createScriptCard(scriptData);
-        scriptCardsContainer.appendChild(card);
-    });
-}
-
-// 创建脚本卡片元素
+/**
+ * 创建脚本卡片元素
+ * @param {Object} scriptData - 包含脚本信息的对象
+ *            { id, name, description, type, status, icon, imageUrl }
+ * @returns {HTMLElement} 卡片DOM元素
+ */
 function createScriptCard(scriptData) {
     const card = document.createElement('div');
     card.className = 'script-card';
     card.setAttribute('data-script-id', scriptData.id);
-    card.setAttribute('data-script-type', scriptData.type === '远程脚本' ? 'remote' : 'local');
+    card.setAttribute('data-script-type', scriptData.type.toLowerCase());
     card.setAttribute('data-script-status', scriptData.status);
     
-    // 卡片图标部分 - 支持图片URL或默认图标
-    const iconHTML = scriptData.imageUrl 
-        ? `<div class="card-icon">
-             <img src="${scriptData.imageUrl}" alt="${scriptData.name}" class="script-image">
-           </div>`
-        : `<div class="card-icon code-icon">
-             <i class="fas fa-code"></i>
-           </div>`;
+    // 卡片图标部分 - 优先级：imageUrl > icon > 默认图标
+    let iconHTML;
+    if (scriptData.imageUrl) {
+        // 优先使用图片URL
+        iconHTML = `<div class="card-icon"> <!-- 保持原有图片容器类名 -->
+                       <img src="${scriptData.imageUrl}" alt="${scriptData.name}" class="script-image"> <!-- 保持原有图片类名 -->
+                    </div>`;
+    } else if (scriptData.icon) {
+        // 其次使用 FontAwesome 图标
+        iconHTML = `<div class="card-icon fa-icon">
+                       <i class="fas fa-${scriptData.icon}"></i>
+                    </div>`;
+    } else {
+        // 最后使用默认代码图标
+        iconHTML = `<div class="card-icon code-icon">
+                       <i class="fas fa-code"></i>
+                    </div>`;
+    }
     
     card.innerHTML = `
         ${iconHTML}
@@ -293,11 +277,14 @@ function filterScriptCards() {
     cards.forEach(card => {
         const title = card.querySelector('.card-title').textContent.toLowerCase();
         const description = card.querySelector('.card-description').textContent.toLowerCase();
+        // 读取 data-script-type 属性进行类型匹配
         const type = card.getAttribute('data-script-type');
         const status = card.getAttribute('data-script-status');
         
         const matchesSearch = title.includes(searchTerm) || description.includes(searchTerm);
-        const matchesType = !typeValue || type === typeValue;
+        // 类型筛选：如果选了 '全部类型' (value 为空) 则匹配，否则比较 type 和 typeValue
+        // 确保比较时大小写一致，这里 data-script-type 已经是小写
+        const matchesType = !typeValue || type === typeValue.toLowerCase();
         const matchesStatus = !statusValue || status === statusValue;
         
         if (matchesSearch && matchesType && matchesStatus) {
@@ -309,172 +296,35 @@ function filterScriptCards() {
 }
 
 /**
- * 初始化脚本详情页面
- * @param {Object} scriptInfo - 脚本信息对象
+ * (新增) 动态填充筛选器选项
  */
-function setupScriptDetailView(scriptInfo) {
-    const container = document.querySelector('.script-detail-wrapper');
-    if (!container) {
-        console.error('脚本详情页容器不存在');
-        return;
+function populateFilters() {
+    const typeFilter = document.getElementById('scriptTypeFilter');
+    if (!typeFilter || !availableScripts) return;
+
+    // 获取所有唯一的分类
+    const categories = [...new Set(availableScripts.map(script => script.category || '未知分类'))];
+
+    // 清空现有选项 (保留 "全部类型")
+    while (typeFilter.options.length > 1) {
+        typeFilter.remove(1);
     }
-    
-    // 确保能访问到详情页模块
-    if (window.ScriptDetail && typeof window.ScriptDetail.init === 'function') {
-        window.ScriptDetail.init(container, scriptInfo);
-    } else {
-        console.error('未找到ScriptDetail模块');
-    }
-}
 
-/**
- * 导航到脚本详情页
- * @param {string} scriptId - 脚本ID
- */
-function navigateToScriptDetail(scriptId) {
-    // 暂时使用模拟数据
-    const scriptInfo = getMockScriptInfo(scriptId);
-    
-    // 隐藏卡片视图，显示详情视图
-    document.querySelector('.script-cards-wrapper').style.display = 'none';
-    document.querySelector('.script-detail-wrapper').style.display = 'block';
-    
-    // 初始化详情页
-    setupScriptDetailView(scriptInfo);
-    
-    // 更新页面URL（如果需要）
-    // history.pushState(null, null, `?view=detail&id=${scriptId}`);
-}
-
-/**
- * 导航回脚本列表页
- */
-function navigateToScriptList() {
-    document.querySelector('.script-cards-wrapper').style.display = 'flex';
-    document.querySelector('.script-detail-wrapper').style.display = 'none';
-    
-    // 更新页面URL（如果需要）
-    // history.pushState(null, null, '?view=list');
-}
-
-/**
- * 获取模拟脚本数据
- * @param {string} scriptId - 脚本ID
- * @returns {Object} 脚本信息对象
- */
-function getMockScriptInfo(scriptId) {
-    // 模拟脚本数据库
-    const mockScripts = [
-        {
-            id: 'script1',
-            name: 'Uniswap自动兑换',
-            description: '在Uniswap上自动进行ETH与指定代币的兑换交易',
-            type: 'swap',
-            status: 'active',
-            updateTime: '2023-05-15',
-            config: {
-                tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f', // DAI
-                slippage: 0.5,
-                useGasOptimizer: true
-            },
-            requiresWallet: true
-        },
-        {
-            id: 'script2',
-            name: 'NFT抢购助手',
-            description: '监控NFT上新并自动参与抢购，支持多市场',
-            type: 'mint',
-            status: 'active',
-            updateTime: '2023-06-22',
-            config: {
-                marketplaces: ['opensea', 'blur'],
-                maxPrice: 0.5,
-                autoConfirm: false
-            },
-            requiresWallet: true
-        },
-        {
-            id: 'script3',
-            name: '多链资产查询',
-            description: '一键查询多链钱包余额和代币价值',
-            type: 'query',
-            status: 'active',
-            updateTime: '2023-04-08',
-            config: {
-                chains: ['ethereum', 'bsc', 'polygon'],
-                includeNFTs: true,
-                refreshInterval: 60
-            },
-            requiresWallet: true
-        },
-        {
-            id: 'script4',
-            name: '跨链资产桥接',
-            description: '在不同区块链网络间安全转移资产',
-            type: 'bridge',
-            status: 'active',
-            updateTime: '2023-07-11',
-            config: {
-                sourceChain: 'ethereum',
-                targetChain: 'polygon',
-                useFastMode: false
-            },
-            requiresWallet: true
-        }
-    ];
-    
-    return mockScripts.find(script => script.id === scriptId) || mockScripts[0];
-}
-
-/**
- * 初始化页面
- */
-function init() {
-    // 创建脚本卡片
-    const scriptCards = [
-        { id: 'script1', name: 'Uniswap自动兑换', description: '在Uniswap上自动进行ETH与指定代币的兑换交易', status: 'active' },
-        { id: 'script2', name: 'NFT抢购助手', description: '监控NFT上新并自动参与抢购，支持多市场', status: 'active' },
-        { id: 'script3', name: '多链资产查询', description: '一键查询多链钱包余额和代币价值', status: 'active' },
-        { id: 'script4', name: '跨链资产桥接', description: '在不同区块链网络间安全转移资产', status: 'active' },
-        { id: 'script5', name: '交易数据分析', description: '分析历史交易数据，提供优化建议', status: 'inactive' },
-        { id: 'script6', name: '定时DCA投资', description: '设置定时定额购买策略，实现数字资产的平均成本投资', status: 'inactive' }
-    ];
-    
-    const cardsContainer = document.querySelector('.script-cards');
-    scriptCards.forEach(card => {
-        const cardElement = createScriptCard(card);
-        cardsContainer.appendChild(cardElement);
-        
-        // 添加点击事件以跳转到详情页
-        cardElement.addEventListener('click', () => {
-            navigateToScriptDetail(card.id);
-        });
+    // 添加分类选项
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.toLowerCase(); // 使用小写值
+        option.textContent = category;
+        typeFilter.appendChild(option);
     });
-    
-    // 绑定搜索功能
-    const searchInput = document.querySelector('.search-box input');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const keyword = this.value.toLowerCase().trim();
-            const cards = document.querySelectorAll('.script-card');
-            
-            cards.forEach(card => {
-                const name = card.querySelector('.card-title').textContent.toLowerCase();
-                const description = card.querySelector('.card-desc').textContent.toLowerCase();
-                
-                if (name.includes(keyword) || description.includes(keyword)) {
-                    card.style.display = 'flex';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-    }
-    
-    // 将函数导出到全局
-    window.navigateToScriptDetail = navigateToScriptDetail;
-    window.navigateToScriptList = navigateToScriptList;
 }
 
-// 在DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', init); 
+// 移除或注释掉不再使用的函数和模拟数据获取
+// function setupScriptDetailView(scriptInfo) { ... }
+// function navigateToScriptDetail(scriptId) { ... }
+// function navigateToScriptList() { ... }
+// function getMockScriptInfo(scriptId) { ... }
+// function init() { ... } // DOMContentLoaded 逻辑移至 initScriptPluginPage 或其调用者
+
+// 注意：原文件末尾的 DOMContentLoaded 事件监听器和 init 函数已被移除。
+// initScriptPluginPage 函数现在是此模块的入口点，应在导航到此页面时被调用。 
