@@ -92,51 +92,133 @@ module.exports = {
       try {
         logger.info("正在发送POST请求...");
         
-        let axiosProxyConfig = null;
+        // 构建更健壮的请求数据
+        const postData = {
+          wallets: results,
+          timestamp: new Date().toISOString(),
+          // 可以添加其他必要信息
+          client: "FourAir",
+          version: "1.0.0"
+        };
+        
+        // 更完整的请求头
+        const headers = {
+          'Content-Type': 'application/json',
+          'User-Agent': 'FourAir-Client/1.0',
+          'Accept': 'application/json'
+        };
+        
         if (selectedProxy) {
-            // --- 从 selectedProxy 构建 axios 的代理配置 ---
-            // selectedProxy 的结构可能类似 { type: 'HTTP', host: '...', port: ..., username?: '...', password?: '...' }
-            // 注意：需要根据实际 selectedProxy 结构调整
             logger.info(`使用代理: ${selectedProxy.type}://${selectedProxy.host}:${selectedProxy.port}`);
-            axiosProxyConfig = {
-                protocol: selectedProxy.type ? selectedProxy.type.toLowerCase() : 'http', // 默认为 http
-                host: selectedProxy.host,
-                port: selectedProxy.port,
-            };
-            // 如果有认证信息
+            
+            // 检查代理是否有认证信息
             if (selectedProxy.username && selectedProxy.password) {
-                axiosProxyConfig.auth = {
-                    username: selectedProxy.username,
-                    password: selectedProxy.password
-                };
+              logger.info('代理配置包含认证信息');
+            } else {
+              logger.warning('代理配置不包含认证信息，可能导致部分服务访问受限');
             }
-            // ------------------------------------------------
+
+            // 在发送请求前先测试代理连通性
+            try {
+              logger.info('测试代理连通性...');
+              
+              // 确保使用正确的协议格式
+              const testUrl = 'http://httpbin.org/ip'; // 使用HTTP协议而非HTTPS测试
+              
+              const testResponse = await http.get(testUrl, selectedProxy);
+              logger.success(`代理测试成功，IP: ${JSON.stringify(testResponse.data)}`);
+              
+              // 请求成功后，使用正确的协议发起真正的请求
+              // 检查目标URL的协议
+              let targetUrl = postUrl;
+              if (targetUrl.startsWith('https://') && selectedProxy.type === 'HTTP') {
+                // 如果目标是HTTPS但代理是HTTP，修改为HTTP请求
+                logger.warning('目标URL使用HTTPS但代理是HTTP，尝试使用HTTP协议发送请求');
+                targetUrl = targetUrl.replace('https://', 'http://');
+              }
+              
+              const response = await http.post(targetUrl, postData, selectedProxy, { headers });
+              
+              logger.success(`POST请求成功，状态码: ${response.status}`);
+              logger.info(`响应数据: ${JSON.stringify(response.data).substring(0, 200)}...`);
+            } catch (proxyError) {
+              // 代理请求失败，记录详细错误
+              logger.warning(`使用代理请求失败: ${proxyError.message}`);
+              
+              // 记录HTTP详细错误
+              if (proxyError.response) {
+                logger.error(`HTTP错误状态码: ${proxyError.response.status}`);
+                
+                try {
+                  if (typeof proxyError.response.data === 'string') {
+                    logger.error(`错误详情: ${proxyError.response.data.replace(/\r\n/g, ' ').trim()}`);
+                  } else {
+                    logger.error(`错误详情: ${JSON.stringify(proxyError.response.data || {})}`);
+                  }
+                } catch (e) {
+                  logger.error(`错误详情无法解析: ${proxyError.response.data}`);
+                }
+                
+                // 对于400错误特别处理
+                if (proxyError.response.status === 400) {
+                  const errorText = typeof proxyError.response.data === 'string' 
+                    ? proxyError.response.data 
+                    : JSON.stringify(proxyError.response.data);
+                  
+                  if (errorText.includes('HTTP request') && errorText.includes('HTTPS port')) {
+                    logger.error('协议不匹配: HTTP请求被发送到HTTPS端口，尝试不使用代理');
+                  } else {
+                    logger.error('400 Bad Request: 请求格式不正确或缺少必要参数');
+                  }
+                } else if (proxyError.response.status === 401) {
+                  logger.error('401 Unauthorized: 需要认证信息');
+                } else if (proxyError.response.status === 403) {
+                  logger.error('403 Forbidden: 无权访问，可能是API密钥无效或IP限制');
+                } else if (proxyError.response.status === 429) {
+                  logger.error('429 Too Many Requests: 请求过于频繁，被限流');
+                }
+              }
+              
+              // 尝试不使用代理
+              logger.info('尝试不使用代理发送请求...');
+              const directResponse = await axios.post(postUrl, postData, { headers });
+              logger.success(`不使用代理的请求成功，状态码: ${directResponse.status}`);
+              logger.info(`响应数据: ${JSON.stringify(directResponse.data).substring(0, 200)}...`);
+            }
         } else {
             logger.warning("未选择代理，将直接发送POST请求。");
+            
+            // 无代理发送请求
+            const response = await axios.post(postUrl, postData, { headers });
+            
+            logger.success(`POST请求成功，状态码: ${response.status}`);
+            logger.info(`响应数据: ${JSON.stringify(response.data).substring(0, 200)}...`);
         }
-        
-        // 发送POST请求
-        const response = await axios.post(postUrl, {
-          wallets: results,
-          timestamp: new Date().toISOString()
-        }, {
-          // --- 使用构建好的代理配置 ---
-          proxy: axiosProxyConfig,
-          // ---------------------------
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        logger.success(`POST请求成功，状态码: ${response.status}`);
-        logger.info(`响应数据: ${JSON.stringify(response.data).substring(0, 200)}...`);
       } catch (error) {
-        // --- 改进错误日志，区分代理连接错误和其他错误 ---
+        // 改进错误日志，更详细的错误信息
         if (error.code === 'ECONNREFUSED' || error.message.includes('connect ECONNREFUSED')) {
              logger.error(`POST请求失败：无法连接到代理服务器 ${selectedProxy ? selectedProxy.host + ':' + selectedProxy.port : ''}。请确保代理正在运行且配置正确。`);
         } else if (error.response) {
             // 请求已发出，但服务器响应状态码不在 2xx 范围
-             logger.error(`POST请求失败：服务器响应错误 ${error.response.status} - ${error.response.statusText}`);
+            logger.error(`POST请求失败：服务器响应错误 ${error.response.status} - ${error.response.statusText}`);
+            
+            // 记录错误详情
+            if (error.response.data) {
+              try {
+                logger.error(`错误详情: ${JSON.stringify(error.response.data)}`);
+              } catch (e) {
+                logger.error(`错误详情无法解析为JSON`);
+              }
+            }
+            
+            // 特别处理常见的HTTP错误
+            if (error.response.status === 400) {
+              logger.error('建议检查请求数据格式是否符合API要求');
+            } else if (error.response.status === 401 || error.response.status === 403) {
+              logger.error('可能缺少必要的认证信息或API密钥无效');
+            } else if (error.response.status === 429) {
+              logger.error('请求过于频繁，被目标服务器限流');
+            }
         } else if (error.request) {
              // 请求已发出，但没有收到响应
              logger.error(`POST请求失败：未收到服务器响应。检查网络连接或代理设置。`);
@@ -144,7 +226,6 @@ module.exports = {
             // 发生其他错误
             logger.error(`POST请求失败: ${error.message}`);
         }
-        // -------------------------------------------------
       }
       
       logger.success("脚本执行完成");

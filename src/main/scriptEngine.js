@@ -137,14 +137,27 @@ class ScriptEngine {
       // 获取代理配置(如果需要)
       let proxyConfig = null;
       if (proxyId) {
-        // 这里应该从数据库获取代理配置
-        // 简化示例使用本地代理
-        proxyConfig = {
-          type: 'HTTP',
-          host: '127.0.0.1',
-          port: 7890
-        };
-        this.sendLogToRenderer('info', `使用代理: ${proxyConfig.host}:${proxyConfig.port}`);
+        try {
+          // 从数据库获取代理配置
+          const db = require('../js/db/index.js');
+          const proxy = await db.getProxyById(db.db, proxyId);
+          
+          if (proxy) {
+            proxyConfig = {
+              type: proxy.type || 'HTTP',
+              host: proxy.host,
+              port: proxy.port,
+              username: proxy.username,
+              password: proxy.password
+            };
+            this.sendLogToRenderer('info', `使用代理: ${proxyConfig.host}:${proxyConfig.port} [${proxyConfig.type}]`);
+          } else {
+            this.sendLogToRenderer('warning', `找不到ID为${proxyId}的代理配置，将使用直连模式`);
+          }
+        } catch (error) {
+          console.error(`[ScriptEngine] 获取代理配置失败:`, error);
+          this.sendLogToRenderer('error', `获取代理配置失败: ${error.message}, 将使用直连模式`);
+        }
       }
       
       // 准备工具库
