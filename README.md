@@ -189,6 +189,55 @@
 
 ## 近期重要更新
 
+*   **脚本插件支持代理连接 (2024-05-07)**
+    *   修复了脚本执行时代理不生效的问题，更新脚本执行引擎从数据库获取实际代理配置
+    *   优化代理使用逻辑，解决了HTTP代理与HTTPS请求的协议不匹配问题
+    *   修改执行设置界面，用IP代理选择替代原有的任务间隔和Gas策略
+    *   增强脚本错误处理能力，提供更详细的错误诊断信息
+    *   添加代理连通性测试功能，确保代理可用后再执行请求
+
+*   **脚本插件格式标准 (2024-05-07)**
+    *   制定了统一的脚本格式标准，确保系统能正确识别和执行脚本
+    *   **基本结构**：每个脚本必须是Node.js模块，通过`module.exports`导出
+    *   **必需组件**：
+        *   `metadata` 元数据对象：包含脚本ID、名称、描述、版本等信息
+        *   `execute` 函数：脚本执行入口点，接收钱包列表、配置和工具
+    *   **标准格式**:
+    ```javascript
+    module.exports = {
+      metadata: {
+        id: "script_id",              // 唯一标识符
+        name: "脚本名称",              // 显示名称
+        description: "脚本描述",        // 功能说明
+        version: "1.0.0",             // 版本号
+        author: "作者",                // 作者信息
+        category: "分类",              // 脚本分类
+        icon: "图标名称",              // FontAwesome图标
+        imageUrl: "图片URL",           // 脚本图片（可选）
+        requires: {                   // 脚本需要的资源
+          wallets: true/false,        // 是否需要钱包
+          proxy: true/false           // 是否需要代理
+        },
+        platforms: ["ETH", "其他支持的链"], // 支持的区块链平台
+        config: {                     // 脚本配置选项
+          // 自定义配置项
+        }
+      },
+      
+      async execute(wallets, config, utils) {
+        const { logger, http, proxy } = utils;
+        
+        try {
+          // 执行逻辑
+          return { success: true, data: {} };
+        } catch (error) {
+          logger.error(`执行失败: ${error.message}`);
+          return { success: false, error: error.message };
+        }
+      }
+    };
+    ```
+
 *   **脚本插件钱包选择优化 (2024-06-02)**
     *   钱包选择列表从简单列表改进为按分组显示。
     *   初步实现分组内分页，后根据反馈调整为【分组选项卡 + 组内全量滚动】方案，简化交互逻辑。
