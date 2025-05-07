@@ -1,7 +1,7 @@
 // Import helpers and modules
 import { setupFilteringAndSearch } from '../../components/tableHelper.js'; // Note: Using this for cards for now
 import { showModal } from '../../components/modal.js';
-import { renderScriptDetailView, setCurrentScriptId, addLogEntry } from './detail.js';
+import { renderScriptDetailView, setCurrentScriptId, addLogEntry } from './detail/index.js';
 // import * as table from './table.js'; // If using a table layout
 // import * as modals from './modals.js';
 // import * as actions from './actions.js';

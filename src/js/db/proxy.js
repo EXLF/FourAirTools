@@ -141,10 +141,9 @@ async function getProxies(db, options = {}) {
             const total = row ? row.total : 0;
 
             // 查询分页数据
-            // 注意：不直接选择 password 字段
             const dataSql = `
                 SELECT
-                    p.id, p.name, p.type, p.host, p.port, p.username, p.group_id,
+                    p.id, p.name, p.type, p.host, p.port, p.username, p.password, p.group_id,
                     p.is_enabled, p.status, p.latency, p.exit_ip, p.country, p.country_code,
                     p.region, p.city, p.organization, p.asn, p.risk_level, p.risk_score,
                     p.last_checked_at, p.created_at, p.updated_at,
