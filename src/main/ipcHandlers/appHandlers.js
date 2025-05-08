@@ -1,5 +1,5 @@
 const { ipcMain, dialog, BrowserWindow, app } = require('electron');
-const fs = require('fs'); // <-- 使用同步版本即可，或保持异步看场景
+const fs = require('fs').promises; // <-- 使用同步版本即可，或保持异步看场景
 const path = require('path');
 const db = require('../../js/db/index.js'); // Still need db for saving
 const { ethers } = require('ethers'); // 导入 ethers
@@ -270,8 +270,8 @@ function setupApplicationIpcHandlers(mainWindow) {
                 return { success: false, canceled: true };
             }
 
-            // 写入文件
-            await fs.writeFile(saveResult.filePath, fileContent, 'utf8');
+            // 写入文件 - 使用 fs.promises.writeFile
+            await fs.writeFile(saveResult.filePath, fileContent, { encoding: 'utf8' });
             console.log(`[IPC] Plaintext wallets exported successfully to: ${saveResult.filePath}`);
             return { success: true, filePath: saveResult.filePath };
 
