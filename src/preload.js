@@ -241,8 +241,8 @@ contextBridge.exposeInMainWorld('scriptAPI', {
             };
         }
     },
-    executeScript: async (scriptId) => {
-        return await ipcRenderer.invoke('run-script', scriptId);
+    executeScript: async (scriptId, selectedWallets, config, proxyConfig) => {
+        return await ipcRenderer.invoke('run-script', scriptId, selectedWallets, config, proxyConfig);
     },
     stopScript: async (executionId) => {
         return await ipcRenderer.invoke('stop-script', executionId);

@@ -86,17 +86,25 @@ export function initConfigForm(container, scriptInfo) {
     // 清空容器
     configContainer.innerHTML = '';
     
+    // 尝试加载已保存的配置
+    const savedConfig = getSavedScriptConfig(scriptInfo.id) || {}; // getSavedScriptConfig 需要能在此处调用
+    console.log(`为脚本 ${scriptInfo.id} 加载到已保存配置:`, savedConfig);
+
     // 如果没有配置项，显示提示信息
     if (!scriptInfo.config || Object.keys(scriptInfo.config).length === 0) {
         configContainer.innerHTML = '<div class="empty-config">此脚本没有可配置项</div>';
+        // 仍然需要添加执行选项
+        addExecutionOptions(configContainer);
         return;
     }
     
     // 为每个配置项创建表单元素
-    Object.entries(scriptInfo.config).forEach(([key, value]) => {
+    Object.entries(scriptInfo.config).forEach(([key, fieldDefinition]) => {
         // 跳过非必要的内部属性
         if (key.startsWith('_')) return;
         
+        const initialValue = savedConfig[key] !== undefined ? savedConfig[key] : fieldDefinition.default;
+
         // 根据值类型创建不同的表单控件
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
@@ -104,84 +112,100 @@ export function initConfigForm(container, scriptInfo) {
         // 创建标签
         const label = document.createElement('label');
         label.setAttribute('for', key);
-        label.textContent = formatConfigKey(key);
+        label.textContent = fieldDefinition.label || formatConfigKey(key); // 使用 fieldDefinition.label
+        if (fieldDefinition.description) {
+            const desc = document.createElement('small');
+            desc.className = 'form-text text-muted';
+            desc.textContent = fieldDefinition.description;
+            label.appendChild(document.createElement('br'));
+            label.appendChild(desc);
+        }
         formGroup.appendChild(label);
         
         // 根据值类型创建控件
         let input;
-        
-        if (typeof value === 'boolean') {
-            // 复选框
-            input = document.createElement('input');
-            input.type = 'checkbox';
-            input.id = key;
-            input.name = key;
-            input.checked = value;
-            
-            // 包装在开关样式容器中
-            const switchContainer = document.createElement('div');
-            switchContainer.className = 'switch-container';
-            switchContainer.appendChild(input);
-            
-            const slider = document.createElement('span');
-            slider.className = 'slider';
-            switchContainer.appendChild(slider);
-            
-            formGroup.appendChild(switchContainer);
-        } else if (typeof value === 'number') {
-            // 数字输入
-            input = document.createElement('input');
-            input.type = 'number';
-            input.id = key;
-            input.name = key;
-            input.value = value;
-            input.step = key.includes('price') || key.includes('amount') ? '0.01' : '1';
-            formGroup.appendChild(input);
-        } else if (Array.isArray(value)) {
-            // 下拉列表（多选值）
-            input = document.createElement('select');
-            input.id = key;
-            input.name = key;
-            
-            // 添加占位符选项
-            const placeholderOption = document.createElement('option');
-            placeholderOption.value = '';
-            placeholderOption.textContent = `请选择${formatConfigKey(key)}`;
-            placeholderOption.disabled = true;
-            placeholderOption.selected = true;
-            input.appendChild(placeholderOption);
-            
-            // 添加选项
-            value.forEach(option => {
-                const optionElement = document.createElement('option');
-                optionElement.value = option;
-                optionElement.textContent = option;
-                input.appendChild(optionElement);
-            });
-            
-            formGroup.appendChild(input);
-        } else {
-            // 文本输入（默认）
-            input = document.createElement('input');
-            input.type = 'text';
-            input.id = key;
-            input.name = key;
-            input.value = value || '';
-            
-            // 地址字段特殊处理
-            if (key.includes('address') || key.includes('contract')) {
-                input.placeholder = '0x...';
-                input.pattern = '^0x[a-fA-F0-9]{40}$';
+        const fieldType = fieldDefinition.type || 'text'; // 获取字段类型
+
+        switch (fieldType) {
+            case 'boolean':
+                input = document.createElement('input');
+                input.type = 'checkbox';
+                input.id = key;
+                input.name = key;
+                input.checked = !!initialValue; // 使用 initialValue
                 
-                // 添加验证提示
-                const hint = document.createElement('div');
-                hint.className = 'form-hint';
-                hint.textContent = '请输入有效的以太坊地址';
+                const switchContainer = document.createElement('div');
+                switchContainer.className = 'form-check form-switch'; // 使用 bootstrap class
+                input.className = 'form-check-input';
+                switchContainer.appendChild(input);
+                formGroup.appendChild(switchContainer);
+                break;
+            case 'number':
+                input = document.createElement('input');
+                input.type = 'number';
+                input.id = key;
+                input.name = key;
+                input.value = initialValue !== undefined ? initialValue : ''; // 使用 initialValue
+                input.step = fieldDefinition.step || (key.includes('price') || key.includes('amount') ? '0.01' : '1');
+                input.className = 'form-control';
                 formGroup.appendChild(input);
-                formGroup.appendChild(hint);
-            } else {
+                break;
+            case 'select':
+                input = document.createElement('select');
+                input.id = key;
+                input.name = key;
+                input.className = 'form-select';
+
+                if (fieldDefinition.options && Array.isArray(fieldDefinition.options)) {
+                    fieldDefinition.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        if (typeof option === 'object' && option.value !== undefined && option.label !== undefined) {
+                            optionElement.value = option.value;
+                            optionElement.textContent = option.label;
+                            if (option.value === initialValue) optionElement.selected = true;
+                        } else { // 假定 option 是简单字符串
+                            optionElement.value = option;
+                            optionElement.textContent = option;
+                            if (option === initialValue) optionElement.selected = true;
+                        }
+                        input.appendChild(optionElement);
+                    });
+                }
                 formGroup.appendChild(input);
-            }
+                break;
+            case 'textarea':
+                input = document.createElement('textarea');
+                input.id = key;
+                input.name = key;
+                input.value = initialValue !== undefined ? initialValue : ''; // 使用 initialValue
+                input.rows = fieldDefinition.rows || 3;
+                input.className = 'form-control';
+                formGroup.appendChild(input);
+                break;
+            case 'password':
+                 input = document.createElement('input');
+                 input.type = 'password';
+                 input.id = key;
+                 input.name = key;
+                 input.value = initialValue !== undefined ? initialValue : ''; // 使用 initialValue
+                 input.className = 'form-control';
+                 formGroup.appendChild(input);
+                 break;
+            case 'string': // text 类型也归到这里
+            default:
+                input = document.createElement('input');
+                input.type = 'text';
+                input.id = key;
+                input.name = key;
+                input.value = initialValue !== undefined ? initialValue : ''; // 使用 initialValue
+                input.className = 'form-control';
+                
+                if (key.includes('address') || key.includes('contract')) {
+                    input.placeholder = '0x...';
+                    // input.pattern = '^0x[a-fA-F0-9]{40}$'; // HTML5 pattern validation
+                }
+                formGroup.appendChild(input);
+                break;
         }
         
         configContainer.appendChild(formGroup);
@@ -308,4 +332,20 @@ function formatConfigKey(key) {
     
     // 首字母大写
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+// 需要确保 getSavedScriptConfig 能在这里被调用，如果它在另一个文件，需要导入
+// 假设 getSavedScriptConfig 是全局可用的或已导入
+function getSavedScriptConfig(scriptId) {
+    try {
+        const key = `script_config_${scriptId}`;
+        const configStr = localStorage.getItem(key);
+        if (configStr) {
+            return JSON.parse(configStr);
+        }
+        return null; // 返回 null 而不是 {}，以便区分未设置和空配置
+    } catch (error) {
+        console.error('获取脚本配置失败:', error);
+        return null;
+    }
 } 

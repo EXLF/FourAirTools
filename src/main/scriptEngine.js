@@ -6,6 +6,9 @@ const fs = require('fs');
 const path = require('path');
 const { ipcMain } = require('electron');
 const { VM } = require('vm2');
+const util = require('util');
+const cryptoService = require('../js/core/cryptoService.js');
+const db = require('../js/db/index.js');
 
 // 日志记录
 function log(level, message) {
@@ -69,10 +72,10 @@ class ScriptEngine {
     });
     
     // 运行脚本
-    ipcMain.handle('run-script', async (event, scriptId) => {
+    ipcMain.handle('run-script', async (event, scriptId, selectedWallets, config, proxyConfig) => {
       try {
-        log('info', `运行脚本: ${scriptId}`);
-        const result = await this.runScript(scriptId);
+        log('info', `运行脚本: ${scriptId}，钱包数: ${selectedWallets?.length}, 配置: ${JSON.stringify(config)}, 代理: ${proxyConfig}`);
+        const result = await this.runScript(scriptId, { selectedWallets, config, proxyConfig });
         return { success: true, data: result };
       } catch (error) {
         log('error', `运行脚本失败: ${scriptId} - ${error.message}`);
@@ -197,7 +200,10 @@ class ScriptEngine {
     }
   }
   
-  async runScript(scriptId) {
+  async runScript(scriptId, executionParams = {}) {
+    const { selectedWallets: originalSelectedWallets, config, proxyConfig } = executionParams;
+    let processedWallets = [];
+
     try {
       const scripts = await this.getAvailableScripts();
       const script = scripts.find(s => s.id === scriptId);
@@ -205,36 +211,113 @@ class ScriptEngine {
       if (!script) {
         throw new Error(`找不到脚本: ${scriptId}`);
       }
+
+      // 处理钱包数据
+      if (originalSelectedWallets && originalSelectedWallets.length > 0) {
+        // 假设 originalSelectedWallets 是一个对象数组，每个对象至少有 id 字段
+        // 或者它本身就是一个 ID 数组。我们需要能兼容处理。
+        // 为了统一，我们先提取所有钱包的 ID。
+        const walletIds = originalSelectedWallets.map(w => {
+          if (typeof w === 'object' && w !== null && w.id) {
+            return w.id;
+          } else if (typeof w === 'string' || typeof w === 'number') { // 如果直接是ID数组
+            return w;
+          }
+          this.sendLogToRenderer('warning', `脚本 ${scriptId} 收到的 selectedWallets 包含无效条目: ${JSON.stringify(w)}`);
+          return null;
+        }).filter(id => id !== null);
+
+        if (walletIds.length > 0) {
+          this.sendLogToRenderer('info', `脚本 ${scriptId} 正在为钱包ID列表 [${walletIds.join(', ')}] 获取详细信息并解密私钥...`);
+          // 从数据库获取完整的钱包信息
+          const walletsFromDb = await db.getWalletsByIds(db.db, walletIds);
+
+          if (walletsFromDb && walletsFromDb.length > 0) {
+            for (const wallet of walletsFromDb) {
+              let decryptedPrivateKey = null;
+              if (wallet.encryptedPrivateKey) {
+                if (cryptoService.isUnlocked()) {
+                  try {
+                    decryptedPrivateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
+                    this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥已解密。`);
+                  } catch (decryptError) {
+                    this.sendLogToRenderer('error', `解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥失败: ${decryptError.message}`);
+                  }
+                } else {
+                  this.sendLogToRenderer('warning', `应用未解锁，无法解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥。`);
+                }
+              } else {
+                this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 没有存储加密私钥。`);
+              }
+              // 构建传递给脚本的钱包对象
+              processedWallets.push({
+                id: wallet.id,
+                address: wallet.address,
+                name: wallet.name,
+                // ... 其他需要传递给脚本的钱包属性
+                privateKey: decryptedPrivateKey // 添加解密后的私钥
+              });
+            }
+          } else {
+            this.sendLogToRenderer('warning', `未能从数据库为ID列表 [${walletIds.join(', ')}] 获取到任何钱包信息。`);
+          }
+        } else {
+           this.sendLogToRenderer('warning', `脚本 ${scriptId} 的 selectedWallets 处理后得到空的ID列表。`);
+        }
+      } else {
+        this.sendLogToRenderer('info', `脚本 ${scriptId} 执行时未选择任何钱包，或者 selectedWallets 为空。`);
+      }
       
-      // 创建执行环境
+      const executionId = Date.now().toString();
+
+      // 方案一：脚本声明其依赖
+      const scriptMetadata = script.metadata || {}; // getConfig() 的结果应存在 script.metadata 中
+      const declaredModules = scriptMetadata.requiredModules || [];
+      
+      // 核心允许的模块 (Node.js 内置模块等)
+      // 注意: axios 和 ethers 已经通过 context.http 和 context.utils.requireEthers (或直接require) 提供，
+      // 如果不希望脚本直接 require('axios') 或 require('ethers')，可以不在此列出，强制通过 context 使用。
+      // 这里我们假设 crypto, path, url, util 是常用的安全内置模块。
+      const coreAllowedModules = ['crypto', 'path', 'url', 'util']; 
+
+      // 本次执行允许的模块 = 核心模块 + 脚本声明的模块
+      const allowedModulesForThisScript = [...new Set([...coreAllowedModules, ...declaredModules])];
+      
+      this.sendLogToRenderer('info', `脚本 ${scriptId} 允许加载的模块: ${allowedModulesForThisScript.join(', ')}`);
+
       const sandbox = {
         console: {
-          log: (...args) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ');
-            this.sendLogToRenderer('info', message);
-          },
-          info: (...args) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ');
-            this.sendLogToRenderer('info', message);
-          },
-          warn: (...args) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ');
-            this.sendLogToRenderer('warn', message);
-          },
-          error: (...args) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ');
-            this.sendLogToRenderer('error', message);
-          }
+          log: (...args) => this.sendLogToRenderer('info', util.format(...args)),
+          info: (...args) => this.sendLogToRenderer('info', util.format(...args)),
+          warn: (...args) => this.sendLogToRenderer('warning', util.format(...args)),
+          error: (...args) => this.sendLogToRenderer('error', util.format(...args)),
+          success: (...args) => this.sendLogToRenderer('success', util.format(...args)),
         },
-        require: require,
+        require: (moduleName) => {
+          if (allowedModulesForThisScript.includes(moduleName)) {
+            try {
+              return require(moduleName);
+            } catch (e) {
+              // 检查是否是模块未找到错误，并且不是核心模块（核心模块理论上总能找到）
+              if (e.code === 'MODULE_NOT_FOUND' && !coreAllowedModules.includes(moduleName)) {
+                const errorMessage = `脚本 ${scriptId} 尝试加载模块 '${moduleName}'，但该模块未安装或未在项目 package.json 中正确声明依赖。请运行 'npm install ${moduleName}' 或将其添加到 package.json。`;
+                this.sendLogToRenderer('error', errorMessage);
+                throw new Error(errorMessage);
+              } else if (e.code === 'MODULE_NOT_FOUND') {
+                const errorMessage = `脚本 ${scriptId} 尝试加载核心模块 '${moduleName}' 失败，这通常不应发生。错误: ${e.message}`;
+                this.sendLogToRenderer('error', errorMessage);
+                throw new Error(errorMessage);
+              }
+              // 其他类型的 require 错误
+              const errorMessage = `脚本 ${scriptId} 加载模块 '${moduleName}' 时发生内部错误: ${e.message}`;
+              this.sendLogToRenderer('error', errorMessage);
+              throw new Error(errorMessage);
+            }
+          }
+          const errorMessage = `模块 '${moduleName}' 未在脚本元数据中声明或不被允许在此脚本 (${scriptId}) 中使用。`;
+          this.sendLogToRenderer('error', errorMessage);
+          throw new Error(errorMessage);
+        },
         process: {
           env: process.env
         },
@@ -243,20 +326,31 @@ class ScriptEngine {
         module: { exports: {} },
         exports: {},
         context: {
-          wallets: [],
-          params: {},
-          api: {
-            logger: {
-              info: (...args) => this.sendLogToRenderer('info', args.join(' ')),
-              warn: (...args) => this.sendLogToRenderer('warn', args.join(' ')),
-              error: (...args) => this.sendLogToRenderer('error', args.join(' ')),
-              success: (...args) => this.sendLogToRenderer('success', args.join(' '))
-            },
-            http: require('axios'),
-            // 仅提供非敏感API
-            delay: ms => new Promise(resolve => setTimeout(resolve, ms))
-          }
-        }
+          scriptId: scriptId,
+          executionId: executionId,
+          wallets: processedWallets,
+          config: config || {},
+          proxy: proxyConfig || null,
+          storage: {
+            _data: {},
+            setItem: (key, value) => { sandbox.context.storage._data[key] = value; },
+            getItem: (key) => sandbox.context.storage._data[key],
+            removeItem: (key) => { delete sandbox.context.storage._data[key]; },
+            clear: () => { sandbox.context.storage._data = {}; }
+          },
+          secrets: {
+            get: async (key) => {
+              this.sendLogToRenderer('info', `脚本 ${scriptId} 请求密钥: ${key}`);
+              return `secret_for_${key}`;
+            }
+          },
+          utils: {
+            delay: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+          },
+          http: require('axios'),
+          onStop: null,
+        },
+        __script_result__: null,
       };
       
       try {
@@ -280,7 +374,6 @@ class ScriptEngine {
         `;
         
         const scriptModule = vm2Instance.run(wrappedScript, script.filePath);
-        const executionId = Date.now().toString();
         
         // 记录运行中的脚本
         this.runningScripts.set(executionId, {
