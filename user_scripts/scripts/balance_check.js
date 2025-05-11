@@ -2,12 +2,11 @@
  * 钱包余额查询脚本
  * 功能：使用选中的代理查询钱包余额并发送POST请求
  */
-const axios = require('axios');
-const { ethers } = require('ethers');
+// const axios = require('axios'); // 将通过 context.api.axios 或 context.api.http 提供
+// const { ethers } = require('ethers'); // 将通过 context.api.ethers 提供
 
-module.exports = {
-  // 脚本元数据
-  metadata: {
+function getConfig() {
+  return {
     id: "wallet_balance_check",
     name: "钱包余额查询",
     description: "使用代理查询钱包余额并发送POST请求",
@@ -33,11 +32,15 @@ module.exports = {
         default: "https://httpbin.org/post"
       }
     }
-  },
+  };
+}
   
-  // 执行函数
-  async execute(wallets, config, utils) {
-    const { logger, http, proxy: selectedProxy } = utils;
+// 执行函数
+// async execute(wallets, config, utils) {
+async function main(context) {
+    const { wallets, params: config, api } = context;
+    // const { logger, http, proxy: selectedProxy } = utils;
+    const { logger, ethers, axios: httpClient, proxy: selectedProxy } = api; // 假设 api.axios 是 http客户端，或提供 api.http
     
     logger.info("开始查询钱包余额");
     
@@ -58,7 +61,7 @@ module.exports = {
       logger.info(`POST请求URL: ${postUrl}`);
       
       // 创建一个 provider (无需代理，查询余额通常不通过代理)
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const provider = new ethers.JsonRpcProvider(rpcUrl); // 使用 api.ethers
       
       // 存储每个钱包的余额结果
       const results = [];
@@ -70,7 +73,7 @@ module.exports = {
           
           // 查询余额
           const balanceBigInt = await provider.getBalance(wallet.address);
-          const balanceEther = ethers.formatEther(balanceBigInt);
+          const balanceEther = api.ethers.formatEther(balanceBigInt);
           
           logger.success(`钱包 ${wallet.address} 余额: ${balanceEther} ETH`);
           
@@ -125,7 +128,20 @@ module.exports = {
               // 确保使用正确的协议格式
               const testUrl = 'http://httpbin.org/ip'; // 使用HTTP协议而非HTTPS测试
               
-              const testResponse = await http.get(testUrl, selectedProxy);
+              // 使用 httpClient (axios) 或 api.http
+              const testResponse = await httpClient.get(testUrl, { 
+                  // 代理配置需要根据 httpClient (axios) 的格式来调整
+                  // 如果 selectedProxy 格式为 { host, port, username, password, protocol }
+                  // axios 代理配置: httpsAgent (for https), httpAgent (for http), proxy (object { host, port, auth? })
+                  // 这里假设 httpClient 支持直接传入 selectedProxy 对象，如果不是，需要转换格式
+                  // 或者脚本引擎提供的 httpClient 已经封装了代理逻辑
+                   proxy: selectedProxy && selectedProxy.url ? {
+                       host: new URL(selectedProxy.url).hostname,
+                       port: new URL(selectedProxy.url).port,
+                       auth: selectedProxy.username && selectedProxy.password ? { username: selectedProxy.username, password: selectedProxy.password } : undefined,
+                       protocol: new URL(selectedProxy.url).protocol.slice(0, -1) // 'http' or 'https'
+                   } : false // 或者不传proxy让axios自己处理环境变量
+              });
               logger.success(`代理测试成功，IP: ${JSON.stringify(testResponse.data)}`);
               
               // 请求成功后，使用正确的协议发起真正的请求
@@ -137,7 +153,11 @@ module.exports = {
                 targetUrl = targetUrl.replace('https://', 'http://');
               }
               
-              const response = await http.post(targetUrl, postData, selectedProxy, { headers });
+              // 使用 httpClient (axios) 或 api.http
+              const response = await httpClient.post(targetUrl, postData, { 
+                  headers,
+                  proxy: selectedProxy && selectedProxy.url ? { /* 同上 */ } : false
+              });
               
               logger.success(`POST请求成功，状态码: ${response.status}`);
               logger.info(`响应数据: ${JSON.stringify(response.data).substring(0, 200)}...`);
@@ -181,7 +201,8 @@ module.exports = {
               
               // 尝试不使用代理
               logger.info('尝试不使用代理发送请求...');
-              const directResponse = await axios.post(postUrl, postData, { headers });
+              // 使用 httpClient (axios) 或 api.http
+              const directResponse = await httpClient.post(postUrl, postData, { headers });
               logger.success(`不使用代理的请求成功，状态码: ${directResponse.status}`);
               logger.info(`响应数据: ${JSON.stringify(directResponse.data).substring(0, 200)}...`);
             }
@@ -189,7 +210,7 @@ module.exports = {
             logger.warning("未选择代理，将直接发送POST请求。");
             
             // 无代理发送请求
-            const response = await axios.post(postUrl, postData, { headers });
+            const response = await httpClient.post(postUrl, postData, { headers });
             
             logger.success(`POST请求成功，状态码: ${response.status}`);
             logger.info(`响应数据: ${JSON.stringify(response.data).substring(0, 200)}...`);
@@ -241,4 +262,5 @@ module.exports = {
       return { success: false, error: error.message };
     }
   }
-}; 
+
+module.exports = { getConfig, main }; 

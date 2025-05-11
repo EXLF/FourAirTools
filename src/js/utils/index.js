@@ -26,31 +26,11 @@ export function truncateAddress(address) {
     return address.substring(0, 6) + '...' + address.substring(address.length - 4);
 }
 
-/**
- * 向指定的日志容器添加一条日志条目。
- * @param {'info'|'success'|'pending'|'error'} type - 日志级别。
- * @param {string} source - 日志来源 (例如, '系统', 钱包地址)。
- * @param {string} message - 日志消息。
- * @param {HTMLElement} containerElement - 要附加日志条目的 DOM 元素。
- */
-export function addLogEntry(type, source, message, containerElement) {
-    if (!containerElement) {
-        console.warn("Log container not provided for addLogEntry.");
-        return;
-    }
+// 从脚本插件的日志模块导入
+import { addLogEntry } from '../pages/scriptPlugins/detail/logger.js';
 
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-    const entry = document.createElement('div');
-    entry.className = `log-entry ${type}`;
-    entry.innerHTML = `
-        <span class="time">${timeStr}</span>
-        <span class="wallet">${truncateAddress(source)}</span>
-        <span class="message">${message}</span>
-    `;
-
-    containerElement.appendChild(entry);
-    // 滚动到底部
-    containerElement.scrollTop = containerElement.scrollHeight;
-} 
+// 导出所有工具函数
+export {
+    addLogEntry
+    // ... 其他工具函数
+}; 

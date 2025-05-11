@@ -1307,3 +1307,11 @@
     background: #ffebee;
     color: #c62828;
 } 
+
+/* 为 showConfirmDialog 创建的特定模态框重置 transform,
+   因为它通过内联样式处理自己的全屏覆盖和内容居中。*/
+.modal.confirm-modal {
+    transform: none; /* 覆盖来自 .modal 类的 transform */
+    /* top, left, width, height, display, justify-content, align-items 
+       由 showConfirmDialog 中的内联样式正确设置。*/
+} 

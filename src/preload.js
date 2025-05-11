@@ -78,16 +78,27 @@ const validReceiveChannels = [
     // *** 新增：代理测试结果通知通道 ***
     'proxy:testResult',
     // *** 新增：脚本日志通道 ***
-    'script:log'
+    'script:log',
+    // *** 新增：脚本执行进度和结果通道 ***
+    'script-progress',
+    'script-completed',
+    'script-error'
 ];
 const validInvokeChannels = [
     'auth:setupPassword', 
     'auth:unlockApp', 
     'auth:isUnlocked',
-    'execute-simple-script', // 添加新的通道
-    // *** 新增：脚本相关通道 ***
+    'execute-simple-script',
+    // *** 脚本相关通道 ***
     'script:getAll',
     'script:execute',
+    'get-available-scripts',
+    'get-script-metadata',
+    'run-script',
+    'stop-script',
+    'get-running-scripts',
+    'test-script-loading',
+    // 数据库相关 (从 dbHandlers.js 导入或手动添加)
     'db:getGroups', 'db:addGroup', 'db:renameGroup', 'db:deleteGroup', 
     'db:getWallets', 'db:addWallet', 'db:updateWallet', 'db:deleteWallet', 'db:deleteWalletsByIds', 'db:getWalletDetails', 
     'db:getWalletById',
@@ -115,7 +126,6 @@ const validInvokeChannels = [
     'db:updateProxy', 
     'db:deleteProxy', 
     'db:deleteProxiesByIds',
-    // --- -------- ---
     // *** 新增：代理测试与设置通道 ***
     'proxy:test', 
     'proxy:set'
@@ -208,23 +218,45 @@ contextBridge.exposeInMainWorld('proxyAPI', {
     }
 });
 
-// *** 新增：暴露脚本API ***
+// 暴露脚本API
 contextBridge.exposeInMainWorld('scriptAPI', {
-    getAllScripts: () => ipcRenderer.invoke('script:getAll'),
-    executeScript: (scriptId, wallets, config, proxyId) => 
-        ipcRenderer.invoke('script:execute', { scriptId, wallets, config, proxyId }),
-    onLog: (callback) => {
-        const channel = 'script:log';
-        if (validReceiveChannels.includes(channel)) {
-            const subscription = (event, logData) => callback(logData);
-            ipcRenderer.on(channel, subscription);
-            return () => {
-                ipcRenderer.removeListener(channel, subscription);
+    getAllScripts: async () => {
+        console.log('[Preload] 调用 getAllScripts');
+        try {
+            console.log('[Preload] 发送IPC请求: get-available-scripts');
+            const result = await ipcRenderer.invoke('get-available-scripts');
+            console.log('[Preload] 获取脚本列表结果:', result);
+            
+            if (!result || !result.success) {
+                throw new Error(result?.error || '获取脚本列表失败');
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('[Preload] 获取脚本列表失败:', error);
+            return {
+                success: false,
+                error: error.message || '未知错误',
+                data: []
             };
-        } else {
-            console.warn(`尝试监听无效通道: ${channel}`);
-            return () => {};
         }
+    },
+    executeScript: async (scriptId) => {
+        return await ipcRenderer.invoke('run-script', scriptId);
+    },
+    stopScript: async (executionId) => {
+        return await ipcRenderer.invoke('stop-script', executionId);
+    },
+    getRunningScripts: async () => {
+        return await ipcRenderer.invoke('get-running-scripts');
+    },
+    // 添加onLog事件监听函数
+    onLog: (callback) => {
+        const subscription = (event, data) => callback(data);
+        ipcRenderer.on('script:log', subscription);
+        return () => {
+            ipcRenderer.removeListener('script:log', subscription);
+        };
     }
 });
 

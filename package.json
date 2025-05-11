@@ -18,7 +18,8 @@
     "https-proxy-agent": "^7.0.6",
     "keytar": "^7.9.0",
     "socks-proxy-agent": "^8.0.5",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "vm2": "^3.9.19"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

@@ -84,7 +84,7 @@ class Logger {
    * 记录警告级日志
    * @param {string} message - 日志消息
    */
-  warning(message) {
+  warn(message) {
     this._log('warning', message);
   }
 

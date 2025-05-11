@@ -16,8 +16,8 @@ export async function loadScriptList(container) {
         // 从后端获取脚本列表
         const result = await window.scriptAPI.getAllScripts();
         
-        if (result && result.success && Array.isArray(result.scripts)) {
-            const scripts = result.scripts;
+        if (result && result.success && Array.isArray(result.data)) {
+            const scripts = result.data;
             
             if (scripts.length === 0) {
                 listContainer.innerHTML = '<li class="empty-item">未找到可用脚本</li>';

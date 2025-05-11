@@ -117,7 +117,7 @@ async function handleScriptExecution(container, scriptData, runBtn) {
         // 获取选中的钱包
         const selectedWallets = Array.from(container.querySelectorAll('#walletSelectionList input[type="checkbox"]:checked'))
             .map(cb => ({
-                id: cb.id,
+                id: parseInt(cb.value, 10),
                 address: cb.dataset.address || cb.getAttribute('data-address') || ''
             }));
         
