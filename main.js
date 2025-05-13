@@ -172,7 +172,9 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 
   // 始终打开开发者工具 (根据用户要求，为打包后的应用保留控制台)
-  mainWindow.webContents.openDevTools();
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 
   // 清理 mainWindow 引用
   mainWindow.on('closed', () => {
