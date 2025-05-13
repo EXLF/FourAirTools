@@ -3,7 +3,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json # Optional: Some teams commit this, others ignore. Let's ignore for now.
+# package-lock.json # Optional: Some teams commit this, others ignore. Let's ignore for now.
 
 # SQLite Database
 database.db
@@ -14,6 +14,7 @@ database.db
 /dist/
 /build/
 /out/
+dist_electron/
 *.app
 *.exe
 
