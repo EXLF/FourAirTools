@@ -6,8 +6,9 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "cross-env NODE_ENV=development electron .",
-    "build": "echo \"Build script not implemented yet.\"",
-    "package": "electron-builder"
+    "build": "electron-builder",
+    "dist": "npm run build",
+    "dist:win": "npm run build -- --win"
   },
   "dependencies": {
     "axios": "^1.9.0",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "cross-env": "^7.0.3",
     "electron": "^35.2.0",
+    "electron-builder": "^26.0.12",
     "jest": "^29.7.0"
   },
   "keywords": [
@@ -32,5 +34,49 @@
     "toolbox"
   ],
   "author": "YourNameOrTeam",
-  "license": "MIT"
+  "license": "MIT",
+  "build": {
+    "appId": "com.fourAir.fouairtoolbox",
+    "productName": "FourAirToolbox",
+    "asar": true,
+    "files": [
+      "**/*",
+      "!test_script_loading.js",
+      "!project_structure.md",
+      "!README.md",
+      "!.git/",
+      "!.github/",
+      "!dist/",
+      "!dist_electron/",
+      "!release-builds/"
+    ],
+    "extraResources": [
+      {
+        "from": "user_scripts",
+        "to": "user_scripts",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "src/data",
+        "to": "data",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "directories": {
+      "buildResources": "build_resources",
+      "output": "dist_electron"
+    }
+  }
 }

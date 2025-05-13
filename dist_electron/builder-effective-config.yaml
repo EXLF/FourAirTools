@@ -1,0 +1,35 @@
+directories:
+  output: dist_electron
+  buildResources: build_resources
+appId: com.fourAir.fouairtoolbox
+productName: FourAirToolbox
+asar: true
+files:
+  - filter:
+      - '**/*'
+      - '!test_script_loading.js'
+      - '!project_structure.md'
+      - '!README.md'
+      - '!.git/'
+      - '!.github/'
+      - '!dist/'
+      - '!dist_electron/'
+      - '!release-builds/'
+extraResources:
+  - from: user_scripts
+    to: user_scripts
+    filter:
+      - '**/*'
+  - from: src/data
+    to: data
+    filter:
+      - '**/*'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+electronVersion: 35.2.0

@@ -171,10 +171,8 @@ function createWindow() {
   // 加载 index.html
   mainWindow.loadFile('index.html');
 
-  // 仅在开发模式下打开开发者工具
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
+  // 始终打开开发者工具 (根据用户要求，为打包后的应用保留控制台)
+  mainWindow.webContents.openDevTools();
 
   // 清理 mainWindow 引用
   mainWindow.on('closed', () => {

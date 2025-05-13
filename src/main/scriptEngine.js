@@ -270,14 +270,53 @@ class ScriptEngine {
       
       const executionId = Date.now().toString();
 
+      // --- 新增：获取完整的代理信息 ---
+      let fullProxyInfo = null;
+      if (proxyConfig) { // proxyConfig 是代理ID (字符串)
+        try {
+          const proxyDetails = await db.getProxyById(db.db, parseInt(proxyConfig, 10)); // 确保ID是数字
+          if (proxyDetails) {
+            const protocol = proxyDetails.type ? proxyDetails.type.toLowerCase() : 'http';
+            const host = proxyDetails.host;
+            const port = parseInt(proxyDetails.port, 10);
+            let constructedUrl = `${protocol}://`;
+            if (proxyDetails.username && proxyDetails.password) {
+              // 确保用户名和密码进行URL编码，以防包含特殊字符
+              constructedUrl += `${encodeURIComponent(proxyDetails.username)}:${encodeURIComponent(proxyDetails.password)}@`;
+            }
+            constructedUrl += `${host}:${port}`;
+
+            fullProxyInfo = {
+              host: host,
+              port: port,
+              protocol: protocol,
+              url: constructedUrl, // <-- 新增：完整的代理URL
+            };
+            // 处理认证信息 (假设密码在数据库中是明文，根据 getProxyById 的注释)
+            if (proxyDetails.username && proxyDetails.password) {
+              fullProxyInfo.auth = {
+                username: proxyDetails.username,
+                password: proxyDetails.password 
+              };
+              this.sendLogToRenderer('info', `脚本 ${scriptId} 使用的代理 ${proxyDetails.host}:${proxyDetails.port} 包含认证信息。`);
+            } else if (proxyDetails.username) {
+              this.sendLogToRenderer('warning', `代理 ${proxyDetails.host}:${proxyDetails.port} 有用户名但密码为空。将不使用认证信息。`);
+            }
+            this.sendLogToRenderer('info', `脚本 ${scriptId} 将使用代理配置: ${JSON.stringify(fullProxyInfo)}`);
+          } else {
+            this.sendLogToRenderer('warning', `未能从数据库找到 ID 为 ${proxyConfig} 的代理详情。脚本将不使用代理。`);
+          }
+        } catch (dbError) {
+          this.sendLogToRenderer('error', `查询代理 ID ${proxyConfig} 详情时出错: ${dbError.message}。脚本将不使用代理。`);
+        }
+      }
+      // --- 结束新增 ---
+
       // 方案一：脚本声明其依赖
       const scriptMetadata = script.metadata || {}; // getConfig() 的结果应存在 script.metadata 中
       const declaredModules = scriptMetadata.requiredModules || [];
       
       // 核心允许的模块 (Node.js 内置模块等)
-      // 注意: axios 和 ethers 已经通过 context.http 和 context.utils.requireEthers (或直接require) 提供，
-      // 如果不希望脚本直接 require('axios') 或 require('ethers')，可以不在此列出，强制通过 context 使用。
-      // 这里我们假设 crypto, path, url, util 是常用的安全内置模块。
       const coreAllowedModules = ['crypto', 'path', 'url', 'util']; 
 
       // 本次执行允许的模块 = 核心模块 + 脚本声明的模块
@@ -298,7 +337,6 @@ class ScriptEngine {
             try {
               return require(moduleName);
             } catch (e) {
-              // 检查是否是模块未找到错误，并且不是核心模块（核心模块理论上总能找到）
               if (e.code === 'MODULE_NOT_FOUND' && !coreAllowedModules.includes(moduleName)) {
                 const errorMessage = `脚本 ${scriptId} 尝试加载模块 '${moduleName}'，但该模块未安装或未在项目 package.json 中正确声明依赖。请运行 'npm install ${moduleName}' 或将其添加到 package.json。`;
                 this.sendLogToRenderer('error', errorMessage);
@@ -308,7 +346,6 @@ class ScriptEngine {
                 this.sendLogToRenderer('error', errorMessage);
                 throw new Error(errorMessage);
               }
-              // 其他类型的 require 错误
               const errorMessage = `脚本 ${scriptId} 加载模块 '${moduleName}' 时发生内部错误: ${e.message}`;
               this.sendLogToRenderer('error', errorMessage);
               throw new Error(errorMessage);
@@ -330,7 +367,7 @@ class ScriptEngine {
           executionId: executionId,
           wallets: processedWallets,
           config: config || {},
-          proxy: proxyConfig || null,
+          proxy: fullProxyInfo,
           storage: {
             _data: {},
             setItem: (key, value) => { sandbox.context.storage._data[key] = value; },
@@ -364,7 +401,6 @@ class ScriptEngine {
           }
         });
         
-        // 加载并执行脚本
         const scriptContent = fs.readFileSync(script.filePath, { encoding: 'utf8' });
         const wrappedScript = `
           (function(module, exports, require, __dirname, __filename, context) {
@@ -375,7 +411,6 @@ class ScriptEngine {
         
         const scriptModule = vm2Instance.run(wrappedScript, script.filePath);
         
-        // 记录运行中的脚本
         this.runningScripts.set(executionId, {
           id: scriptId,
           name: script.name,
@@ -388,17 +423,14 @@ class ScriptEngine {
         if (typeof scriptModule.main === 'function') {
           this.sendLogToRenderer('info', `开始执行脚本: ${script.name}`);
           
-          // 异步执行main，不阻塞IPC响应
           scriptModule.main(sandbox.context)
             .then(result => {
               this.sendLogToRenderer('success', `脚本执行完成: ${script.name}`);
-              // 更新状态
               if (this.runningScripts.has(executionId)) {
                 const scriptInfo = this.runningScripts.get(executionId);
                 scriptInfo.status = 'completed';
                 this.runningScripts.set(executionId, scriptInfo);
               }
-              
               if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('script-completed', { 
                   executionId, 
@@ -408,13 +440,11 @@ class ScriptEngine {
             })
             .catch(error => {
               this.sendLogToRenderer('error', `脚本执行出错: ${error.message}`);
-              // 更新状态
               if (this.runningScripts.has(executionId)) {
                 const scriptInfo = this.runningScripts.get(executionId);
                 scriptInfo.status = 'failed';
                 this.runningScripts.set(executionId, scriptInfo);
               }
-              
               if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('script-error', { 
                   executionId, 
@@ -445,7 +475,6 @@ class ScriptEngine {
         throw new Error(`找不到运行中的脚本: ${executionId}`);
       }
       
-      // 停止脚本执行
       if (script.instance) {
         try {
           script.instance.freeze();
@@ -455,7 +484,6 @@ class ScriptEngine {
         }
       }
       
-      // 更新状态
       script.status = 'stopped';
       this.runningScripts.set(executionId, script);
       
@@ -468,7 +496,6 @@ class ScriptEngine {
   }
 }
 
-// 创建单例实例
 const scriptEngine = new ScriptEngine();
 
 module.exports = scriptEngine; 

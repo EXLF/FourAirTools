@@ -1,10 +1,13 @@
 // 数据库主入口，只负责连接、初始化和模块汇总
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const { app } = require('electron'); // <-- 新增：引入 app 模块
 
-// 暂时将数据库文件放在项目根目录的 data 文件夹下
-// TODO: 对于 Electron 应用，应使用 app.getPath('userData') 获取更合适的路径
-const dbPath = path.resolve(__dirname, '../../../database.db'); // 指向项目根目录下的 database.db
+// 正确的数据库路径，适用于开发和打包环境
+// const dbPath = path.resolve(__dirname, '../../../database.db'); // 指向项目根目录下的 database.db -- 旧路径
+const userDataPath = app.getPath('userData');
+const dbPath = path.join(userDataPath, 'database.db'); 
+console.log('[DB] Using database path:', dbPath); // <-- 新增：打印数据库路径以供调试
 
 // 创建或连接数据库，启动时自动初始化表结构
 const db = new sqlite3.Database(dbPath, (err) => {

@@ -1,0 +1,4 @@
+owner: EXLF
+repo: FourAirTools
+provider: github
+updaterCacheDirName: fouair-toolbox-updater

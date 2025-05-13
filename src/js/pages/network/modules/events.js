@@ -66,6 +66,16 @@ export function setupEventListeners(loadProxies) {
             loadProxies();
         }
     });
+
+    // 监听代理列表更新事件
+    document.addEventListener('proxy-list-updated', () => { 
+        console.log('[Events] Received proxy-list-updated event, reloading proxies.');
+        if (loadProxies && typeof loadProxies === 'function') {
+            loadProxies();
+        } else {
+            console.warn('[Events] loadProxies function is not available to handle proxy-list-updated event.');
+        }
+    });
 }
 
 // 处理筛选器变化

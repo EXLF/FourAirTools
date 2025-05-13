@@ -81,6 +81,8 @@ export async function handleProxyFormSubmit(form, proxyData) {
             showToast('代理配置已添加', 'success');
         }
         hideModal();
+        // 派发事件通知列表需要更新
+        document.dispatchEvent(new CustomEvent('proxy-list-updated')); 
         // 需要在外部调用 loadProxies() 刷新列表
     } catch (error) {
         console.error('保存代理配置失败:', error);
