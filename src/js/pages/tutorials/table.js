@@ -1,1 +1,0 @@
-// Tutorials table logic (if any - might just be cards) 
