@@ -106,6 +106,38 @@
     *   `scripts.js` (`loadScriptList`): 渲染详情页侧边栏脚本列表，接收并使用侧边栏脚本选择回调。
 *   **文件清理**: 删除了 `src/js/pages/scriptPlugins/`目录下未使用的 `modals.js`, `table.js`, `actions.js` 文件。
 
+## 模块重构: 社交账户 (Social)
+
+当前正在对 `src/js/pages/social/` 目录及其相关模板 `src/templates/social.html` 进行重构。
+
+**重构目标:**
+
+1.  **提升模块化与代码组织**: 重点关注 `table.js` (原先超过600行)，将其中的渲染逻辑逐步迁移到新的 `socialTableRenderer.js` 文件中。
+2.  **增强代码清晰度和可维护性**: 使 `table.js` 更侧重于业务逻辑、数据获取和事件处理，而 `socialTableRenderer.js` 专注于DOM元素的生成和更新。
+3.  **遵循关注点分离原则**: 明确渲染逻辑和业务逻辑的界限。
+4.  **修复潜在错误**: 在重构过程中解决发现的bug，例如模板字符串的语法错误。
+
+**已完成的主要重构内容概要 (进行中):**
+
+*   **创建 `src/js/pages/social/socialTableRenderer.js`**:
+    *   用于存放从 `table.js` 中分离出来的渲染相关函数。
+*   **功能迁移至 `socialTableRenderer.js`**:
+    *   `renderTableHeader`: 负责根据平台配置动态生成表格头部HTML。
+    *   `createSocialAccountRowElement`: 负责根据账户数据和列配置生成表格行DOM元素。
+        *   其内部辅助函数 `getDisplayValue` (用于格式化单元格内容) 和 `escapeAttribute` (用于安全处理属性值) 也一并迁移。
+*   **`src/js/pages/social/table.js` 更新**:
+    *   移除了上述已迁移函数的本地定义。
+    *   更新了导入语句，从 `socialTableRenderer.js` 导入这些渲染函数。
+    *   相应地更新了函数调用，传递必要的参数 (例如，`createSocialAccountRowElement` 现在接收 `SENSITIVE_FIELDS_FOR_COPY` 和 `handleSocialAccountAction` 回调)。
+*   **问题修复**:
+    *   解决了在迁移 `createSocialAccountRowElement` 到 `socialTableRenderer.js` 时，由于模板字符串中反引号处理不当导致的 `SyntaxError: Invalid or unexpected token` 错误。
+*   **HTML模板 (`src/templates/social.html`)**:
+    *   为"批量导入"按钮添加了 `id="bulk-import-social-btn"`。
+    *   为"导出选中"按钮添加了 `id="export-selected-social-btn"`。
+
+**后续计划**:
+*   继续将 `table.js` 中的其他渲染相关逻辑 (如 `createPageSizeSelector` 和 `renderPagination`) 迁移到 `socialTableRenderer.js`。
+
 ## 近期关键增强
 
 *   **脚本插件系统**:

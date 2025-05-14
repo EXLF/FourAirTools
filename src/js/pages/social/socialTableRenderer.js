@@ -142,3 +142,110 @@ export function createSocialAccountRowElement(account, columns, sensitiveFieldsF
 
     return row;
 }
+
+/**
+ * 渲染每页显示数量选择器。
+ * @param {number} currentItemsPerPage - 当前选中的每页显示数量。
+ * @param {Array<number>} pageSizeOptions - 可选的每页显示数量数组。
+ * @returns {DocumentFragment} 包含标签和选择框的文档片段。
+ */
+export function renderPageSizeSelector(currentItemsPerPage, pageSizeOptions = [5, 10, 15, 25, 50, 100]) {
+    const fragment = document.createDocumentFragment();
+
+    const label = document.createElement('span');
+    label.textContent = '每页显示: ';
+    label.style.marginRight = '8px';
+    fragment.appendChild(label);
+
+    const select = document.createElement('select');
+    select.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;'; // 与原样式一致
+
+    pageSizeOptions.forEach(size => {
+        const option = document.createElement('option');
+        option.value = size;
+        option.textContent = `${size}条`;
+        if (size === currentItemsPerPage) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+    fragment.appendChild(select);
+
+    return fragment;
+}
+
+/**
+ * 渲染分页控件。
+ * @param {number} totalItems - 总项目数。
+ * @param {number} itemsPerPage - 每页显示的项目数。
+ * @param {number} currentPage - 当前页码。
+ * @returns {DocumentFragment} 包含分页控件的文档片段。
+ */
+export function renderPaginationControls(totalItems, itemsPerPage, currentPage) {
+    const fragment = document.createDocumentFragment();
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    // 页面信息 (例如 "1/10页 共95条")
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'page-info text-sm text-gray-600 mr-4';
+    pageInfo.textContent = `${Math.max(1, currentPage)}/${Math.max(1, totalPages)}页 共${totalItems}条`;
+    fragment.appendChild(pageInfo);
+
+    if (totalPages <= 1) return fragment; // 如果只有一页或没有内容，则不需要按钮
+
+    // 按钮创建辅助函数 (纯DOM创建，不绑定事件)
+    const createButtonElement = (text, pageNum, isDisabled = false, isActive = false) => {
+        const button = document.createElement('button');
+        button.innerHTML = text; // innerHTML 用于支持 &laquo; 等HTML实体
+        button.disabled = isDisabled;
+        button.className = `px-3 py-1 border rounded-md text-sm mx-1 ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`;
+        if (!isDisabled && pageNum) {
+            button.dataset.page = pageNum; // 将页码存储在 data-* 属性中
+        }
+        return button;
+    };
+
+    // 上一页按钮
+    fragment.appendChild(createButtonElement('&laquo;', currentPage - 1, currentPage === 1));
+
+    // 页码按钮 (带省略号逻辑)
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+    if (endPage - startPage + 1 < maxPagesToShow) {
+        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+        fragment.appendChild(createButtonElement('1', 1));
+        if (startPage > 2) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            ellipsis.className = 'px-2 py-1 text-sm';
+            fragment.appendChild(ellipsis);
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        fragment.appendChild(createButtonElement(i.toString(), i, false, i === currentPage));
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            ellipsis.className = 'px-2 py-1 text-sm';
+            fragment.appendChild(ellipsis);
+        }
+        fragment.appendChild(createButtonElement(totalPages.toString(), totalPages));
+    }
+
+    // 下一页按钮
+    fragment.appendChild(createButtonElement('&raquo;', currentPage + 1, currentPage === totalPages));
+
+    return fragment;
+}
+
+// Future rendering functions (renderPaginationElement) will be added here.
+// 修正注释，因为 renderPaginationElement 不是计划中的名称
+// No more rendering functions planned for immediate future in this file for social table.

@@ -1,7 +1,12 @@
 import { debounce } from '../../utils/index.js';
 import { showToast } from '../../components/toast.js';
 import { handleSocialAccountAction } from './actions.js'; // Import action handler
-import { renderTableHeader, createSocialAccountRowElement } from './socialTableRenderer.js'; // <--- 修改导入
+import {
+    renderTableHeader,
+    createSocialAccountRowElement,
+    renderPageSizeSelector,
+    renderPaginationControls
+} from './socialTableRenderer.js'; // <--- 修改导入
 
 // --- Module Variables (Cached Elements & State) ---
 let contentAreaCache = null;
@@ -119,6 +124,7 @@ export function initSocialTable(contentArea) {
     setupSearchListener();
     setupTableRowClickListener();
     setupCellCopyListener();
+    setupPaginationButtonListener();
 
     // Load initial data and filters
     loadGroupFiltersForSocial();
@@ -191,121 +197,6 @@ export async function loadAndRenderSocialAccounts(page = currentPage, limit = it
         tableBody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center text-red-500 p-4">加载 ${currentPlatform} 数据失败: ${error.message}</td></tr>`;
     }
 }
-
-/**
- * Creates a table row (<tr>) element for a social account.
- * Renders plaintext, truncates long values, adds copy functionality to cells.
- * @param {object} account - The social account data object.
- * @param {Array<object>} columns - Array of column definitions for the current platform.
- * @returns {HTMLTableRowElement} The created table row element.
- */
-/*
-function createSocialAccountRowElement(account, columns) {
-    const row = document.createElement('tr');
-    row.dataset.accountId = account.id;
-
-    const getDisplayValue = (value, isTruncatable = false) => {
-        if (value === null || value === undefined || value === '') return '-';
-        const strValue = String(value);
-        if (strValue === '[解密失败]' || strValue === '[应用未解锁]') {
-            return `<span class="text-red-500 text-xs">${strValue}</span>`;
-        }
-        const TRUNCATE_LENGTH = 20, TRUNCATE_EDGE = 8;
-        if (isTruncatable && strValue.length > TRUNCATE_LENGTH) {
-            return `${strValue.substring(0, TRUNCATE_EDGE)}...${strValue.substring(strValue.length - TRUNCATE_EDGE)}`;
-        }
-        return strValue.replace(/[<>]/g, char => ({ '<': '&lt;', '>': '&gt;' }[char]));
-    };
-
-    columns.forEach(col => {
-        const td = document.createElement('td');
-        let rawValue = account[col.key];
-        
-        // Discord 平台特殊处理，同时检查两个密码字段
-        if (col.key === 'discord_password' && (!rawValue || rawValue === '')) {
-            rawValue = account['password']; // 尝试使用通用密码字段
-            console.log('使用通用密码字段作为 Discord 密码');
-        }
-        
-        // 调试输出
-        if (col.key === 'email_recovery_email') {
-            console.log(`账户 ${account.id} 的辅助邮箱: ${rawValue}, 类型: ${typeof rawValue}`);
-        }
-        
-        const isOriginallySensitive = SENSITIVE_FIELDS_FOR_COPY.includes(col.key);
-        const hasValueError = rawValue === '[解密失败]' || rawValue === '[应用未解锁]';
-
-        switch (col.key) {
-            case 'checkbox':
-                td.innerHTML = `<input type="checkbox" class="row-checkbox form-checkbox h-4 w-4 text-blue-600" value="${account.id}">`;
-                break;
-            case 'platform':
-                let platformIconClass = 'fas fa-question-circle';
-                let platformColor = '#6c757d';
-                switch (account.platform?.toLowerCase()) {
-                    case 'twitter': platformIconClass = 'fab fa-twitter'; platformColor = '#1DA1F2'; break;
-                    case 'discord': platformIconClass = 'fab fa-discord'; platformColor = '#5865F2'; break;
-                    case 'telegram': platformIconClass = 'fab fa-telegram'; platformColor = '#2AABEE'; break;
-                    case 'email': platformIconClass = 'fas fa-envelope'; platformColor = '#DB4437'; break;
-                }
-                td.innerHTML = `<i class="${platformIconClass}" style="color: ${platformColor}; font-size: 1.2em; vertical-align: middle;"></i> ${account.platform || '-'}`;
-                break;
-            case 'actions':
-                td.innerHTML = `
-                    <button class="btn-icon action-btn" data-action="edit" title="编辑"><i class="fas fa-pencil-alt"></i></button>
-                    <button class="btn-icon action-btn" data-action="delete" title="删除"><i class="fas fa-trash-alt"></i></button>
-                `;
-                // Attach listeners here to avoid searching the whole row later
-                td.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
-                    e.stopPropagation(); handleSocialAccountAction('edit', account.id);
-                });
-                td.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
-                    e.stopPropagation(); handleSocialAccountAction('delete', account.id);
-                });
-                break;
-            case 'groupName': // Use the pre-joined groupName if available
-                 td.textContent = account.groupName || '无分组';
-                 break;
-            default: // Handle data fields
-                const displayValue = getDisplayValue(rawValue, col.truncatable);
-                td.innerHTML = displayValue; // Directly set innerHTML for potential error styling
-
-                // Add copyable class and data attribute if the field is copyable and successfully retrieved
-                if (isOriginallySensitive && rawValue && !hasValueError) {
-                    td.classList.add('copyable-cell');
-                    td.dataset.copyValue = escapeAttribute(rawValue); // Store raw value for copying
-                    td.title = '点击复制'; // Add title tooltip
-                } else if (hasValueError) {
-                    td.title = rawValue; // Show error in title
-                }
-                break;
-        }
-        row.appendChild(td);
-    });
-
-    // Optionally highlight the entire row if there was a general decryption error
-    if (account.decryptionError) {
-        // row.classList.add('decryption-error-row'); // Add a CSS class for styling
-        // Or add a title attribute to the row
-        row.title = `注意: ${account.decryptionError}`;
-    }
-
-    return row;
-}
-*/// 函数已被移至 socialTableRenderer.js
-
-// Helper function to escape HTML attributes
-/*
-function escapeAttribute(str) {
-    if (str === null || str === undefined) return '';
-    return String(str).replace(/["&<>]/g, char => ({
-        '"': '&quot;',
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;'
-    }[char]));
-}
-*/// 函数已被移至 socialTableRenderer.js
 
 // --- Filtering & Searching ---
 
@@ -528,24 +419,17 @@ function createPageSizeSelector() {
     if (!pageSizeContainer) return;
     pageSizeContainer.innerHTML = ''; // Clear previous content
 
-    const label = document.createElement('span');
-    label.textContent = '每页显示: ';
-    label.style.marginRight = '8px';
+    const selectorFragment = renderPageSizeSelector(itemsPerPage);
+    pageSizeContainer.appendChild(selectorFragment);
 
-    const select = document.createElement('select');
-    select.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;'; // 应用和钱包页面一致的内联样式
+    // 从容器中获取新创建的 select 元素以绑定事件
+    const select = pageSizeContainer.querySelector('select'); 
+    if (!select) {
+        console.error('Page size selector SElECT element not found after rendering.');
+        return;
+    }
 
-    const options = [5, 10, 15, 25, 50, 100];
-    options.forEach(size => {
-        const option = document.createElement('option');
-        option.value = size;
-        option.textContent = `${size}条`;
-        if (size === itemsPerPage) {
-            option.selected = true;
-        }
-        select.appendChild(option);
-    });
-
+    // 原有的事件监听逻辑保持不变
     select.addEventListener('change', async () => {
         const newSize = parseInt(select.value);
         if (newSize !== itemsPerPage) {
@@ -556,8 +440,8 @@ function createPageSizeSelector() {
         }
     });
 
-    pageSizeContainer.appendChild(label);
-    pageSizeContainer.appendChild(select);
+    // The label and select are now created by renderPageSizeSelector and appended as a fragment.
+    // So, no need for pageSizeContainer.appendChild(label) or pageSizeContainer.appendChild(select) here.
 }
 
 /**
@@ -570,59 +454,30 @@ function renderPagination(totalItems, itemsPerPage, currentPage) {
     if (!paginationControls) return;
     paginationControls.innerHTML = ''; // Clear previous controls
 
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const controlsFragment = renderPaginationControls(totalItems, itemsPerPage, currentPage);
+    paginationControls.appendChild(controlsFragment);
+}
 
-    // Page Info (e.g., "1/10页 共95条")
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'page-info text-sm text-gray-600 mr-4';
-    pageInfo.textContent = `${Math.max(1, currentPage)}/${Math.max(1, totalPages)}页 共${totalItems}条`;
-    paginationControls.appendChild(pageInfo);
+/**
+ * 设置分页控件按钮的事件监听器 (事件委托)。
+ */
+function setupPaginationButtonListener() {
+    if (!paginationControls) return;
 
-    if (totalPages <= 1) return; // No buttons needed for single page
+    // 清理可能存在的旧监听器，以防 initSocialTable 被多次调用 (虽然不应该)
+    // (或者使用 cloneNode 技巧，但对于事件委托，确保只添加一次更简单)
+    // paginationControls.removeEventListener('click', handlePaginationClick); // 如果 handlePaginationClick 是具名函数
+    // 为简化，这里假设 initSocialTable 只调用一次，或者 paginationControls 元素是动态替换的
 
-    // Button creation helper
-    const createButton = (text, pageNum, isDisabled = false, isActive = false) => {
-        const button = document.createElement('button');
-        button.innerHTML = text;
-        button.disabled = isDisabled;
-        button.className = `px-3 py-1 border rounded-md text-sm mx-1 ${isActive ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`;
-        if (!isDisabled && pageNum) {
-            button.addEventListener('click', () => loadAndRenderSocialAccounts(pageNum));
+    paginationControls.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-page]'); // 确保点击的是按钮且有 data-page 属性
+        if (button && !button.disabled) {
+            const pageNum = parseInt(button.dataset.page, 10);
+            if (!isNaN(pageNum)) {
+                loadAndRenderSocialAccounts(pageNum);
+            }
         }
-        return button;
-    };
-
-    // Previous Button
-    paginationControls.appendChild(createButton('&laquo;', currentPage - 1, currentPage === 1));
-
-    // Page Number Buttons (with ellipsis)
-    const maxPagesToShow = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-    if (endPage - startPage + 1 < maxPagesToShow) {
-        startPage = Math.max(1, endPage - maxPagesToShow + 1);
-    }
-
-    if (startPage > 1) {
-        paginationControls.appendChild(createButton('1', 1));
-        if (startPage > 2) {
-             const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.className = 'px-2 py-1 text-sm'; paginationControls.appendChild(ellipsis);
-        }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-        paginationControls.appendChild(createButton(i.toString(), i, false, i === currentPage));
-    }
-
-     if (endPage < totalPages) {
-         if (endPage < totalPages - 1) {
-            const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; ellipsis.className = 'px-2 py-1 text-sm'; paginationControls.appendChild(ellipsis);
-         }
-        paginationControls.appendChild(createButton(totalPages.toString(), totalPages));
-    }
-
-    // Next Button
-    paginationControls.appendChild(createButton('&raquo;', currentPage + 1, currentPage === totalPages));
+    });
 }
 
 // --- Copy Cell Functionality ---
