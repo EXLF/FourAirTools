@@ -4,8 +4,9 @@ import { getCurrentScriptId } from './state.js';
 /**
  * 加载脚本列表
  * @param {HTMLElement} container - 详情页面容器元素
+ * @param {Function} onScriptSelectedCallback - 选中脚本项时的回调函数，接收 scriptId 作为参数
  */
-export async function loadScriptList(container) {
+export async function loadScriptList(container, onScriptSelectedCallback) {
     const listContainer = container.querySelector('#scriptListItems');
     if (!listContainer) return;
     
@@ -45,8 +46,10 @@ export async function loadScriptList(container) {
                     
                     // 获取脚本ID并加载详情
                     const scriptId = item.getAttribute('data-script-id');
-                    if (scriptId) {
-                        window.loadScriptDetail(scriptId);
+                    if (scriptId && typeof onScriptSelectedCallback === 'function') {
+                        onScriptSelectedCallback(scriptId);
+                    } else if (scriptId) {
+                        console.error('onScriptSelectedCallback is not a function. Cannot load script detail via sidebar.');
                     }
                 });
             });

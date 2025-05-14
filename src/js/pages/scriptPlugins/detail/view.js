@@ -39,11 +39,13 @@ export function switchToTab(container, tabId) {
  * 初始化脚本详情页面
  * @param {HTMLElement} container - 详情页面容器元素
  * @param {Object} scriptData - 脚本数据
+ * @param {Function} navigateToCardsListCallback - 返回卡片列表视图的回调函数
+ * @param {Function} onScriptSelectedInSidebarCallback - 在侧边栏脚本列表选中脚本时的回调函数
  */
-export function renderScriptDetailView(container, scriptData) {
+export function renderScriptDetailView(container, scriptData, navigateToCardsListCallback, onScriptSelectedInSidebarCallback) {
     if (!container || !scriptData) return;
     
-    console.log('初始化脚本详情页面:', scriptData);
+    console.log('Initializing script detail view (detail/view.js) for:', scriptData.name);
     
     // 渲染基础HTML结构
     container.innerHTML = `
@@ -214,13 +216,13 @@ export function renderScriptDetailView(container, scriptData) {
     `;
     
     // 绑定事件处理
-    bindDetailViewEvents(container, scriptData);
+    bindDetailViewEvents(container, scriptData, navigateToCardsListCallback);
     
     // 初始化各个模块
     setTimeout(() => {
-        console.log('准备加载钱包列表...');
+        console.log('准备加载钱包列表和脚本侧边栏...');
         loadWalletList(container);
-        loadScriptList(container);
+        loadScriptList(container, onScriptSelectedInSidebarCallback);
         setupScriptLogListener(container);
         setCurrentScriptId(scriptData.id);
         setupProxySelection(container);

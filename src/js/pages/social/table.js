@@ -1,6 +1,7 @@
 import { debounce } from '../../utils/index.js';
 import { showToast } from '../../components/toast.js';
 import { handleSocialAccountAction } from './actions.js'; // Import action handler
+import { renderTableHeader, createSocialAccountRowElement } from './socialTableRenderer.js'; // <--- 修改导入
 
 // --- Module Variables (Cached Elements & State) ---
 let contentAreaCache = null;
@@ -40,7 +41,8 @@ const SENSITIVE_FIELDS_FOR_COPY = [
 ];
 
 // --- Platform Specific Column Definitions ---
-const platformColumns = {
+// 这些配置将作为参数传递给 socialTableRenderer.js 中的 renderTableHeader
+const platformColumnsConfig = {
     twitter: [
         { header: '账户/邮箱', key: 'identifier' },
         { header: '密码', key: 'password', sensitive: true },
@@ -71,15 +73,13 @@ const platformColumns = {
         { header: '分组', key: 'groupName' }
     ]
 };
-// Define common columns to add at the start and end
-const commonColumnsStart = [
+const commonColumnsStartConfig = [
     { header: '', key: 'checkbox', width: '3%' }, // Checkbox
     { header: '平台', key: 'platform' }         // Platform Icon/Name
 ];
-const commonColumnsEnd = [
+const commonColumnsEndConfig = [
     { header: '操作', key: 'actions', width: '12%' } // Action buttons
 ];
-
 
 // --- Initialization ---
 export function initSocialTable(contentArea) {
@@ -125,48 +125,31 @@ export function initSocialTable(contentArea) {
     loadAndRenderSocialAccounts(); // This will now also render the initial header
 }
 
-// --- Table Header Rendering ---
-
-/**
- * Renders the table header based on the selected platform.
- * @param {string} platform - The selected platform key (e.g., 'twitter').
- * @returns {number} The total number of columns (colspan).
- */
-function renderTableHeader(platform) {
-    if (!tableHeader) return 1; // Safety check
-
-    const platformSpecificColumns = platformColumns[platform] || [];
-    const allColumns = [...commonColumnsStart, ...platformSpecificColumns, ...commonColumnsEnd];
-
-    let headerHTML = '<tr>';
-    allColumns.forEach(col => {
-        const style = col.width ? `style="width: ${col.width}"` : '';
-        if (col.key === 'checkbox') {
-            headerHTML += `<th ${style}><input type="checkbox" class="select-all-checkbox" title="全选"></th>`;
-        } else {
-            headerHTML += `<th ${style}>${col.header}</th>`;
-        }
-    });
-    headerHTML += '</tr>';
-
-    tableHeader.innerHTML = headerHTML;
-    return allColumns.length; // Return the calculated colspan
-}
+// --- Table Header Rendering --- (旧的 renderTableHeader 函数已移除)
+// function renderTableHeader(platform) { ... }
 
 // --- Data Loading & Rendering ---
 
 export async function loadAndRenderSocialAccounts(page = currentPage, limit = itemsPerPage, filters = currentFilters) {
     console.log(`Loading social accounts for platform '${filters.platform}': Page ${page}, Limit ${limit}, Filters:`, filters);
 
+    const currentPlatform = filters.platform || 'twitter'; // Fallback
+    
     // **Render the correct header FIRST and get the colspan**
-    const currentPlatform = filters.platform || 'twitter'; // Fallback if filter somehow becomes null
-    const COLSPAN = renderTableHeader(currentPlatform);
+    // 调用新的 renderTableHeader
+    const { headerHTML, colspan: COLSPAN } = renderTableHeader(
+        platformColumnsConfig, 
+        commonColumnsStartConfig, 
+        commonColumnsEndConfig, 
+        currentPlatform
+    );
 
-    if (!tableBody || !window.dbAPI) {
-        console.error("Table body or dbAPI not ready.");
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center text-red-500 p-4">无法加载数据：组件或数据库接口未就绪。</td></tr>`;
+    if (!tableHeader || !tableBody || !window.dbAPI) { // tableHeader 仍然在这里检查，因为它需要被填充
+        console.error("Table header, body or dbAPI not ready.");
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="${COLSPAN || 1}" class="text-center text-red-500 p-4">无法加载数据：组件或数据库接口未就绪。</td></tr>`;
         return;
     }
+    tableHeader.innerHTML = headerHTML; // <--- 设置表头内容
 
     tableBody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center p-4"><i class="fas fa-spinner fa-spin mr-2"></i>正在加载...</td></tr>`;
 
@@ -174,14 +157,14 @@ export async function loadAndRenderSocialAccounts(page = currentPage, limit = it
         const queryOptions = {
             page: page,
             limit: limit,
-            platform: currentPlatform, // Use the determined platform
+            platform: currentPlatform,
             group_id: filters.groupId,
             search: filters.search
         };
 
         const result = await window.dbAPI.getSocialAccounts(queryOptions);
         const accounts = result.accounts;
-        totalItems = result.totalCount; // Use total count for the *filtered* platform
+        totalItems = result.totalCount;
         currentPage = page;
 
         tableBody.innerHTML = '';
@@ -189,21 +172,20 @@ export async function loadAndRenderSocialAccounts(page = currentPage, limit = it
         if (!accounts || accounts.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center p-4">该平台下暂无社交账户数据。</td></tr>`;
         } else {
-            // Get the column definitions for the current platform
-            const platformSpecificColumns = platformColumns[currentPlatform] || [];
-            const columnsToRender = [...commonColumnsStart, ...platformSpecificColumns, ...commonColumnsEnd];
+            // 获取列定义以传递给 createSocialAccountRowElement
+            // 注意：这里的 platformColumnsConfig 和 common...Config 是模块级常量，可以直接在 createSocialAccountRowElement 中访问（如果它还未被移动）
+            // 或者，如果 createSocialAccountRowElement 也被移动并期望这些作为参数，则需要调整。
+            // 目前假设 createSocialAccountRowElement 仍然在 table.js 内部。
+            const platformSpecificCols = platformColumnsConfig[currentPlatform] || [];
+            const columnsToRender = [...commonColumnsStartConfig, ...platformSpecificCols, ...commonColumnsEndConfig];
 
             accounts.forEach(account => {
-                // Pass the specific columns needed for this platform's row
-                const row = createSocialAccountRowElement(account, columnsToRender);
+                const row = createSocialAccountRowElement(account, columnsToRender, SENSITIVE_FIELDS_FOR_COPY, handleSocialAccountAction);
                 tableBody.appendChild(row);
             });
             setupCheckAll(contentAreaCache, '.social-table');
         }
-
-        // Update pagination based on the total items for the *current filter*
         renderPagination(totalItems, itemsPerPage, currentPage);
-
     } catch (error) {
         console.error(`Failed to load social accounts data for ${currentPlatform}:`, error);
         tableBody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center text-red-500 p-4">加载 ${currentPlatform} 数据失败: ${error.message}</td></tr>`;
@@ -217,6 +199,7 @@ export async function loadAndRenderSocialAccounts(page = currentPage, limit = it
  * @param {Array<object>} columns - Array of column definitions for the current platform.
  * @returns {HTMLTableRowElement} The created table row element.
  */
+/*
 function createSocialAccountRowElement(account, columns) {
     const row = document.createElement('tr');
     row.dataset.accountId = account.id;
@@ -309,8 +292,10 @@ function createSocialAccountRowElement(account, columns) {
 
     return row;
 }
+*/// 函数已被移至 socialTableRenderer.js
 
 // Helper function to escape HTML attributes
+/*
 function escapeAttribute(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/["&<>]/g, char => ({
@@ -320,6 +305,7 @@ function escapeAttribute(str) {
         '>': '&gt;'
     }[char]));
 }
+*/// 函数已被移至 socialTableRenderer.js
 
 // --- Filtering & Searching ---
 

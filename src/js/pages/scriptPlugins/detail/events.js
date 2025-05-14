@@ -1,6 +1,6 @@
 // 脚本详情页面事件处理模块
 import { switchToTab } from './view.js';
-import { addLogEntry } from './logger.js';
+import { addLogEntry, filterLogEntries } from './logger.js';
 import { collectConfigFormData } from './config.js';
 import { setupWalletSelectionEvents, updateSelectedWalletCount } from './wallets.js';
 
@@ -8,8 +8,9 @@ import { setupWalletSelectionEvents, updateSelectedWalletCount } from './wallets
  * 绑定详情页面的事件处理
  * @param {HTMLElement} container - 详情页面容器元素
  * @param {Object} scriptData - 当前脚本数据
+ * @param {Function} navigateToCardsListCallback - 返回卡片列表视图的回调函数
  */
-export function bindDetailViewEvents(container, scriptData) {
+export function bindDetailViewEvents(container, scriptData, navigateToCardsListCallback) {
     // 标签切换
     const tabBtns = container.querySelectorAll('.tab-btn');
     tabBtns.forEach(btn => {
@@ -23,10 +24,14 @@ export function bindDetailViewEvents(container, scriptData) {
     const backBtn = container.querySelector('#backToScriptsList');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            if (window.navigateToScriptCards) {
-                window.navigateToScriptCards();
+            if (typeof navigateToCardsListCallback === 'function') {
+                navigateToCardsListCallback();
             } else {
-                console.error('navigateToScriptCards 函数未找到');
+                console.error('navigateToCardsListCallback is not a function or was not provided.');
+                // Fallback behavior might be needed here, e.g., trying a generic navigation
+                // if (window.navigation && window.navigation.loadPage) {
+                //     window.navigation.loadPage('script-plugins');
+                // }
             }
         });
     }

@@ -72,6 +72,40 @@
 *   **安全第一**: 请务必牢记并妥善保管您设置的主密码。丢失主密码将导致加密数据无法恢复。启用自动解锁功能时，请确保您的操作系统账户安全。
 *   **开发状态**: 本项目仍在持续开发中，部分功能可能尚未完善。
 
+## 模块重构: 脚本插件 (Script Plugins)
+
+本次对 `src/js/pages/scriptPlugins/` 目录及其相关模板 `src/templates/script-plugins.html` 进行了重构。
+
+**重构目标:**
+
+1.  **提升模块化与代码组织**: 将逻辑拆分到更小、职责更单一的模块中（例如，详情页逻辑移至 `detail/` 子目录）。
+2.  **增强代码清晰度和可维护性**: 通过合理的函数划分、参数传递和回调机制，使代码更易于理解和修改。
+3.  **遵循关注点分离原则**: HTML 模板负责静态结构，JavaScript 专注于动态内容、交互和业务逻辑。
+4.  **优化导航和视图切换**: 实现更可靠的页面内导航，特别是在脚本列表与详情视图之间，以及详情页内部切换不同脚本的体验。
+5.  **移除冗余/未使用代码**: 清理不再使用的函数、事件监听器、全局变量及占位文件。
+6.  **功能调整**: 根据需求移除了本地"添加脚本"的功能，脚本将通过服务器推送。
+
+**主要重构内容概要:**
+
+*   **`src/templates/script-plugins.html`**:
+    *   重构为包含完整页面结构（头部、筛选/搜索栏、卡片容器）的静态骨架。
+    *   移除了本地"添加脚本"按钮。
+    *   确保了 `tpl-modal-run-plugin` 模态框模板的完整性和一致性。
+*   **`src/js/pages/scriptPlugins/index.js` (脚本插件列表页主逻辑)**:
+    *   `initScriptPluginPage`: 简化为入口，调用 `renderScriptPluginsListView`。
+    *   `renderScriptPluginsListView`: 负责获取模板元素、绑定列表级事件、加载渲染脚本卡片、初始化搜索/筛选。
+    *   `loadAndRenderScriptCards`: 从 `ScriptManager` 获取数据，创建卡片，填充筛选器。
+    *   `ScriptManager`: 统一处理与主进程的脚本相关IPC通信。
+    *   视图切换 (`initializeDetailView`, `navigateToScriptCards`, `loadScriptDetail`):
+        *   `navigateToScriptCards` 修改为通过调用全局 `loadPage('script-plugins')` 重新加载和初始化列表页面。
+        *   `loadScriptDetail` 作为回调传递给详情页内部脚本列表，用于在详情页内切换脚本显示。
+    *   移除了 `handleAddScript` 函数及相关逻辑和大量旧代码。
+*   **`src/js/pages/scriptPlugins/detail/` (脚本详情页)**:
+    *   `view.js` (`renderScriptDetailView`): 渲染详情页HTML，接收并传递导航回调和侧边栏脚本选择回调。
+    *   `events.js` (`bindDetailViewEvents`): 处理详情页事件，使用导航回调返回列表页。
+    *   `scripts.js` (`loadScriptList`): 渲染详情页侧边栏脚本列表，接收并使用侧边栏脚本选择回调。
+*   **文件清理**: 删除了 `src/js/pages/scriptPlugins/`目录下未使用的 `modals.js`, `table.js`, `actions.js` 文件。
+
 ## 近期关键增强
 
 *   **脚本插件系统**:
