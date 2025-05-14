@@ -217,14 +217,6 @@ async function handleToggleEnable(proxyId, rowElement) {
     try {
         await window.dbAPI.updateProxy(proxyId, { is_enabled: newState });
         rowElement.classList.toggle('enabled', newIsEnabled);
-        const icon = rowElement.querySelector('.toggle-enable-btn i');
-        if (icon) {
-            icon.classList.toggle('fa-toggle-on', newIsEnabled);
-            icon.classList.toggle('text-green-500', newIsEnabled);
-            icon.classList.toggle('fa-toggle-off', !newIsEnabled);
-            icon.classList.toggle('text-gray-500', !newIsEnabled);
-            icon.closest('button').title = `点击${newIsEnabled ? '禁用' : '启用'}`;
-        }
         showToast(`代理已${newIsEnabled ? '启用' : '禁用'}`, 'success');
         await window.proxyAPI.setProxy(newIsEnabled ? proxyId : null);
     } catch (error) {

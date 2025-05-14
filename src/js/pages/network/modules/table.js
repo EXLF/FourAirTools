@@ -135,18 +135,6 @@ export function updateRow(rowElement, proxy) {
     locationCell.title = fullLocation;
     rowElement.querySelector('td[data-field="risk"]').innerHTML = risk;
 
-    const toggleBtnIcon = rowElement.querySelector('.toggle-enable-btn i');
-    if (toggleBtnIcon) {
-        toggleBtnIcon.classList.toggle('fa-toggle-on', isEnabled);
-        toggleBtnIcon.classList.toggle('text-green-500', isEnabled);
-        toggleBtnIcon.classList.toggle('fa-toggle-off', !isEnabled);
-        toggleBtnIcon.classList.toggle('text-gray-500', !isEnabled);
-        const toggleBtn = toggleBtnIcon.closest('button');
-        if (toggleBtn) {
-            toggleBtn.title = `点击${isEnabled ? '禁用' : '启用'}`;
-        }
-    }
-
     const testBtn = rowElement.querySelector('.test-btn');
     if (testBtn) {
         testBtn.disabled = false;
