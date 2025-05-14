@@ -26,11 +26,7 @@ export function truncateAddress(address) {
     return address.substring(0, 6) + '...' + address.substring(address.length - 4);
 }
 
-// 从脚本插件的日志模块导入
-import { addLogEntry } from '../pages/scriptPlugins/detail/logger.js';
-
 // 导出所有工具函数
 export {
-    addLogEntry
     // ... 其他工具函数
 }; 

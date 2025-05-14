@@ -58,6 +58,50 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLogoutButtonVisibility();
 });
 
+// 辅助函数：切换平台UI和状态
+function handlePlatformSwitch(platformToActivate, platformToDeactivate) {
+    if (activePlatform === platformToActivate) return;
+
+    const activateBtn = document.getElementById(platformToActivate.toggleBtnId);
+    const deactivateBtn = document.getElementById(platformToDeactivate.toggleBtnId);
+    const activateContent = document.getElementById(platformToActivate.contentId);
+    const deactivateContent = document.getElementById(platformToDeactivate.contentId);
+
+    if (!activateBtn || !deactivateBtn || !activateContent || !deactivateContent) {
+        console.error('Platform toggle elements not found during switch');
+        return;
+    }
+
+    // 更新激活平台的按钮状态和内容显示
+    activateBtn.classList.add('active');
+    // 根据平台特定样式调整，这里假设 Discord 是 primary, X 是 dark
+    if (platformToActivate.name === 'discord') {
+        activateBtn.classList.remove('btn-outline-primary');
+        activateBtn.classList.add('btn-primary');
+    } else if (platformToActivate.name === 'x') {
+        activateBtn.classList.remove('btn-outline-dark');
+        activateBtn.classList.add('btn-dark');
+    }
+    activateContent.classList.remove('hidden');
+
+    // 更新去激活平台的按钮状态和内容显示
+    deactivateBtn.classList.remove('active');
+    if (platformToDeactivate.name === 'discord') {
+        deactivateBtn.classList.remove('btn-primary');
+        deactivateBtn.classList.add('btn-outline-primary');
+    } else if (platformToDeactivate.name === 'x') {
+        deactivateBtn.classList.remove('btn-dark');
+        deactivateBtn.classList.add('btn-outline-dark');
+    }
+    deactivateContent.classList.add('hidden');
+
+    // 更新当前平台
+    activePlatform = platformToActivate;
+
+    // 更新退出按钮状态
+    updateLogoutButtonVisibility();
+}
+
 // 初始化平台切换
 function initPlatformToggle() {
     const discordToggleBtn = document.getElementById(PLATFORMS.DISCORD.toggleBtnId);
@@ -68,52 +112,12 @@ function initPlatformToggle() {
         return;
     }
     
-    // Discord切换按钮点击事件
     discordToggleBtn.addEventListener('click', () => {
-        if (activePlatform === PLATFORMS.DISCORD) return;
-        
-        // 更新按钮状态
-        discordToggleBtn.classList.add('active');
-        discordToggleBtn.classList.remove('btn-outline-primary');
-        discordToggleBtn.classList.add('btn-primary');
-        
-        xToggleBtn.classList.remove('active');
-        xToggleBtn.classList.remove('btn-dark');
-        xToggleBtn.classList.add('btn-outline-dark');
-        
-        // 切换内容显示
-        document.getElementById(PLATFORMS.DISCORD.contentId).classList.remove('hidden');
-        document.getElementById(PLATFORMS.X.contentId).classList.add('hidden');
-        
-        // 更新当前平台
-        activePlatform = PLATFORMS.DISCORD;
-
-        // 更新退出按钮状态
-        updateLogoutButtonVisibility();
+        handlePlatformSwitch(PLATFORMS.DISCORD, PLATFORMS.X);
     });
     
-    // X切换按钮点击事件
     xToggleBtn.addEventListener('click', () => {
-        if (activePlatform === PLATFORMS.X) return;
-        
-        // 更新按钮状态
-        xToggleBtn.classList.add('active');
-        xToggleBtn.classList.remove('btn-outline-dark');
-        xToggleBtn.classList.add('btn-dark');
-        
-        discordToggleBtn.classList.remove('active');
-        discordToggleBtn.classList.remove('btn-primary');
-        discordToggleBtn.classList.add('btn-outline-primary');
-        
-        // 切换内容显示
-        document.getElementById(PLATFORMS.X.contentId).classList.remove('hidden');
-        document.getElementById(PLATFORMS.DISCORD.contentId).classList.add('hidden');
-        
-        // 更新当前平台
-        activePlatform = PLATFORMS.X;
-
-        // 更新退出按钮状态
-        updateLogoutButtonVisibility();
+        handlePlatformSwitch(PLATFORMS.X, PLATFORMS.DISCORD);
     });
 }
 
@@ -543,4 +547,12 @@ export function initCommunityPage() {
 
     // 更新退出按钮状态
     updateLogoutButtonVisibility();
-} 
+}
+
+// 函数：初始化社区页面功能 -- 移除这个未使用的导出
+// export function initCommunityPage() {
+//     console.log('Community page initialized via export');
+//     // 如果需要显式初始化，可以在这里调用主要函数
+//     // 例如: initPlatformToggle(), initPlatform(PLATFORMS.DISCORD) 等
+//     // 但目前是通过 DOMContentLoaded 自动初始化的
+// } 
