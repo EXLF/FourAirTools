@@ -5,9 +5,20 @@ let currentOpenModal = null; // 跟踪当前打开的模态框元素
  * 处理关闭先前的模态框和添加关闭监听器。
  * @param {string} templateId - 模态框模板元素的 ID。
  * @param {function} setupFunction - 用于设置模态框内容和监听器的回调函数。接收 modalElement 作为参数。
+ * @param {object} options - 模态框的选项，例如 { persistent: true } 表示模态框不能轻易关闭。
  */
-export function showModal(templateId, setupFunction) {
+export function showModal(templateId, setupFunction, options = {}) {
     if (currentOpenModal) {
+        // 如果当前打开的是持久化模态框，并且尝试打开新的，则阻止
+        if (currentOpenModal.dataset.persistent === 'true' && options.persistent) {
+            console.warn("一个持久化模态框已打开，无法打开新的持久化模态框。");
+            return;
+        }
+        // 如果当前打开的是持久化模态框，但新打开的不是持久化的，也阻止（或根据需求调整）
+        if (currentOpenModal.dataset.persistent === 'true' && !options.persistent) {
+            console.warn("一个持久化模态框已打开，请先处理。");
+            return;
+        }
         console.warn("另一个模态框已打开。正在先关闭它。");
         hideModal(); // 先关闭任何已存在的模态框
     }
@@ -21,6 +32,11 @@ export function showModal(templateId, setupFunction) {
     const newModalElement = template.content.firstElementChild.cloneNode(true); // 使用局部变量
     const modalToShow = newModalElement; // 保存引用
     currentOpenModal = modalToShow; // 更新全局状态
+
+    // 如果是持久化模态框，添加一个标记
+    if (options.persistent) {
+        currentOpenModal.dataset.persistent = 'true';
+    }
 
     // 由调用者提供的内容和监听器设置
     if (setupFunction && typeof setupFunction === 'function') {
@@ -42,14 +58,24 @@ export function showModal(templateId, setupFunction) {
     const cancelButton = currentOpenModal.querySelector('.modal-cancel-btn');
     const footerCloseButton = currentOpenModal.querySelector('.modal-close-btn-footer');
 
-    if (closeButton) {
-        closeButton.addEventListener('click', hideModal);
-    }
-    if (cancelButton) {
-        cancelButton.addEventListener('click', hideModal);
-    }
-    if (footerCloseButton) { // 为文章模态框页脚按钮添加
-        footerCloseButton.addEventListener('click', hideModal);
+    // 仅当模态框不是持久化时才添加标准关闭监听器
+    if (!options.persistent) {
+        if (closeButton) {
+            closeButton.addEventListener('click', hideModal);
+        }
+        if (cancelButton) {
+            cancelButton.addEventListener('click', hideModal);
+        }
+        if (footerCloseButton) { // 为文章模态框页脚按钮添加
+            footerCloseButton.addEventListener('click', hideModal);
+        }
+
+        // 可选：添加点击背景关闭的功能（仅非持久化时）
+        // currentOpenModal.addEventListener('click', (e) => {
+        //     if (e.target === currentOpenModal) { // 点击的是模态框本身（背景）
+        //         hideModal();
+        //     }
+        // });
     }
 
     // 将模态框添加到 body 并使其可见
@@ -68,6 +94,17 @@ export function showModal(templateId, setupFunction) {
 export function hideModal() {
     console.log(`[${Date.now()}] hideModal: Start`); 
     if (!currentOpenModal) return;
+
+    // 如果是持久化模态框，则阻止 hideModal 的默认行为，除非是强制关闭
+    // 这里我们假设 hideModal() 被调用意味着意图是明确的关闭，
+    // 而不是意外触发。如果需要更严格的持久化，
+    // 可能需要一个额外的参数给 hideModal 如 forceHide = false
+    if (currentOpenModal.dataset.persistent === 'true') {
+        // 对于持久化模态框，通常不由 hideModal()直接关闭，
+        // 除非是解锁成功等特定逻辑调用它。
+        // 或者，我们可以添加一个 console.warn 或阻止关闭除非有特定条件
+        console.log("[Modal] Attempting to hide a persistent modal. This should typically be handled by specific logic (e.g., unlock success).");
+    }
 
     const modalToRemove = currentOpenModal; // 保留引用以进行异步移除
     currentOpenModal = null; // 立即标记为没有模态框打开
@@ -125,7 +162,13 @@ export function showConfirmDialog(message, onConfirm, onCancel, confirmText = "�
     // 记录当前模态框
     if (currentOpenModal) {
         console.warn("另一个模态框已打开。正在先关闭它。");
-        hideModal(); // 先关闭任何已存在的模态框
+        // hideModal(); // 先关闭任何已存在的模态框 - 需要考虑持久化问题
+        // 如果 currentOpenModal 是持久化的，不应该随便关闭
+        if (currentOpenModal.dataset.persistent === 'true') {
+            console.warn("一个持久化模态框已打开，无法显示确认对话框。请先处理持久化模态框。");
+            return; // 阻止打开新的确认框
+        }
+        hideModal();
     }
     currentOpenModal = confirmModal;
 
@@ -152,9 +195,12 @@ export function showConfirmDialog(message, onConfirm, onCancel, confirmText = "�
     if (cancelBtn) cancelBtn.addEventListener('click', handleCancel);
     if (confirmBtn) confirmBtn.addEventListener('click', handleConfirm);
 
-    // 防止点击背景关闭
+    // 防止点击背景关闭 (confirm-modal 特有逻辑)
+    // 注意：这个背景点击关闭是 showConfirmDialog 的特性，不是 showModal 的。
+    // 如果是持久化确认框 (虽然当前函数不支持)，这里也需要调整。
     confirmModal.addEventListener('click', (e) => {
         if (e.target === confirmModal) {
+            // 如果 confirm dialog 需要支持 persistent 选项，这里需要检查
             handleCancel();
         }
     });

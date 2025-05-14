@@ -1,9 +1,9 @@
 const { ipcMain, dialog, BrowserWindow, app } = require('electron');
 const fs = require('fs').promises; // <-- 使用同步版本即可，或保持异步看场景
 const path = require('path');
-const db = require('../../js/db/index.js'); // Still need db for saving
+const db = require('../db/index.js'); // Updated path
 const { ethers } = require('ethers'); // 导入 ethers
-const cryptoService = require('../../js/core/cryptoService.js'); // 导入加密服务
+const cryptoService = require('../core/cryptoService.js'); // Updated path
 
 // *** TODO: Make this configurable in settings ***
 const DEFAULT_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/eOvLOWiFwLA0k3YIYnfJzmKrfUUO_dgo'; // Replace with a real key or use a public one carefully
@@ -36,7 +36,7 @@ function setupApplicationIpcHandlers(mainWindow) {
 
     // --- 批量生成钱包 Handler ---
     ipcMain.handle('app:generateWallets', async (event, { count, groupId }) => {
-        const walletGenerator = require('../../js/core/walletGenerator.js');
+        const walletGenerator = require('../core/walletGenerator.js'); // Corrected path
         console.log(`[IPC] Received: app:generateWallets - Count: ${count}, GroupID: ${groupId}`);
         if (typeof count !== 'number' || count <= 0) {
             throw new Error('无效的生成数量');

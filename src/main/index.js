@@ -1,13 +1,13 @@
 const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
-const db = require('./src/js/db/index.js');
-const cryptoService = require('./src/js/core/cryptoService.js');
+const db = require('./db/index.js');
+const cryptoService = require('./core/cryptoService.js');
 
-const { setupDatabaseIpcHandlers } = require('./src/main/ipcHandlers/dbHandlers.js');
-const { setupApplicationIpcHandlers } = require('./src/main/ipcHandlers/appHandlers.js');
-const { setupProxyIpcHandlers } = require('./src/main/ipcHandlers/proxyHandlers.js');
-const scriptEngine = require('./src/main/scriptEngine.js');
+const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
+const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
+const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');
+const scriptEngine = require('./scriptEngine.js');
 
 let mainWindow = null;
 
@@ -22,7 +22,7 @@ function createWindow() {
     webPreferences: {
       // 安全配置: 启用上下文隔离并指定 Preload 脚本
       contextIsolation: true,
-      preload: path.join(__dirname, 'src', 'preload.js'),
+      preload: path.join(__dirname, '../preload.js'),
       webviewTag: true // 启用 webview 标签支持
     }
   });

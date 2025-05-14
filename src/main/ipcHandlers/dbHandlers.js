@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
-const db = require('../../js/db/index.js'); // Adjust path relative to this file
-const cryptoService = require('../../js/core/cryptoService.js'); // **新增：导入加密服务**
+const db = require('../db/index.js'); // Adjust path relative to this file
+const cryptoService = require('../core/cryptoService.js'); // **新增：导入加密服务**
 
 /**
  * 辅助函数：加密社交账户数据中的敏感字段

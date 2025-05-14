@@ -68,14 +68,14 @@ Four2/
 │   │   └── tutorials.json                  # 教程内容数据 (JSON 格式)
 │   ├── js/                                 # JavaScript 源代码目录 (渲染器进程)
 │   │   ├── components/                     # 可复用的 UI 组件或辅助模块
-│   │   │   ├── modal.js                    # 模态框/弹窗组件逻辑
+│   │   │   ├── modal.js                    # 模态框/弹窗组件逻辑。支持常规关闭模式和持久化模式（通过 options.persistent 设置），用于标准交互和强制流程（如认证）。
 │   │   │   ├── tableHelper.js              # 表格辅助功能模块
 │   │   │   └── toast.js                    # 提示/通知组件逻辑
 │   │   ├── core/                           # 核心 JavaScript 模块
 │   │   │   ├── __tests__/                  # 测试文件目录 (此项目中为空)
 │   │   │   ├── app.js                      # 应用级别的前端逻辑初始化
-│   │   │   ├── authSetup.js                # 认证设置相关逻辑
-│   │   │   ├── authUnlock.js               # 认证解锁相关逻辑
+│   │   │   ├── authSetup.js                # 认证设置相关逻辑，使用持久化模态框确保用户完成初始密码设置。
+│   │   │   ├── authUnlock.js               # 认证解锁相关逻辑，使用持久化模态框确保用户完成解锁操作。
 │   │   │   ├── cryptoService.js            # 加密/解密服务模块
 │   │   │   ├── globalListeners.js          # 全局事件监听器
 │   │   │   ├── index.js                    # core 模块的入口或聚合文件
@@ -146,11 +146,22 @@ Four2/
 │   │   └── vendors/                        # 第三方库/插件 (前端)
 │   │       └── axios.min.js                # Axios HTTP 客户端库
 │   ├── main/                               # Electron 主进程相关代码
+│   │   ├── core/                           # 主进程核心服务模块
+│   │   │   ├── cryptoService.js            # 加密/解密服务模块 (主进程)
+│   │   │   └── walletGenerator.js          # 钱包生成相关逻辑 (主进程)
+│   │   ├── db/                             # 主进程数据库交互模块
+│   │   │   ├── group.js                    # 分组数据模型操作
+│   │   │   ├── index.js                    # db 模块的入口或聚合文件，封装数据库操作API
+│   │   │   ├── links.js                    # 链接数据模型操作
+│   │   │   ├── proxy.js                    # 代理数据模型操作
+│   │   │   ├── social.js                   # 社交数据模型操作
+│   │   │   └── wallet.js                   # 钱包数据模型操作
 │   │   ├── ipcHandlers/                    # IPC (进程间通信) 事件处理模块
 │   │   │   ├── appHandlers.js              # 处理应用级别相关的 IPC 事件 (如窗口操作、应用信息)
 │   │   │   ├── dbHandlers.js               # 处理数据库相关的 IPC 事件 (来自渲染器进程的数据库请求)
 │   │   │   ├── index.js                    # ipcHandlers 模块的入口，注册所有 IPC 事件处理函数
 │   │   │   └── proxyHandlers.js            # 处理代理设置相关的 IPC 事件
+│   │   ├── index.js                        # Electron 主进程入口文件，负责应用生命周期、窗口管理和后端逻辑 (原 main.js)
 │   │   └── scriptEngine.js                 # 脚本引擎核心逻辑，负责加载和执行用户脚本
 │   ├── pages/                              # 存放 HTML 页面的目录 (这里的 store 为空，大部分页面在 templates)
 │   │   └── store/                          # (此项目中为空)
@@ -185,9 +196,9 @@ Four2/
 
 *   **核心功能:**
     *   前端界面 (`index.html`, `src/css/`, `src/js/`, `src/templates/`, `src/assets/`)：负责用户界面的展示和交互。
-    *   后端逻辑/主进程 (`main.js`, `src/main/`)：处理应用的核心逻辑，包括窗口管理、进程间通信 (IPC) 等。
+    *   后端逻辑/主进程 (`src/main/index.js`, `src/main/`)：处理应用的核心逻辑，包括窗口管理、进程间通信 (IPC) 等。
     *   脚本引擎 (`src/main/scriptEngine.js`, `user_scripts/`)：允许用户运行自定义脚本。
-    *   数据库 (`database.db`, `src/js/db/`, `src/main/ipcHandlers/dbHandlers.js`)：使用 SQLite 存储数据。
+    *   数据库 (`database.db`, `src/main/db/`, `src/main/ipcHandlers/dbHandlers.js`)：使用 SQLite 存储数据。
     *   预加载脚本 (`preload/webview-preload.js`, `src/preload.js`)：在渲染器进程中安全地暴露 Node.js API。
 
 *   **主要模块/页面 (通过 `src/templates` 和 `src/js/pages` 推断):**

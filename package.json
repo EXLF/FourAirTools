@@ -2,7 +2,7 @@
   "name": "fouair-toolbox",
   "version": "1.0.0",
   "description": "FourAir社区撸毛工具箱桌面版",
-  "main": "main.js",
+  "main": "src/main/index.js",
   "scripts": {
     "start": "npm run dev",
     "dev": "cross-env NODE_ENV=development electron .",

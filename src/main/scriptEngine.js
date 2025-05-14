@@ -7,8 +7,8 @@ const path = require('path');
 const { ipcMain } = require('electron');
 const { VM } = require('vm2');
 const util = require('util');
-const cryptoService = require('../js/core/cryptoService.js');
-const db = require('../js/db/index.js');
+const cryptoService = require('./core/cryptoService.js');
+const db = require('./db/index.js');
 
 // 日志记录
 function log(level, message) {

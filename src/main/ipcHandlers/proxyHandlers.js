@@ -2,7 +2,7 @@ const { ipcMain, session } = require('electron');
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { SocksProxyAgent } = require('socks-proxy-agent');
-const db = require('../../js/db/index.js'); // 数据库访问
+const db = require('../db/index.js'); // 数据库访问
 
 // --- 配置 ---
 const TEST_TIMEOUT = 15000; // 测试超时时间 (ms)

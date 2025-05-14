@@ -110,5 +110,5 @@ export function showSetupPasswordModal() {
         };
 
         form.addEventListener('submit', handleSubmit);
-    });
+    }, { persistent: true });
 } 

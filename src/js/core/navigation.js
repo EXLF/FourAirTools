@@ -4,8 +4,8 @@
 const contentArea = document.querySelector('.content-area');
 const sidebarLinks = document.querySelectorAll('.sidebar nav ul li a');
 
-// 不再需要暂时保留的模板映射
-const templates = {};
+// 不再需要暂时保留的模板映射 - 此对象已移除
+// const templates = {}; 
 
 let currentPage = 'dashboard'; // 跟踪当前页面 ID
 
@@ -38,7 +38,7 @@ export async function loadPage(pageId) {
     // 清除当前内容并显示加载指示器
     contentArea.innerHTML = '<p class="loading-indicator">加载中...</p>';
 
-    let loadedViaFetch = false;
+    // let loadedViaFetch = false; // 不再需要此变量
     // 选项1: 首先尝试获取HTML片段
     try {
         const response = await fetch(`src/templates/${pageId}.html`);
@@ -46,40 +46,27 @@ export async function loadPage(pageId) {
             const html = await response.text();
             contentArea.innerHTML = html;
             contentArea.scrollTop = 0;
-            loadedViaFetch = true;
+            // loadedViaFetch = true; // 不再需要
             console.log(`通过fetch成功加载${pageId}。`);
         } else {
-            if (response.status !== 404) {
-                 console.warn(`获取${pageId}.html失败，状态码: ${response.status}`);
-            }
+            // 如果fetch失败 (例如 404 或其他错误)
+            console.error(`获取模板 "${pageId}.html" 失败，状态码: ${response.status}`);
+            contentArea.innerHTML = `<div class="notice error"><h2>页面加载失败</h2><p>无法加载页面 ${pageId} 的内容 (状态: ${response.status})。</p></div>`;
+            // 初始化特定页面内容的调用不应在此处进行，因为它依赖于成功加载的HTML
+            currentPage = 'error'; // 或其他适当的错误页面标识
+            return; // 提前返回，不尝试初始化页面内容
         }
     } catch (error) {
-        console.error(`获取模板"${pageId}.html"时出错:`, error);
+        console.error(`获取模板 "${pageId}.html" 时发生网络错误或解析错误:`, error);
+        contentArea.innerHTML = `<div class="notice error"><h2>页面加载出错</h2><p>加载页面 ${pageId} 时发生网络或解析错误。</p></div>`;
+        currentPage = 'error';
+        return; // 提前返回
     }
 
-    // 选项2: 回退到<template>标签
-    if (!loadedViaFetch) {
-        const template = templates[pageId];
-        if (template && template.content) {
-            try {
-                const templateContent = template.content.cloneNode(true);
-                contentArea.innerHTML = '';
-                contentArea.appendChild(templateContent);
-                contentArea.scrollTop = 0;
-                console.log(`通过<template>标签成功加载${pageId}。`);
-            } catch (error) {
-                console.error(`克隆/附加模板"${pageId}"时出错:`, error);
-                contentArea.innerHTML = `<div class="notice error"><h2>页面加载出错</h2><p>加载模板${pageId}时发生错误。</p></div>`;
-                return;
-            }
-        } else {
-            console.error(`未找到页面ID的内容: ${pageId}`);
-            contentArea.innerHTML = `<div class="notice error"><h2>页面不存在</h2><p>无法找到ID为"${pageId}"的页面内容。</p></div>`;
-            return;
-        }
-    }
+    // 选项2: 回退到<template>标签 - 此逻辑已移除，因为它不再使用
+    // if (!loadedViaFetch) { ... }
 
-    // 动态调用特定页面的初始化函数
+    // 动态调用特定页面的初始化函数 (只有在HTML成功加载后才执行)
     try {
         await initializePageContent(pageId);
     } catch(error) {

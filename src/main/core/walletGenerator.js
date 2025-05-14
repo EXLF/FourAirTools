@@ -13,7 +13,7 @@ function generateWalletFromMnemonicInternal(mnemonic, index) {
             throw new Error('无效的助记词');
         }
         const seed = bip39.mnemonicToSeedSync(mnemonic);
-        const derivationPath = `m/44'/60'/0'/0/${index}`; // 标准路径
+        const derivationPath = `m/44\'/60\'/0\'/0/${index}`; // 标准路径
         const masterNode = hdkey.fromMasterSeed(seed);
         const childNode = masterNode.derivePath(derivationPath);
         const wallet = childNode.getWallet();
