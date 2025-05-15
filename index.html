@@ -79,6 +79,11 @@
             </nav>
             <div class="sidebar-footer">
                 <span id="app-version">版本: 1.0.0-beta</span>
+                <span id="update-status" style="margin-left: 10px;"></span>
+                <div id="update-actions" style="margin-top: 5px;">
+                    <button id="download-update-btn" class="btn btn-secondary btn-sm" style="display: none;">下载更新</button>
+                    <button id="install-update-btn" class="btn btn-primary btn-sm" style="display: none;">立即安装</button>
+                </div>
             </div>
         </aside>
 
@@ -525,5 +530,10 @@
     <!-- <script src="main.js"></script> -->
     <script type="module" src="src/js/core/app.js"></script>
     <div id="toast-container"></div> <!-- Toast container -->
+    <script src="src/js/main.js"></script>
+    <script src="src/js/navigation.js"></script>
+    <script src="src/js/modals.js"></script>
+    <script src="src/js/auth.js"></script>
+    <script src="src/js/updater-ui.js"></script> <!-- 新增：引入 updater UI 脚本 -->
 </body>
 </html> 

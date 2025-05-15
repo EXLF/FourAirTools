@@ -3,6 +3,8 @@ const path = require('path');
 const keytar = require('keytar');
 const db = require('./db/index.js');
 const cryptoService = require('./core/cryptoService.js');
+const { autoUpdater } = require("electron-updater");
+const log = require('electron-log');
 
 const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
@@ -248,23 +250,70 @@ app.whenReady().then(async () => {
 
   // 应用启动后，根据状态发送消息
   if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.on('did-finish-load', () => {
+    // 在窗口内容加载完成后发送状态
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('[Main] MainWindow content finished loading.');
       if (needsSetup) {
-        console.log('[Main] 发送 show-setup-password 消息');
-        mainWindow.webContents.send('show-setup-password');
-      } else if (needsUnlock && !cryptoService.isUnlocked()) { // *** 修改条件：只有在需要解锁且尚未解锁时发送 ***
-        console.log('[Main] 发送 show-unlock-screen 消息');
-        mainWindow.webContents.send('show-unlock-screen');
-      } else if (cryptoService.isUnlocked()) {
-          console.log('[Main] Application already unlocked (likely via Keytar).');
-          // 可以选择性地发送一个消息通知渲染进程已自动解锁
-          mainWindow.webContents.send('app-unlocked-status', { unlocked: true });
+        console.log('[Main] Sending auth:needs-setup to renderer.');
+        mainWindow.webContents.send('auth:needs-setup');
+      } else if (needsUnlock) {
+        console.log('[Main] Sending auth:needs-unlock to renderer.');
+        mainWindow.webContents.send('auth:needs-unlock');
+      } else {
+        // 如果既不需要设置也不需要解锁 (例如通过 keytar 自动解锁)
+        console.log('[Main] App is configured and unlocked. Sending app-unlocked-status.');
+        mainWindow.webContents.send('app-unlocked-status', { unlocked: true });
       }
     });
-  } else {
-      console.warn('[Main] MainWindow created, but webContents not immediately available for sending initial auth message.');
-      // 可以在 createWindow 的回调中处理
   }
+
+  // 新增：配置和启动自动更新
+  log.transports.file.level = "info"; // 配置 electron-log 记录更新信息
+  autoUpdater.logger = log;
+  autoUpdater.autoDownload = false; // 我们将手动触发下载
+  // autoUpdater.autoInstallOnAppQuit = true; // 下载完成后退出时自动安装 (如果用户同意)
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('正在检查更新...');
+    if (mainWindow) mainWindow.webContents.send('update-checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('检测到新版本:', info);
+    if (mainWindow) mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('当前已是最新版本:', info);
+    if (mainWindow) mainWindow.webContents.send('update-not-available', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('更新发生错误:', err);
+    if (mainWindow) mainWindow.webContents.send('update-error', err.message);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "下载速度: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - 已下载 ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    log.info(log_message);
+    if (mainWindow) mainWindow.webContents.send('update-download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('更新包下载完成:', info);
+    // 通知渲染进程，询问用户是否立即更新
+    if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
+    // 可以在这里直接提示，或者让渲染进程来处理
+    // 例如: dialog.showMessageBox... 然后 autoUpdater.quitAndInstall();
+  });
+  
+  // 应用程序启动后，检查更新 (可以根据你的偏好调整检查时机)
+  // 例如，你可以只在用户明确点击"检查更新"按钮时才调用
+  autoUpdater.checkForUpdates(); 
+  // 如果你想更积极地检查，也可以使用 autoUpdater.checkForUpdatesAndNotify();
+  // 它会在有可用更新时显示一个系统通知 (macOS & Windows)
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建一个窗口。
@@ -314,4 +363,16 @@ ipcMain.handle('app:lock', async () => {
         console.error('[Main] Error locking application:', error);
         return { success: false, error: '锁定应用时出错。', details: error.message };
     }
+});
+
+// 新增：处理从渲染进程触发的下载更新请求
+ipcMain.on('updater-start-download', () => {
+  log.info('[IPC] Received updater-start-download. Starting download...');
+  autoUpdater.downloadUpdate();
+});
+
+// 新增：处理从渲染进程触发的立即安装更新请求
+ipcMain.on('updater-quit-and-install', () => {
+  log.info('[IPC] Received updater-quit-and-install. Quitting and installing...');
+  autoUpdater.quitAndInstall();
 }); 

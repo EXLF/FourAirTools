@@ -69,7 +69,10 @@ const validSendChannels = [
     'app:importWallets', // 新增
     'app:encryptData', // 添加加密通道
     'app:lock', // 添加手动锁定通道
-    'open-external-link'
+    'open-external-link',
+    // 更新器相关
+    'updater-start-download',
+    'updater-quit-and-install'
 ];
 const validReceiveChannels = [
     'show-setup-password',
@@ -82,7 +85,14 @@ const validReceiveChannels = [
     // *** 新增：脚本执行进度和结果通道 ***
     'script-progress',
     'script-completed',
-    'script-error'
+    'script-error',
+    // 更新器相关
+    'update-checking',
+    'update-available',
+    'update-not-available',
+    'update-error',
+    'update-download-progress',
+    'update-downloaded'
 ];
 const validInvokeChannels = [
     'auth:setupPassword', 
