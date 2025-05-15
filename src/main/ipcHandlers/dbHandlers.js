@@ -56,23 +56,104 @@ function setupDatabaseIpcHandlers() {
     // --- Wallets --- 
     ipcMain.handle('db:addWallet', async (event, walletData) => {
         console.log('[IPC] Received: db:addWallet', walletData);
-        return await db.addWallet(db.db, walletData);
+        // 确保将渲染进程传来的 (可能仍是) walletData.mnemonic (加密值)
+        // 映射到 walletData.encryptedMnemonic 以匹配 wallet.js 中的期望
+        const dataToSave = { ...walletData };
+        if (dataToSave.hasOwnProperty('mnemonic') && !dataToSave.hasOwnProperty('encryptedMnemonic')) {
+            dataToSave.encryptedMnemonic = dataToSave.mnemonic;
+            delete dataToSave.mnemonic; 
+        }
+        // 私钥字段名 encryptedPrivateKey 通常在渲染端已经正确设置
+        return await db.addWallet(db.db, dataToSave);
     });
     ipcMain.handle('db:getWallets', async (event, options) => {
         console.log('[IPC] Received: db:getWallets', options);
-        return await db.getWallets(db.db, options);
+        const result = await db.getWallets(db.db, options);
+
+        if (result && result.wallets && result.wallets.length > 0) {
+            if (!cryptoService.isUnlocked()) {
+                console.warn('[IPC] db:getWallets - App not unlocked. Sensitive wallet data will be nulled or marked.');
+                result.wallets.forEach(wallet => {
+                    wallet.encryptedPrivateKey = '[LOCKED]';
+                    wallet.encryptedMnemonic = '[LOCKED]'; // 使用新的字段名
+                    // 为了向后兼容或避免前端错误，如果前端仍在使用 mnemonic，则也设置它
+                    wallet.mnemonic = '[LOCKED]'; 
+                });
+            } else {
+                result.wallets.forEach(wallet => {
+                    try {
+                        if (wallet.encryptedPrivateKey) {
+                            wallet.privateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
+                        }
+                        // delete wallet.encryptedPrivateKey; // 可选择删除加密值，或保留
+                    } catch (e) {
+                        console.error(`Failed to decrypt privateKey for wallet ${wallet.address}:`, e.message);
+                        wallet.privateKey = '[DECRYPTION_ERROR]';
+                    }
+                    try {
+                        if (wallet.encryptedMnemonic) {
+                            wallet.mnemonic = cryptoService.decryptWithSessionKey(wallet.encryptedMnemonic);
+                        }
+                        // delete wallet.encryptedMnemonic; // 可选择删除加密值
+                    } catch (e) {
+                        console.error(`Failed to decrypt mnemonic for wallet ${wallet.address}:`, e.message);
+                        wallet.mnemonic = '[DECRYPTION_ERROR]';
+                    }
+                });
+            }
+        }
+        return result;
     });
      ipcMain.handle('db:getWalletById', async (event, id) => {
         console.log('[IPC] Received: db:getWalletById', id);
-        return await db.getWalletById(db.db, id);
+        const wallet = await db.getWalletById(db.db, id);
+        if (wallet) {
+            if (!cryptoService.isUnlocked()) {
+                console.warn(`[IPC] db:getWalletById (ID: ${id}) - App not unlocked. Sensitive data will be nulled or marked.`);
+                wallet.encryptedPrivateKey = '[LOCKED]';
+                wallet.encryptedMnemonic = '[LOCKED]';
+                wallet.mnemonic = '[LOCKED]'; // 兼容旧字段名
+            } else {
+                try {
+                    if (wallet.encryptedPrivateKey) {
+                        wallet.privateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
+                    }
+                } catch (e) {
+                    console.error(`Failed to decrypt privateKey for wallet ID ${id}:`, e.message);
+                    wallet.privateKey = '[DECRYPTION_ERROR]';
+                }
+                try {
+                    if (wallet.encryptedMnemonic) {
+                        wallet.mnemonic = cryptoService.decryptWithSessionKey(wallet.encryptedMnemonic);
+                    }
+                } catch (e) {
+                    console.error(`Failed to decrypt mnemonic for wallet ID ${id}:`, e.message);
+                    wallet.mnemonic = '[DECRYPTION_ERROR]';
+                }
+            }
+        }
+        return wallet;
     });
     ipcMain.handle('db:getWalletsByIds', async (event, ids) => {
         console.log('[IPC] Received: db:getWalletsByIds', ids);
+        // 此函数通常用于列表或选择，可能不需要立即解密所有敏感数据
+        // 暂时保持原样，返回加密数据。如果特定场景需要解密，可以再调整或新增一个IPC。
         return await db.getWalletsByIds(db.db, ids);
     });
     ipcMain.handle('db:updateWallet', async (event, id, walletData) => {
         console.log('[IPC] Received: db:updateWallet', id, walletData);
-        return await db.updateWallet(db.db, id, walletData);
+        // 确保将渲染进程传来的 (可能仍是) walletData.mnemonic (加密值)
+        // 映射到 walletData.encryptedMnemonic 以匹配 wallet.js 中的期望
+        const dataToUpdate = { ...walletData };
+        if (dataToUpdate.hasOwnProperty('mnemonic') && !dataToUpdate.hasOwnProperty('encryptedMnemonic')) {
+            dataToUpdate.encryptedMnemonic = dataToUpdate.mnemonic;
+            delete dataToUpdate.mnemonic;
+        }
+         // 如果 walletData 中包含明文的 privateKey 或 mnemonic，需要在这里加密
+        // 但根据之前的分析，渲染进程在调用此接口前，应已将它们加密并分别放入
+        // walletData.encryptedPrivateKey 和 walletData.mnemonic (现在是 encryptedMnemonic)
+        // 因此，这里假设它们已经是加密的。
+        return await db.updateWallet(db.db, id, dataToUpdate);
     });
     ipcMain.handle('db:deleteWallet', async (event, id) => {
         console.log('[IPC] Received: db:deleteWallet', id);
@@ -225,20 +306,18 @@ function setupDatabaseIpcHandlers() {
     ipcMain.handle('db:getWalletDetails', async (event, id) => {
         console.log(`[IPC Handler] Received db:getWalletDetails for ID: ${id}`);
         try {
-            // 注意：这里调用 getWalletById，确保它返回包括 privateKeyEncrypted 和 mnemonicEncrypted 的完整数据
-            const walletDetails = await db.getWalletById(db.db, id);
+            const walletDetails = await db.getWalletById(db.db, id); // getWalletById 内部已包含解密逻辑
              if (!walletDetails) {
                 console.warn(`[IPC Handler] Wallet details not found for ID: ${id}`);
-                // 可以返回 null 或抛出错误，取决于前端如何处理
-                 return null; // 或者 throw new Error(`Wallet not found: ${id}`);
+                 return null; 
              }
-            // 确保返回的字段名与前端期望的一致
-            // 例如，如果数据库字段是 private_key_encrypted，但前端期望 privateKeyEncrypted，则需要转换
-             console.log(`[IPC Handler] Returning wallet details for ID: ${id}`, walletDetails); // Log returned data
+            // 在 getWalletById 中已处理了解密逻辑，这里直接返回
+            // 如果需要确保返回解密后的 privateKey 和 mnemonic 字段，而删除加密字段，可以在 getWalletById 中调整
+            console.log(`[IPC Handler] Returning wallet details for ID: ${id}`, walletDetails); 
             return walletDetails;
         } catch (error) {
             console.error(`[IPC Handler] Error fetching wallet details for ID ${id}:`, error);
-            throw error; // 将错误传递给调用者 (invoke)
+            throw error; 
         }
     });
 
@@ -310,23 +389,67 @@ function setupDatabaseIpcHandlers() {
     // --- Proxies --- 
     ipcMain.handle('db:addProxy', async (event, proxyData) => {
         console.log('[IPC] Received: db:addProxy', proxyData);
-        // 密码应该已经在渲染进程处理或不包含在此处，
-        // 但 db.addProxy 会处理加密（如果提供了 password 且加密服务解锁）
+        // 加密逻辑已移至 db/proxy.js 中的 addProxy 函数
         return await db.addProxy(db.db, proxyData);
     });
     ipcMain.handle('db:getProxies', async (event, options) => {
         console.log('[IPC] Received: db:getProxies', options);
-        return await db.getProxies(db.db, options);
+        try {
+            const result = await db.getProxies(db.db, options);
+            if (result && result.proxies && result.proxies.length > 0) {
+                if (cryptoService.isUnlocked()) {
+                    result.proxies.forEach(proxy => {
+                        if (proxy.password) {
+                            try {
+                                proxy.decryptedPassword = cryptoService.decryptWithSessionKey(proxy.password);
+                                // 可选: delete proxy.password; 
+                            } catch (e) {
+                                console.error(`Failed to decrypt password for proxy host ${proxy.host}:`, e.message);
+                                proxy.decryptedPassword = '[DECRYPTION_ERROR]';
+                            }
+                        }
+                    });
+                } else {
+                    result.proxies.forEach(proxy => {
+                        if (proxy.password) { // 即使锁定了，也指明有密码但无法查看
+                            proxy.decryptedPassword = '[LOCKED]';
+                        }
+                    });
+                }
+            }
+            return result;
+        } catch (error) {
+            console.error('Error in db:getProxies handler:', error);
+            throw error;
+        }
     });
     ipcMain.handle('db:getProxyById', async (event, id) => {
         console.log('[IPC] Received: db:getProxyById', id);
-        // 这个函数会尝试解密密码
-        return await db.getProxyById(db.db, id);
+        try {
+            const proxy = await db.getProxyById(db.db, id);
+            if (proxy && proxy.password) {
+                if (cryptoService.isUnlocked()) {
+                    try {
+                        proxy.decryptedPassword = cryptoService.decryptWithSessionKey(proxy.password);
+                        // 可选: delete proxy.password; // 从返回给渲染器的数据中移除加密的密码
+                    } catch (e) {
+                        console.error(`Failed to decrypt password for proxy ID ${id}:`, e.message);
+                        proxy.decryptedPassword = '[DECRYPTION_ERROR]';
+                    }
+                } else {
+                    proxy.decryptedPassword = '[LOCKED]';
+                }
+            }
+            return proxy;
+        } catch (error) {
+            console.error(`Error in db:getProxyById handler for ID ${id}:`, error);
+            throw error;
+        }
     });
-    ipcMain.handle('db:updateProxy', async (event, id, updates) => {
-        console.log('[IPC] Received: db:updateProxy', id, updates);
-        // db.updateProxy 会处理密码加密（如果提供了 password）
-        return await db.updateProxy(db.db, id, updates);
+    ipcMain.handle('db:updateProxy', async (event, id, proxyData) => {
+        console.log('[IPC] Received: db:updateProxy', id, proxyData);
+        // 加密逻辑已移至 db/proxy.js 中的 updateProxy 函数
+        return await db.updateProxy(db.db, id, proxyData);
     });
     ipcMain.handle('db:deleteProxy', async (event, id) => {
         console.log('[IPC] Received: db:deleteProxy', id);

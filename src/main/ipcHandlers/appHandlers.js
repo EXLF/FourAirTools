@@ -74,7 +74,7 @@ function setupApplicationIpcHandlers(mainWindow) {
                         notes: `生成于 ${generationTime}`,
                         groupId: groupId || null,
                         encryptedPrivateKey: encryptedPrivateKey, // 保存加密后的私钥
-                        mnemonic: encryptedMnemonic, // 保存加密后的助记词
+                        encryptedMnemonic: encryptedMnemonic, // 正确的行，使用 encryptedMnemonic 字段
                         derivationPath: walletInfo.path
                     };
                     try {

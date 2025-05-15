@@ -8,7 +8,7 @@
 function addWallet(db, walletData) {
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO wallets
-                     (address, name, notes, groupId, encryptedPrivateKey, mnemonic, derivationPath)
+                     (address, name, notes, groupId, encryptedPrivateKey, encryptedMnemonic, derivationPath)
                      VALUES (?, ?, ?, ?, ?, ?, ?)`;
         const params = [
             walletData.address,
@@ -16,7 +16,7 @@ function addWallet(db, walletData) {
             walletData.notes || null,
             walletData.groupId || null,
             walletData.encryptedPrivateKey || null,
-            walletData.mnemonic || null,
+            walletData.encryptedMnemonic || null,
             walletData.derivationPath || null
         ];
         db.run(sql, params, function(err) {
@@ -36,7 +36,7 @@ function addWallet(db, walletData) {
  * @returns {Promise<{wallets: Array<object>, totalCount: number}>}
  */
 async function getWallets(db, options = {}) {
-    let baseSql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
+    let baseSql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.encryptedMnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                    FROM wallets w
                    LEFT JOIN groups g ON w.groupId = g.id`;
     const countSqlBase = `SELECT COUNT(*) as count FROM wallets w LEFT JOIN groups g ON w.groupId = g.id`;
@@ -62,7 +62,7 @@ async function getWallets(db, options = {}) {
     }
 
     const sortBy = options.sortBy || 'createdAt';
-    const allowedSortColumns = ['id', 'address', 'name', 'createdAt', 'updatedAt', 'groupName', 'mnemonic', 'derivationPath'];
+    const allowedSortColumns = ['id', 'address', 'name', 'createdAt', 'updatedAt', 'groupName', 'encryptedMnemonic', 'derivationPath'];
     const safeSortBy = allowedSortColumns.includes(sortBy) ? (sortBy === 'groupName' ? 'g.name' : `w.${sortBy}`) : 'w.createdAt';
     const sortOrder = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
     const orderBySql = ` ORDER BY ${safeSortBy} ${sortOrder}`;
@@ -125,7 +125,7 @@ async function getWallets(db, options = {}) {
  */
 function getWalletById(db, id) {
     return new Promise((resolve, reject) => {
-        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
+        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.encryptedMnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                        FROM wallets w
                        LEFT JOIN groups g ON w.groupId = g.id
                        WHERE w.id = ?`;
@@ -151,7 +151,7 @@ function getWalletsByIds(db, ids) {
             return resolve([]);
         }
         const placeholders = ids.map(() => '?').join(',');
-        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.mnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
+        const sql = `SELECT w.id, w.address, w.name, w.notes, w.groupId, w.encryptedPrivateKey, w.encryptedMnemonic, w.derivationPath, w.createdAt, w.updatedAt, g.name as groupName
                        FROM wallets w
                        LEFT JOIN groups g ON w.groupId = g.id
                        WHERE w.id IN (${placeholders})`;
@@ -177,7 +177,7 @@ function updateWallet(db, id, walletData) {
     return new Promise((resolve, reject) => {
         const fields = [];
         const params = [];
-        const allowedKeys = ['address', 'name', 'notes', 'groupId', 'encryptedPrivateKey', 'mnemonic', 'derivationPath'];
+        const allowedKeys = ['address', 'name', 'notes', 'groupId', 'encryptedPrivateKey', 'encryptedMnemonic', 'derivationPath'];
         for (const key in walletData) {
             if (allowedKeys.includes(key) && Object.hasOwnProperty.call(walletData, key) && key !== 'id') {
                  const value = walletData[key];

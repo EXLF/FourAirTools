@@ -2,6 +2,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { app } = require('electron'); // <-- 新增：引入 app 模块
+const cryptoService = require('../core/cryptoService'); // <-- 导入 cryptoService
 
 // 正确的数据库路径，适用于开发和打包环境
 // const dbPath = path.resolve(__dirname, '../../../database.db'); // 指向项目根目录下的 database.db -- 旧路径
@@ -56,6 +57,8 @@ function initializeDatabase() {
                         createWalletSocialLinksTable();
                         // *** 6. 创建代理表 ***
                         createProxiesTable();
+                        // *** 调用密码迁移 ***
+                        migrateProxyPasswords(); 
                     });
                 });
             }
@@ -75,7 +78,7 @@ function createWalletsTableAndTestData() {
             notes TEXT,
             groupId INTEGER,
             encryptedPrivateKey TEXT,
-            mnemonic TEXT,
+            encryptedMnemonic TEXT,
             derivationPath TEXT,
             createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             updatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -95,15 +98,66 @@ function createWalletsTableAndTestData() {
         if (err) {
             console.error('Error creating wallets table:', err.message);
         } else {
-            db.run(createUpdatedAtTriggerSQL, (errTrigger) => {
-                if (errTrigger) {
-                    console.error('Error creating updatedAt trigger for wallets:', errTrigger.message);
-                } else {
-                    console.log('Wallets表和触发器已准备好。');
+            // 尝试重命名旧的 mnemonic 列（如果存在且新列不存在）
+            db.all("PRAGMA table_info(wallets)", (pragmaErr, columns) => {
+                if (pragmaErr) {
+                    console.error("Error getting wallets table info for migration:", pragmaErr);
+                    // 继续执行其他操作
+                    runRemainingMigrationsAndFinalize();
+                    return;
+                }
+
+                const hasOldMnemonic = columns.some(col => col.name === 'mnemonic');
+                const hasNewEncryptedMnemonic = columns.some(col => col.name === 'encryptedMnemonic');
+
+                if (hasOldMnemonic && !hasNewEncryptedMnemonic) {
+                    console.log("Found old 'mnemonic' column, attempting to rename to 'encryptedMnemonic'.");
+                    db.run("ALTER TABLE wallets RENAME COLUMN mnemonic TO encryptedMnemonic", (renameErr) => {
+                        if (renameErr) {
+                            console.error("Error renaming 'mnemonic' column to 'encryptedMnemonic':", renameErr.message);
+                            // 如果重命名失败，可能是因为 'encryptedMnemonic' 列已通过其他方式创建
+                            // 或者并发修改。可以尝试添加新列（如果它尚不存在）
+                            // 但为了简单起见，这里只记录错误。
+                            // 在更复杂的场景中，可能需要更健壮的迁移逻辑。
+                        } else {
+                            console.log("'mnemonic' column successfully renamed to 'encryptedMnemonic'.");
+                        }
+                        // 无论重命名是否成功，都继续
+                        runRemainingMigrationsAndFinalize();
+                    });
+                } else if (!hasOldMnemonic && !hasNewEncryptedMnemonic) {
+                    // 如果两个列都不存在（不太可能，因为CREATE TABLE会创建encryptedMnemonic）
+                    // 理论上这里不需要操作，但为了完整性可以考虑添加列
+                    console.warn("Neither 'mnemonic' nor 'encryptedMnemonic' column found after CREATE TABLE. This is unexpected.");
+                    runRemainingMigrationsAndFinalize();
+                }
+                 else {
+                    // 旧列不存在，或者新列已存在，无需重命名
+                    runRemainingMigrationsAndFinalize();
                 }
             });
         }
     });
+}
+
+// 辅助函数，用于在迁移检查后运行剩余的创建步骤
+function runRemainingMigrationsAndFinalize() {
+    const createUpdatedAtTriggerSQL = `
+        CREATE TRIGGER IF NOT EXISTS update_wallets_updatedAt
+        AFTER UPDATE ON wallets
+        FOR EACH ROW
+        BEGIN
+            UPDATE wallets SET updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+        END;
+    `;
+    db.run(createUpdatedAtTriggerSQL, (errTrigger) => {
+        if (errTrigger) {
+            console.error('Error creating updatedAt trigger for wallets:', errTrigger.message);
+        } else {
+            console.log('Wallets表和触发器已准备好。');
+        }
+    });
+    // 此处可以继续其他依赖于 wallets 表已准备好的初始化步骤
 }
 
 /**
@@ -343,9 +397,9 @@ function createProxiesTable() {
             host TEXT NOT NULL,
             port INTEGER NOT NULL,
             username TEXT,
-            password TEXT, -- 存储加密后的密码
+            password TEXT, -- 存储加密后的密码 (需要加密服务解锁才能正确读写)
             group_id INTEGER,
-            is_enabled INTEGER DEFAULT 0, -- 0=禁用, 1=启用 (可以考虑用单独的设置表)
+            is_enabled BOOLEAN DEFAULT FALSE, -- 是否启用该代理
             status TEXT DEFAULT '未测试' CHECK(status IN ('未测试', '可用', '不可用', '测试中', '信息获取失败')),
             latency INTEGER, -- 毫秒
             exit_ip TEXT,
@@ -399,6 +453,71 @@ function createProxiesTable() {
 }
 
 /**
+ * 新增：迁移代理密码，将数据库中可能存在的明文密码加密
+ */
+async function migrateProxyPasswords() {
+    if (!cryptoService.isUnlocked()) {
+        console.warn('[DB Migration] 应用未解锁，无法迁移代理密码。请解锁后重启应用或手动触发迁移。');
+        return;
+    }
+
+    console.log('[DB Migration] 开始检查并迁移代理密码...');
+    try {
+        // 使用 db (sqlite3.Database 实例) 执行查询
+        db.all("SELECT id, password FROM proxies WHERE password IS NOT NULL", async (err, rows) => {
+            if (err) {
+                console.error('[DB Migration] 查询需要迁移的代理密码失败:', err.message);
+                return;
+            }
+
+            if (!rows || rows.length === 0) {
+                console.log('[DB Migration] 没有需要迁移的代理密码。');
+                return;
+            }
+
+            let migratedCount = 0;
+            let errorCount = 0;
+
+            for (const row of rows) {
+                // 简单检查密码是否已经是加密格式 (iv:tag:data)
+                // 注意：这是一个非常基础的检查，可能误判。更可靠的方式是尝试解密。
+                if (typeof row.password === 'string' && row.password.includes(':') && row.password.split(':').length === 3) {
+                    continue; // 跳过看起来已加密的
+                }
+                
+                try {
+                    console.log(`[DB Migration] Migrating password for proxy ID ${row.id}...`);
+                    const encryptedPassword = cryptoService.encryptWithSessionKey(row.password);
+                    // 使用 db (sqlite3.Database 实例) 执行更新
+                    await new Promise((resolveUpdate, rejectUpdate) => {
+                        db.run("UPDATE proxies SET password = ? WHERE id = ?", [encryptedPassword, row.id], function(updateErr) {
+                            if (updateErr) {
+                                console.error(`[DB Migration] 更新代理 ID ${row.id} 的密码失败:`, updateErr.message);
+                                errorCount++;
+                                rejectUpdate(updateErr);
+                            } else {
+                                console.log(`[DB Migration] 代理 ID ${row.id} 的密码已成功迁移加密。`);
+                                migratedCount++;
+                                resolveUpdate();
+                            }
+                        });
+                    });
+                } catch (encError) {
+                    console.error(`[DB Migration] 加密代理 ID ${row.id} 的密码失败:`, encError.message);
+                    errorCount++;
+                }
+            }
+
+            if (migratedCount > 0 || errorCount > 0) {
+                console.log(`[DB Migration] 代理密码迁移完成。成功迁移: ${migratedCount}，失败: ${errorCount}。`);
+            }
+        });
+    } catch (error) {
+        console.error('[DB Migration] 执行代理密码迁移时发生错误:', error);
+    }
+}
+
+/**
  * 关闭数据库连接（应用退出时调用）
  */
 function closeDatabase() {
@@ -418,13 +537,24 @@ const social = require('./social');
 const links = require('./links');
 const proxy = require('./proxy');
 
-// 导出数据库实例、关闭方法和所有模块接口
+// module.exports 应该聚合各模块的导出以及本地 db 实例
+const walletDbFunctions = require('./wallet.js');
+const groupDbFunctions = require('./group.js'); // 假设 group.js 存在并导出函数
+const socialDbFunctions = require('./social.js'); // 假设 social.js 存在并导出函数
+const proxyDbFunctions = require('./proxy.js');
+const linksDbFunctions = require('./links.js'); // 假设 links.js 存在并导出函数
+
 module.exports = {
-    db,
-    closeDatabase,
-    ...group,
-    ...wallet,
-    ...social,
-    ...links,
-    ...proxy
+    db, // sqlite3.Database 实例本身
+    initializeDatabase, // 如果需要在外部调用初始化
+    closeDatabase,      // 关闭数据库连接的函数
+    // 可以选择性地导出 migrateProxyPasswords 如果需要外部触发
+    // migrateProxyPasswords, 
+
+    // 从各模块展开导入的函数
+    ...groupDbFunctions,
+    ...walletDbFunctions,
+    ...socialDbFunctions,
+    ...proxyDbFunctions,
+    ...linksDbFunctions
 }; 

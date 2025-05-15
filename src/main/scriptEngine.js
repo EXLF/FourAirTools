@@ -282,7 +282,20 @@ class ScriptEngine {
             let constructedUrl = `${protocol}://`;
             if (proxyDetails.username && proxyDetails.password) {
               // 确保用户名和密码进行URL编码，以防包含特殊字符
-              constructedUrl += `${encodeURIComponent(proxyDetails.username)}:${encodeURIComponent(proxyDetails.password)}@`;
+              // 同时，解密密码（如果应用已解锁）
+              let decryptedPassword = proxyDetails.password; // 默认为数据库中的值（加密的）
+              if (cryptoService.isUnlocked()) {
+                try {
+                  decryptedPassword = cryptoService.decryptWithSessionKey(proxyDetails.password);
+                  this.sendLogToRenderer('info', `代理 ${proxyDetails.host}:${proxyDetails.port} 的密码已解密。`);
+                } catch (decryptErr) {
+                  this.sendLogToRenderer('error', `解密代理 ${proxyDetails.host}:${proxyDetails.port} 的密码失败: ${decryptErr.message}. 脚本将收到原始(加密)密码。`);
+                  // decryptedPassword 保持为加密状态
+                }
+              } else {
+                this.sendLogToRenderer('warning', `应用未解锁，无法解密代理 ${proxyDetails.host}:${proxyDetails.port} 的密码。脚本将收到原始(加密)密码。`);
+              }
+              constructedUrl += `${encodeURIComponent(proxyDetails.username)}:${encodeURIComponent(decryptedPassword)}@`;
             }
             constructedUrl += `${host}:${port}`;
 
@@ -290,15 +303,27 @@ class ScriptEngine {
               host: host,
               port: port,
               protocol: protocol,
-              url: constructedUrl, // <-- 新增：完整的代理URL
+              url: constructedUrl, 
             };
-            // 处理认证信息 (假设密码在数据库中是明文，根据 getProxyById 的注释)
+            // 处理认证信息, 提供解密后的密码给脚本 (如果成功解密)
             if (proxyDetails.username && proxyDetails.password) {
+                let authPassword = proxyDetails.password; // 默认为加密值
+                // 再次尝试解密，确保 auth.password 是明文（如果可能）
+                if (cryptoService.isUnlocked()) {
+                    try {
+                        authPassword = cryptoService.decryptWithSessionKey(proxyDetails.password);
+                    } catch (e) { /* 之前已记录错误，这里保持 authPassword 为加密值 */ }
+                }
+
               fullProxyInfo.auth = {
                 username: proxyDetails.username,
-                password: proxyDetails.password 
+                password: authPassword // 提供解密后的密码（如果成功）或原始加密密码
               };
-              this.sendLogToRenderer('info', `脚本 ${scriptId} 使用的代理 ${proxyDetails.host}:${proxyDetails.port} 包含认证信息。`);
+              if (authPassword !== proxyDetails.password) {
+                this.sendLogToRenderer('info', `脚本 ${scriptId} 使用的代理 ${proxyDetails.host}:${proxyDetails.port} 的认证密码已提供(解密)。`);
+              } else {
+                this.sendLogToRenderer('warning', `脚本 ${scriptId} 使用的代理 ${proxyDetails.host}:${proxyDetails.port} 的认证密码为原始(加密)值。`);
+              }
             } else if (proxyDetails.username) {
               this.sendLogToRenderer('warning', `代理 ${proxyDetails.host}:${proxyDetails.port} 有用户名但密码为空。将不使用认证信息。`);
             }
@@ -356,7 +381,11 @@ class ScriptEngine {
           throw new Error(errorMessage);
         },
         process: {
-          env: process.env
+            env: {
+                // NODE_ENV: process.env.NODE_ENV, // 示例：只暴露 NODE_ENV
+                // API_KEY_FOR_SCRIPT: process.env.SOME_SPECIFIC_API_KEY // 示例：暴露特定的API密钥
+                // 或者通过 context.config 传入
+            }
         },
         __dirname: path.dirname(script.filePath),
         __filename: script.filePath,

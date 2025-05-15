@@ -81,7 +81,7 @@ export function handleImportWallets() {
                              notes: walletData.notes || null,
                              groupId: walletData.groupId ? parseInt(walletData.groupId) : null,
                              encryptedPrivateKey: encryptedPk, // 使用加密后的私钥
-                             mnemonic: encryptedMn,           // 使用加密后的助记词
+                             encryptedMnemonic: encryptedMn,   // <-- 使用 encryptedMnemonic 字段名
                              derivationPath: walletData.derivationPath || null
                              // 可以选择性地处理 createdAt/updatedAt，通常不需要导入
                          };

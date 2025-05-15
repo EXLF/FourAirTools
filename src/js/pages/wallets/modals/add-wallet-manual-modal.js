@@ -216,7 +216,7 @@ export async function openAddWalletManualModal() {
                 groupId: form.elements.groupId.value ? parseInt(form.elements.groupId.value) : null,
                 // --- 保存加密后的值 --- 
                 encryptedPrivateKey: seedType === 'privateKey' ? encryptedSeedValue : null,
-                mnemonic: seedType === 'mnemonic' ? encryptedSeedValue : null,
+                encryptedMnemonic: seedType === 'mnemonic' ? encryptedSeedValue : null,
                 // -----------------------
                 derivationPath: null // Path is unknown for manual import
             };
@@ -225,7 +225,7 @@ export async function openAddWalletManualModal() {
                 console.log('Adding new wallet:', {
                      ...dataToSave,
                      encryptedPrivateKey: dataToSave.encryptedPrivateKey ? '[ENCRYPTED]' : null, // Avoid logging encrypted data
-                     mnemonic: dataToSave.mnemonic ? '[ENCRYPTED]' : null
+                     encryptedMnemonic: dataToSave.encryptedMnemonic ? '[ENCRYPTED]' : null
                 });
                 const newId = await window.dbAPI.addWallet(dataToSave);
                 console.log('Wallet added successfully, ID:', newId);
