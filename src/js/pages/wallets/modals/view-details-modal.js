@@ -53,10 +53,10 @@ export function showViewDetailsModal(walletId) {
                  decryptedPrivateKey = '[未存储]';
             }
 
-            if (details.mnemonic) {
+            if (details.encryptedMnemonic) {
                 try {
                     console.log('[WalletsModals] Attempting to decrypt mnemonic...');
-                    decryptedMnemonic = await window.electron.ipcRenderer.invoke('app:decryptData', details.mnemonic);
+                    decryptedMnemonic = await window.electron.ipcRenderer.invoke('app:decryptData', details.encryptedMnemonic);
                     console.log('[WalletsModals] Mnemonic decrypted.');
                     if (!decryptedMnemonic) decryptedMnemonic = '[解密返回空]';
                 } catch (error) {
