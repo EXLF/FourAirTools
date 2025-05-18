@@ -257,11 +257,40 @@ function deleteSocialAccountsByIds(db, ids) {
     });
 }
 
+/**
+ * 获取所有社交账户信息 (用于备份)
+ * @param {sqlite3.Database} dbInstance - 数据库实例
+ * @returns {Promise<Array<Object>>} 包含所有社交账户对象的数组
+ */
+function getAllSocialAccounts(dbInstance) {
+    return new Promise((resolve, reject) => {
+        // 选择所有需要的字段，包括可能需要解密的字段 (如 password, twitter_2fa 等)
+        // 在备份时，我们会选择解密这些字段，所以这里直接选择它们
+        const sql = `
+            SELECT sa.id, sa.platform, sa.identifier, sa.password, sa.notes, sa.group_id, 
+                   sa.twitter_2fa, sa.twitter_email, sa.email_recovery_email, 
+                   sa.discord_password, sa.discord_token, sa.telegram_password, sa.telegram_login_api, 
+                   sa.createdAt, sa.updatedAt, g.name as groupName 
+            FROM social_accounts sa
+            LEFT JOIN groups g ON sa.group_id = g.id
+            ORDER BY sa.platform, sa.identifier`;
+        dbInstance.all(sql, [], (err, rows) => {
+            if (err) {
+                console.error('Error fetching all social accounts for backup:', err.message);
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+}
+
 module.exports = {
     addSocialAccount,
     getSocialAccounts,
     getSocialAccountById,
     updateSocialAccount,
     deleteSocialAccount,
-    deleteSocialAccountsByIds
+    deleteSocialAccountsByIds,
+    getAllSocialAccounts
 }; 

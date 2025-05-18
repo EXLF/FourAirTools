@@ -253,6 +253,31 @@ function deleteWalletsByIds(db, ids) {
     });
 }
 
+/**
+ * 获取所有钱包的完整信息 (用于备份等场景)
+ * @param {sqlite3.Database} dbInstance - 数据库实例
+ * @returns {Promise<Array<Object>>} 包含所有钱包对象的数组
+ */
+function getAllWallets(dbInstance) {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT w.id, w.address, w.name, w.notes, w.groupId, 
+                   w.encryptedPrivateKey, w.encryptedMnemonic, w.derivationPath, 
+                   w.createdAt, w.updatedAt, g.name as groupName
+            FROM wallets w
+            LEFT JOIN groups g ON w.groupId = g.id
+            ORDER BY w.id`;
+        dbInstance.all(sql, [], (err, rows) => {
+            if (err) {
+                console.error('Error fetching all wallets for backup:', err.message);
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+}
+
 module.exports = {
     addWallet,
     getWallets,
@@ -260,5 +285,6 @@ module.exports = {
     getWalletsByIds,
     updateWallet,
     deleteWallet,
-    deleteWalletsByIds
+    deleteWalletsByIds,
+    getAllWallets
 }; 

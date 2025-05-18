@@ -326,33 +326,15 @@ function setupButtonHandlers(contentArea) {
     }
     
     // 备份数据
-    const backupBtn = contentArea.querySelector('#backup-now');
-    if (backupBtn) {
-        backupBtn.addEventListener('click', handleBackupNow);
-    }
-    
-    // 导出数据
-    const exportBtn = contentArea.querySelector('#export-data');
-    if (exportBtn) {
-        exportBtn.addEventListener('click', handleExportData);
-    }
-    
-    // 导入数据
-    const importBtn = contentArea.querySelector('#import-data');
-    if (importBtn) {
-        importBtn.addEventListener('click', handleImportData);
-    }
-    
-    // 更改数据位置
-    const locationBtn = contentArea.querySelector('#change-data-location');
-    if (locationBtn) {
-        locationBtn.addEventListener('click', handleChangeDataLocation);
+    const backupNowBtn = contentArea.querySelector('#backup-now');
+    if (backupNowBtn) {
+        backupNowBtn.addEventListener('click', handleBackupNow);
     }
     
     // 清除缓存
-    const cacheBtn = contentArea.querySelector('#clear-cache');
-    if (cacheBtn) {
-        cacheBtn.addEventListener('click', handleClearCache);
+    const clearCacheBtn = contentArea.querySelector('#clear-cache');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', handleClearCache);
     }
     
     // 检查更新
@@ -407,75 +389,6 @@ async function handleBackupNow() {
     }
 }
 
-async function handleExportData() {
-    try {
-        if (window.dataAPI && window.dataAPI.exportData) {
-            const result = await window.dataAPI.exportData();
-            if (result.success) {
-                showMessage(`数据已导出至: ${result.path}`, 'success');
-            } else {
-                showMessage('导出数据已取消', 'info');
-            }
-        } else {
-            showMessage('导出功能尚未实现', 'info');
-        }
-    } catch (error) {
-        console.error('导出数据失败:', error);
-        showMessage('导出数据失败: ' + error.message, 'error');
-    }
-}
-
-async function handleImportData() {
-    try {
-        if (window.dataAPI && window.dataAPI.importData) {
-            if (confirm('导入数据会覆盖当前设置，确定继续吗？')) {
-                const result = await window.dataAPI.importData();
-                if (result.success) {
-                    showMessage('数据导入成功，应用将重启', 'success');
-                    setTimeout(() => {
-                        if (window.appAPI && window.appAPI.restart) {
-                            window.appAPI.restart();
-                        }
-                    }, 2000);
-                } else if (!result.canceled) {
-                    showMessage('导入数据失败: ' + (result.error || '未知错误'), 'error');
-                }
-            }
-        } else {
-            showMessage('导入功能尚未实现', 'info');
-        }
-    } catch (error) {
-        console.error('导入数据失败:', error);
-        showMessage('导入数据失败: ' + error.message, 'error');
-    }
-}
-
-async function handleChangeDataLocation() {
-    try {
-        if (window.dataAPI && window.dataAPI.changeDataLocation) {
-            const result = await window.dataAPI.changeDataLocation();
-            if (result.success) {
-                document.querySelector('#data-location').textContent = result.path;
-                currentSettings.dataLocation = result.path;
-                await saveSettings(currentSettings);
-                showMessage('数据存储位置已更改，应用将重启', 'success');
-                setTimeout(() => {
-                    if (window.appAPI && window.appAPI.restart) {
-                        window.appAPI.restart();
-                    }
-                }, 2000);
-            } else if (!result.canceled) {
-                showMessage('更改数据位置失败: ' + (result.error || '未知错误'), 'error');
-            }
-        } else {
-            showMessage('更改数据位置功能尚未实现', 'info');
-        }
-    } catch (error) {
-        console.error('更改数据位置失败:', error);
-        showMessage('更改数据位置失败: ' + error.message, 'error');
-    }
-}
-
 async function handleClearCache() {
     try {
         if (confirm('确定要清除缓存数据吗？这不会删除您的设置和钱包数据。')) {
@@ -500,7 +413,7 @@ async function handleCheckUpdate() {
             if (result.hasUpdate) {
                 if (confirm(`发现新版本: ${result.version}。是否现在更新？`)) {
                     await window.appAPI.downloadUpdate();
-    }
+                }
             } else {
                 showMessage('您已经使用最新版本', 'success');
             }

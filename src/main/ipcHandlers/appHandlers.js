@@ -33,6 +33,119 @@ function getProvider() {
     return jsonRpcProvider;
 }
 
+const BACKUP_DIR_NAME = 'backups'; // 确保在文件顶部或可访问的作用域定义
+
+// 新的命名函数，包含原 data:backup 的逻辑
+async function performDataBackup() {
+    if (!cryptoService.isUnlocked()) {
+        return {
+            success: false,
+            message: '应用已锁定，无法执行备份。请先解锁。'
+        };
+    }
+
+    try {
+        console.log('[BackupService] 开始备份数据...'); // 修改日志前缀以区分直接调用和IPC调用
+        const userDataPath = app.getPath('userData');
+        const backupDirPath = path.join(userDataPath, BACKUP_DIR_NAME);
+
+        try {
+            await fsPromises.mkdir(backupDirPath, { recursive: true });
+        } catch (mkdirError) {
+            console.error('[BackupService] 创建备份目录失败:', mkdirError);
+            return {
+                success: false,
+                message: `创建备份目录失败: ${mkdirError.message}`
+            };
+        }
+
+        const wallets = await db.getAllWallets(db.db);
+        const decryptedWallets = [];
+        for (const wallet of wallets) {
+            let privateKey = null;
+            let mnemonic = null;
+            try {
+                if (wallet.encryptedPrivateKey) {
+                    privateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
+                }
+                if (wallet.encryptedMnemonic) {
+                    mnemonic = cryptoService.decryptWithSessionKey(wallet.encryptedMnemonic);
+                }
+            } catch (e) {
+                console.warn(`[BackupService] 解密钱包 ${wallet.address} 数据失败:`, e.message);
+                privateKey = wallet.encryptedPrivateKey ? '[解密失败]' : null;
+                mnemonic = wallet.encryptedMnemonic ? '[解密失败]' : null;
+            }
+            decryptedWallets.push({
+                ...wallet,
+                privateKey,
+                mnemonic,
+                encryptedPrivateKey: undefined, 
+                encryptedMnemonic: undefined    
+            });
+        }
+
+        const socialAccounts = await db.getAllSocialAccounts(db.db);
+        const decryptedSocialAccounts = [];
+        for (const account of socialAccounts) {
+            let password = null;
+            let twitter_2fa = null;
+            let discord_password = null;
+            let discord_token = null;
+            let telegram_password = null;
+            try {
+                if (account.password) password = cryptoService.decryptWithSessionKey(account.password);
+                if (account.twitter_2fa) twitter_2fa = cryptoService.decryptWithSessionKey(account.twitter_2fa);
+                if (account.discord_password) discord_password = cryptoService.decryptWithSessionKey(account.discord_password);
+                if (account.discord_token) discord_token = cryptoService.decryptWithSessionKey(account.discord_token);
+                if (account.telegram_password) telegram_password = cryptoService.decryptWithSessionKey(account.telegram_password);
+            } catch (e) {
+                console.warn(`[BackupService] 解密社交账户 ${account.platform} - ${account.identifier} 数据失败:`, e.message);
+                if (account.password) password = '[解密失败]';
+                if (account.twitter_2fa) twitter_2fa = '[解密失败]';
+                if (account.discord_password) discord_password = '[解密失败]';
+                if (account.discord_token) discord_token = '[解密失败]';
+                if (account.telegram_password) telegram_password = '[解密失败]';
+            }
+            const decryptedAccount = { ...account }; 
+            decryptedAccount.password = password;
+            decryptedAccount.twitter_2fa = twitter_2fa;
+            decryptedAccount.discord_password = discord_password;
+            decryptedAccount.discord_token = discord_token;
+            decryptedAccount.telegram_password = telegram_password;
+            decryptedSocialAccounts.push(decryptedAccount);
+        }
+
+        const backupData = {
+            backupSchemaVersion: '1.0',
+            timestamp: new Date().toISOString(),
+            appVersion: app.getVersion(),
+            wallets: decryptedWallets,
+            socialAccounts: decryptedSocialAccounts,
+        };
+
+        const timestampSuffix = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupFileName = `fouair_backup_${timestampSuffix}.json`;
+        const backupFilePath = path.join(backupDirPath, backupFileName);
+
+        await fsPromises.writeFile(backupFilePath, JSON.stringify(backupData, null, 2), 'utf-8');
+        
+        console.log(`[BackupService] 数据成功备份至: ${backupFilePath}`);
+        return {
+            success: true,
+            message: `数据成功备份至 ${backupFileName}`,
+            path: backupFilePath
+        };
+
+    } catch (error) {
+        console.error('[BackupService] 备份数据失败:', error);
+        return {
+            success: false,
+            message: `备份数据失败: ${error.message}`
+        };
+    }
+}
+
 // --- 添加设置处理函数 ---
 const settings = {
     // 默认设置对象，与前端保持一致
@@ -71,39 +184,43 @@ const settings = {
         try {
             // 获取设置文件路径
             const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-            
-            // 检查设置文件是否存在
+            let appSettingsJson = { ...this.defaultSettings }; // 用于传递给 triggerAutoBackupIfNeeded
+
             if (fs.existsSync(settingsPath)) {
                 // 读取设置文件
                 const data = await fsPromises.readFile(settingsPath, 'utf-8');
-                
-                // 解析设置文件
-                this.currentSettings = JSON.parse(data);
-                
+                const loadedSettings = JSON.parse(data);
                 // 合并默认设置和用户设置
-                this.currentSettings = { ...this.defaultSettings, ...this.currentSettings };
-                
+                this.currentSettings = { ...this.defaultSettings, ...loadedSettings };
+                appSettingsJson = loadedSettings; // 保存从文件加载的原始结构
                 console.log('[Settings] 已加载用户设置');
             } else {
                 // 使用默认设置
                 this.currentSettings = { ...this.defaultSettings };
-                
-                // 保存默认设置到文件
+                // 保存默认设置到文件 - saveSettingsToFile 会使用 this.currentSettings
                 await this.saveSettingsToFile();
-                
+                // 此时 appSettingsJson 应该与 this.currentSettings 一致
+                appSettingsJson = { ...this.currentSettings }; 
                 console.log('[Settings] 已初始化默认设置');
             }
             
             // 应用设置
             this.applySettings(this.currentSettings);
+
+            // --- 新增：调用自动备份检查 --- 
+            if (this.currentSettings) {
+                // 确保在 cryptoService 初始化并可能已解锁后调用
+                // 如果 cryptoService 的初始化依赖于某些设置，确保顺序正确
+                // 简单的假设：此时 cryptoService 状态是确定的 (已解锁或未解锁)
+                await triggerAutoBackupIfNeeded(this.currentSettings, appSettingsJson, settingsPath);
+            }
+            // --- 结束新增 ---
             
             return true;
         } catch (error) {
             console.error('[Settings] 初始化设置失败:', error);
-            
             // 使用默认设置
             this.currentSettings = { ...this.defaultSettings };
-            
             return false;
         }
     },
@@ -392,22 +509,10 @@ function setupSettingsIpcHandlers() {
         }
     });
     
-    // 数据操作
+    // 数据操作 - IPC Handler 现在只调用 performDataBackup
     ipcMain.handle('data:backup', async () => {
-        try {
-            console.log('[IPC] 备份数据');
-            
-            // TODO: 实现数据备份逻辑
-            
-            return {
-                success: false,
-                message: '数据备份功能尚未实现'
-            };
-        } catch (error) {
-            console.error('[IPC] 备份数据失败:', error);
-            
-            throw new Error('备份数据失败: ' + error.message);
-        }
+        console.log('[IPC] Received data:backup request');
+        return await performDataBackup();
     });
 }
 
@@ -763,6 +868,47 @@ function setupApplicationIpcHandlers(mainWindow) {
     setupSettingsIpcHandlers();
 
     console.log('[IPC] Application IPC handlers ready.');
+}
+
+/**
+ * 检查并根据需要触发自动备份 (简化版：每日备份)
+ * @param {object} currentSettings - 当前应用设置
+ * @param {object} appSettingsFromFile - 从 settings.json 读取的原始设置对象，用于更新
+ * @param {string} settingsFilePath - settings.json 的完整路径
+ */
+async function triggerAutoBackupIfNeeded(currentSettings, appSettingsFromFile, settingsFilePath) {
+    if (!currentSettings || currentSettings.autoBackup !== 'daily') {
+        return;
+    }
+    if (!cryptoService.isUnlocked()) {
+        console.log('[AutoBackup] 应用已锁定，跳过此次自动备份。');
+        return;
+    }
+    console.log('[AutoBackup] 检查每日自动备份...');
+    const lastBackupDate = appSettingsFromFile.lastDailyBackupDate;
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    if (lastBackupDate === todayDate) {
+        console.log(`[AutoBackup] 今日 (${todayDate}) 已备份，跳过。`);
+        return;
+    }
+    console.log(`[AutoBackup] 执行每日自动备份 (上次备份: ${lastBackupDate || '无'}, 今日: ${todayDate})...`);
+    try {
+        // 直接调用 performDataBackup 函数
+        const backupResult = await performDataBackup(); 
+        if (backupResult.success) {
+            console.log('[AutoBackup] 每日自动备份成功完成。');
+            const updatedAppSettings = { ...appSettingsFromFile, lastDailyBackupDate: todayDate };
+            await fsPromises.writeFile(settingsFilePath, JSON.stringify(updatedAppSettings, null, 2), 'utf-8');
+            if (settings && settings.currentSettings) {
+                 settings.currentSettings.lastDailyBackupDate = todayDate;
+            }
+        } else {
+            console.error('[AutoBackup] 每日自动备份失败:', backupResult.message);
+        }
+    } catch (e) {
+        console.error('[AutoBackup] 执行自动备份时出错:', e);
+    }
 }
 
 module.exports = {

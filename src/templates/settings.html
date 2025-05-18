@@ -62,11 +62,6 @@
        <div class="card">
            <h4><i class="fa fa-database"></i> 数据与备份</h4>
            <div class="option-group">
-               <label>数据存储位置:</label>
-               <div class="path-display" id="data-location">C:/Users/Administrator/AppData/Roaming/fouair-toolbox</div>
-               <button class="btn btn-text" id="change-data-location"><i class="fa fa-folder"></i> 更改位置</button>
-           </div>
-           <div class="option-group">
                <label>自动备份:</label>
                <select id="auto-backup">
                    <option value="off">关闭</option>
@@ -78,13 +73,7 @@
            <div class="option-group">
                <button class="btn btn-primary" id="backup-now"><i class="fa fa-download"></i> 立即备份数据</button>
            </div>
-           <div class="option-group">
-               <button class="btn btn-secondary" id="export-data"><i class="fa fa-file-export"></i> 导出配置数据</button>
-           </div>
-           <div class="option-group">
-               <button class="btn btn-secondary" id="import-data"><i class="fa fa-file-import"></i> 导入配置数据</button>
-           </div>
-           <p class="note">请定期备份您的配置数据以防丢失。</p>
+           <p class="note">自动备份会将钱包和社交账户的明文数据备份到应用数据目录下的 `backups` 文件夹。请妥善保管！</p>
        </div>
        
        <!-- 关于 -->
