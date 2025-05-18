@@ -30,9 +30,9 @@ function createTray() {
     // 尝试使用不同的图标路径
     let iconPath;
     const iconPaths = [
-      path.join(__dirname, '../assets/icons/icon.png'),
-      path.join(__dirname, '../../assets/icons/icon.png'),
-      path.join(app.getAppPath(), 'assets/icons/icon.png')
+      path.join(__dirname, '../assets/icons/logo16.ico'), // 托盘图标使用16x16尺寸
+      path.join(__dirname, '../../assets/icons/logo16.ico'),
+      path.join(app.getAppPath(), 'assets/icons/logo16.ico')
     ];
     
     // 查找第一个存在的图标路径
@@ -47,12 +47,12 @@ function createTray() {
     // 如果没有找到图标，使用空图标（或者可以提前准备一个默认图标）
     if (!iconPath) {
       console.warn('[Main] 未找到托盘图标，使用默认空图标');
-      iconPath = path.join(__dirname, '../assets/icons/icon.png'); // 尝试使用这个路径
+      iconPath = path.join(__dirname, '../assets/icons/logo16.ico'); // 使用16x16尺寸的图标
     }
     
     // 创建托盘
     tray = new Tray(iconPath);
-    tray.setToolTip('FourAir社区撸毛工具箱');
+    tray.setToolTip('FourAir撸毛工具箱');
     
     // 托盘上下文菜单
     const contextMenu = Menu.buildFromTemplate([
@@ -109,7 +109,10 @@ function createWindow(startMinimized = false) {
     // 自动隐藏菜单栏，按Alt键显示
     autoHideMenuBar: true,
     // 如果startMinimized为true，则不显示窗口
-    show: !startMinimized
+    show: !startMinimized,
+    // 移除窗口框架和标题栏
+    // frame: false, // 保留窗口框架
+    // titleBarStyle: 'hidden' // 只隐藏标题栏
   });
 
   // 移除默认菜单栏
@@ -643,7 +646,7 @@ function handleWindowClose() {
           tray.displayBalloon({
             title: 'FourAir社区撸毛工具箱',
             content: '应用已最小化到托盘，单击图标可重新打开。',
-            icon: path.join(__dirname, '../assets/icons/icon.png')
+            icon: path.join(__dirname, '../assets/icons/logo.png')
           });
         }
       }
