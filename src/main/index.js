@@ -100,6 +100,7 @@ function createWindow(startMinimized = false) {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, '../assets/icons/logo32.ico'), // 设置窗口图标
     webPreferences: {
       // 安全配置: 启用上下文隔离并指定 Preload 脚本
       contextIsolation: true,
