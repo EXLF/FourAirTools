@@ -22,12 +22,6 @@
             <span>FourAir社区撸毛工具箱</span>
         </div>
         <div class="navbar-actions">
-             <!-- 可添加全局搜索 -->
-             <input type="search" placeholder="全局搜索..." class="global-search">
-             <a href="#" class="action-item" title="通知">
-                 <i class="fa fa-bell"></i>
-                 <span class="badge">5</span>
-             </a>
              <a href="#settings" class="action-item" title="设置" onclick="loadPage('settings')">
                  <i class="fa fa-cog"></i>
              </a>
@@ -556,10 +550,8 @@
     <!-- <script src="main.js"></script> -->
     <script type="module" src="src/js/core/app.js"></script>
     <div id="toast-container"></div> <!-- Toast container -->
-    <script src="src/js/main.js"></script>
-    <script src="src/js/navigation.js"></script>
-    <script src="src/js/modals.js"></script>
-    <script src="src/js/auth.js"></script>
+    <script type="module" src="src/js/core/navigation.js"></script>
+    <script type="module" src="src/js/components/modal.js"></script>
     <script src="src/js/updater-ui.js"></script> <!-- 新增：引入 updater UI 脚本 -->
 </body>
 </html> 
