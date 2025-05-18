@@ -270,6 +270,40 @@ contextBridge.exposeInMainWorld('scriptAPI', {
     }
 });
 
+// 应用程序API
+contextBridge.exposeInMainWorld('appAPI', {
+    // 现有函数...
+    
+    // 检查应用是否已解锁
+    isAppLocked: () => {
+      return new Promise((resolve) => {
+        // 先尝试直接读取内存中的锁定状态
+        if (typeof window._appUnlocked !== 'undefined') {
+          resolve(!window._appUnlocked);
+          return;
+        }
+        
+        // 如果内存中没有，通过向主进程发送请求来检查
+        ipcRenderer.invoke('app:check-locked-status')
+          .then(result => {
+            // 缓存结果
+            window._appUnlocked = result.unlocked;
+            resolve(!result.unlocked);
+          })
+          .catch(err => {
+            console.error('检查应用锁定状态失败:', err);
+            // 出错时，保守起见当作已锁定
+            resolve(true);
+          });
+      });
+    },
+    
+    // 请求解锁应用
+    requestUnlock: () => {
+      ipcRenderer.send('app:show-unlock');
+    }
+  });
+
 console.log('[Preload] Preload script executed successfully.');
 
 window.addEventListener('DOMContentLoaded', () => {

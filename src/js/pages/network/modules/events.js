@@ -380,4 +380,33 @@ export function listenForTestResults(updateRow) {
             }
         }
     });
+}
+
+// 测试所有选中的代理
+async function handleTestSelectedProxies() {
+    const selectedIds = getSelectedProxyIds();
+    if (!selectedIds.length) {
+        showMessage('请选择至少一个代理进行测试', 'warning');
+        return;
+    }
+
+    // 检查应用是否已解锁
+    if (typeof window.appAPI !== 'undefined' && window.appAPI.isAppLocked) {
+        const isLocked = await window.appAPI.isAppLocked();
+        if (isLocked) {
+            const shouldUnlock = confirm('需要解锁应用程序才能测试需要认证的代理。是否现在解锁？');
+            if (shouldUnlock) {
+                // 显示解锁界面
+                document.dispatchEvent(new CustomEvent('show-unlock-dialog'));
+                return;
+            } else {
+                showMessage('未解锁应用，测试可能会失败', 'warning');
+            }
+        }
+    }
+
+    // 更新UI状态
+    toggleLoadingUI(true);
+    const testButton = document.getElementById('test-proxy-button');
+    if (testButton) testButton.textContent = '测试中...';
 } 

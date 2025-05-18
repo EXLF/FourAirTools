@@ -55,7 +55,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
         const itemDiv = document.createElement('div');
         itemDiv.className = 'social-link-item';
         itemDiv.style.cssText = 'display: flex; align-items: center; padding: 8px 5px; border-bottom: 1px solid #eee;';
-        itemDiv.dataset.searchableContent = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+        itemDiv.dataset.searchableContent = `${social.platform} ${social.identifier} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -89,7 +89,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
         label.style.overflow = 'hidden';
 
         const usernameSpan = document.createElement('span');
-        usernameSpan.textContent = `${social.platform}: ${social.username}`;
+        usernameSpan.textContent = `${social.platform}: ${social.identifier}`;
         usernameSpan.style.fontWeight = '500';
         usernameSpan.style.whiteSpace = 'nowrap';
         usernameSpan.style.overflow = 'hidden';
@@ -263,7 +263,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
                 allSocialsCurrentPage = newPage;
                 const searchTerm = searchInput.value.toLowerCase().trim();
                 const currentlyFilteredData = allSocialsData.filter(social => {
-                    const content = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+                    const content = `${social.platform} ${social.identifier} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
                     return !searchTerm || content.includes(searchTerm);
                 });
                 renderAllSocialsPaneContent(currentlyFilteredData, allSocialsCurrentPage);
@@ -293,7 +293,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
                  const searchTerm = searchInput.value.toLowerCase().trim();
                  const currentlyFilteredLinkedData = allSocialsData.filter(social => 
                      selectedSocialIdsSet.has(social.id) && 
-                     (!searchTerm || `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
+                     (!searchTerm || `${social.platform} ${social.identifier} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
                  );
                  renderLinkedSocialsPaneContent(currentlyFilteredLinkedData, allSocialsCurrentPage);
              }
@@ -308,7 +308,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
 
         if (activeTab === 'all') {
             const newlyFilteredData = allSocialsData.filter(social => {
-                const content = `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
+                const content = `${social.platform} ${social.identifier} ${social.binding || ''} ${social.notes || ''}`.toLowerCase();
                 return !searchTerm || content.includes(searchTerm);
             });
             allSocialsCurrentPage = 1;
@@ -316,7 +316,7 @@ export async function showLinkSocialsModal(walletId, walletAddress, walletName) 
         } else if (activeTab === 'linked') {
             const newlyFilteredLinkedData = allSocialsData.filter(social =>
                 selectedSocialIdsSet.has(social.id) &&
-                (!searchTerm || `${social.platform} ${social.username} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
+                (!searchTerm || `${social.platform} ${social.identifier} ${social.binding || ''} ${social.notes || ''}`.toLowerCase().includes(searchTerm))
             );
             let linkedSocialsCurrentPage = 1;
             renderLinkedSocialsPaneContent(newlyFilteredLinkedData, linkedSocialsCurrentPage);

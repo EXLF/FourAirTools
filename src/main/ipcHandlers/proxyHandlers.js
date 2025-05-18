@@ -143,10 +143,23 @@ async function testSingleProxy(proxyId, mainWindow) {
              console.warn(`[Proxy Test ${proxyId}] Failed to update status to '测试中':`, dbError.message);
         }
 
-        // 检查密码是否需要且已解密
-        if (proxyConfig.username && proxyConfig.password && !proxyConfig.decryptedPassword) {
-             throw new Error('Password required but could not be decrypted (is the app unlocked?).');
-         }
+        // 检查是否解锁
+        const cryptoService = require('../core/cryptoService');
+        if (proxyConfig.username && proxyConfig.password) {
+            if (!cryptoService.isUnlocked()) {
+                throw new Error('应用未解锁，请先解锁应用以测试需要认证的代理。');
+            }
+            
+            // 检查密码是否已解密
+            if (!proxyConfig.decryptedPassword) {
+                try {
+                    proxyConfig.decryptedPassword = cryptoService.decryptWithSessionKey(proxyConfig.password);
+                } catch (decryptError) {
+                    console.error(`[Proxy Test ${proxyId}] 解密代理密码失败:`, decryptError.message);
+                    throw new Error('解密代理密码失败，应用可能未正确解锁，请重新解锁应用。');
+                }
+            }
+        }
 
         // 2. 根据类型创建代理 Agent
         const proxyUrl = formatProxyUrl(proxyConfig);

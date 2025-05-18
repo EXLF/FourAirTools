@@ -220,6 +220,34 @@ app.whenReady().then(async () => {
                     cryptoService.setSessionKey(storedKey);
                     needsUnlock = false; // *** 不需要解锁界面了 ***
                     console.log('[Main][Keytar] Application unlocked automatically using stored key.');
+                    
+                    // 添加额外检查，确保密钥被正确设置
+                    if (!cryptoService.isUnlocked()) {
+                        console.error('[Main][Keytar] 会话密钥设置失败，需要手动解锁！');
+                        needsUnlock = true;
+                        // 尝试再次设置会话密钥
+                        cryptoService.setSessionKey(storedKey);
+                        // 再次检查
+                        if (cryptoService.isUnlocked()) {
+                            console.log('[Main][Keytar] 第二次尝试设置会话密钥成功。');
+                            needsUnlock = false;
+                        }
+                    } else {
+                        // 尝试解密一个简单字符串，确保解密功能正常工作
+                        try {
+                            const testEncrypted = cryptoService.encryptWithSessionKey('测试字符串');
+                            const testDecrypted = cryptoService.decryptWithSessionKey(testEncrypted);
+                            if (testDecrypted === '测试字符串') {
+                                console.log('[Main][Keytar] 加密/解密功能工作正常。');
+                            } else {
+                                console.error('[Main][Keytar] 加密/解密测试失败！');
+                                needsUnlock = true;
+                            }
+                        } catch (testError) {
+                            console.error('[Main][Keytar] 加密/解密测试出错:', testError.message);
+                            needsUnlock = true;
+                        }
+                    }
               } else if (decryptedVerification !== '') { // 解密成功但内容不对
                     console.error('[Main][Keytar] Verification string mismatch using stored key! Removing invalid key.');
                     await keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);

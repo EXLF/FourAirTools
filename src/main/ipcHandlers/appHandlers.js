@@ -365,6 +365,22 @@ function setupApplicationIpcHandlers(mainWindow) {
     // --- 添加其他应用级 Handlers (例如: 打开外部链接, 文件操作等) ---
     // ipcMain.on('open-external-link', (event, url) => { ... });
 
+    // 检查应用程序锁定状态
+    ipcMain.handle('app:check-locked-status', async () => {
+        const cryptoService = require('../core/cryptoService');
+        const isUnlocked = cryptoService.isUnlocked();
+        console.log(`[IPC] Checking app lock status: ${isUnlocked ? '已解锁' : '已锁定'}`);
+        return { unlocked: isUnlocked };
+    });
+
+    // 显示解锁界面
+    ipcMain.on('app:show-unlock', () => {
+        console.log('[IPC] 请求显示解锁界面');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('auth:needs-unlock');
+        }
+    });
+
     console.log('[IPC] Application IPC handlers ready.');
 }
 
