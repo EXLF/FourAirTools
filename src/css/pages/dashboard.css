@@ -3,44 +3,211 @@
 .dashboard-header {
     margin-bottom: 30px;
 }
+
 .dashboard-header h2 {
     font-size: 26px;
-    font-weight: 700;
+    font-weight: 600;
     color: #343a40;
     margin-bottom: 5px;
 }
+
 .dashboard-header p {
     font-size: 15px;
     color: #6c757d;
 }
 
-.dashboard-widgets {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 25px;
+h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
 }
 
-/* Widget styles are in components/cards.css */
+.dashboard-widgets {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 数据卡片样式 */
+.data-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: 1px solid #eee;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 12px 15px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+/* 统计项目容器 */
+.stat-items {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0;
+}
+
+/* 统计项样式 */
+.stat-item {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px 15px;
+    background-color: #fff;
+}
+
+.stat-item:not(:last-child) {
+    border-right: 1px solid #f5f5f5;
+}
+
+.stat-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    background-color: rgba(108, 92, 231, 0.1);
+    margin-bottom: 12px;
+}
+
+.stat-icon {
+    font-size: 18px;
+    color: #6c5ce7;
+}
+
+.stat-title {
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #343a40;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .stat-items {
+        flex-direction: column;
+    }
+    
+    .stat-item {
+        width: 100%;
+    }
+    
+    .stat-item:not(:last-child) {
+        border-right: none;
+        border-bottom: 1px solid #f5f5f5;
+    }
+}
 
 /* Quick Stats Widget Specifics */
+.quick-stats {
+    width: 100%;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 20px;
+}
+
+.quick-stats h4 {
+    color: #495057;
+    font-size: 18px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f3f5;
+}
+
 .quick-stats .stats-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 10px 0;
 }
+
+@media (max-width: 992px) {
+    .quick-stats .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 .quick-stats .stat-item {
     text-align: center;
+    padding: 18px 10px;
+    background: linear-gradient(to bottom right, #f9f9ff, #f3f4ff);
+    border-radius: 10px;
+    border: 1px solid #eceeff;
+    transition: all 0.3s ease;
 }
+
+.quick-stats .stat-item:nth-child(1) {
+    background: linear-gradient(to bottom right, #f3f9ff, #e6f3ff);
+    border: 1px solid #e1ebff;
+}
+
+.quick-stats .stat-item:nth-child(2) {
+    background: linear-gradient(to bottom right, #f5f9ff, #e8f3ff);
+    border: 1px solid #e3ebff;
+}
+
+.quick-stats .stat-item:nth-child(3) {
+    background: linear-gradient(to bottom right, #f7faff, #eaf3ff);
+    border: 1px solid #e5ebff;
+}
+
+.quick-stats .stat-item:nth-child(4) {
+    background: linear-gradient(to bottom right, #f9fbff, #ecf3ff);
+    border: 1px solid #e7ebff;
+}
+
+.quick-stats .stat-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.1);
+}
+
 .quick-stats .stat-item span {
     display: block;
-    font-size: 13px;
-    color: #868e96;
-    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 10px;
 }
+
 .quick-stats .stat-item strong {
-    font-size: 24px;
+    display: block;
+    font-size: 32px;
     font-weight: 700;
-    color: #343a40;
+    color: #495057;
+    transition: all 0.3s ease;
+}
+
+.quick-stats .stat-item:hover strong {
+    color: #6c5ce7;
+}
+
+.quick-stats .stat-icon {
+    font-size: 24px;
+    color: #6c5ce7;
+    opacity: 0.8;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.quick-stats .stat-item:hover .stat-icon {
+    transform: scale(1.2);
+    opacity: 1;
 }
 
 /* Upcoming Tasks Widget Specifics */

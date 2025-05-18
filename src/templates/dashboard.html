@@ -2,44 +2,47 @@
     <h2>欢迎回来！</h2>
     <p>今天是 <span id="current-date"></span>，祝您撸毛顺利！</p>
 </div>
+
 <div class="dashboard-widgets">
-     <div class="widget quick-stats">
-         <h4>核心数据</h4>
-         <div class="stats-grid">
-             <div class="stat-item"><span>活跃钱包</span><strong>12</strong></div>
-             <div class="stat-item"><span>社交账号</span><strong>8</strong></div>
-             <div class="stat-item"><span>跟踪项目</span><strong>25</strong></div>
-             <div class="stat-item"><span>待办任务</span><strong>6</strong></div>
+    <!-- 核心数据统计卡片 -->
+    <div class="data-card">
+        <div class="card-header">核心数据统计</div>
+        <div class="stat-items">
+            <!-- 钱包个数 -->
+            <div class="stat-item">
+                <div class="stat-icon-wrapper">
+                    <i class="fa fa-wallet stat-icon"></i>
+                </div>
+                <div class="stat-title">钱包个数</div>
+                <div class="stat-value" id="wallet-count">9</div>
+            </div>
+            
+            <!-- 社交账号 -->
+            <div class="stat-item">
+                <div class="stat-icon-wrapper">
+                    <i class="fa fa-user-circle stat-icon"></i>
+                </div>
+                <div class="stat-title">社交账号</div>
+                <div class="stat-value" id="social-count">3</div>
          </div>
+            
+            <!-- 跟踪项目 -->
+            <div class="stat-item">
+                <div class="stat-icon-wrapper">
+                    <i class="fa fa-project-diagram stat-icon"></i>
      </div>
-    <div class="widget upcoming-tasks">
-        <h4><i class="fa fa-calendar-check-o"></i> 近期任务与截止</h4>
-         <ul>
-             <li><span>[zkSync]</span> 参与 SyncSwap 新池子 <strong class="deadline">2天后截止</strong></li>
-             <li><span>[LayerZero]</span> 使用 Stargate 跨链 <strong class="deadline">持续进行</strong></li>
-             <li><span>[Scroll]</span> 铸造官方NFT <strong class="deadline urgent">明天截止!</strong></li>
-             <li><span>[社交]</span> 转发 @LineaBuild 最新推文 <strong class="deadline">今天</strong></li>
-         </ul>
-         <a href="#projects" onclick="loadPage('projects')" class="widget-link">查看所有项目 <i class="fa fa-angle-right"></i></a>
+                <div class="stat-title">跟踪项目</div>
+                <div class="stat-value" id="tutorial-count">0</div>
     </div>
-     <div class="widget gas-tracker-preview">
-        <h4><i class="fa fa-fire"></i> 主要网络 Gas</h4>
-        <div class="gas-preview-list">
-            <div><span>ETH Mainnet</span> <strong class="gas-high">35 Gwei</strong></div>
-            <div><span>Arbitrum One</span> <strong class="gas-low">0.1 Gwei</strong></div>
-            <div><span>zkSync Era</span> <strong class="gas-low">0.25 Gwei</strong></div>
-            <div><span>Base</span> <strong class="gas-medium">0.5 Gwei</strong></div>
+            
+            <!-- 待办任务 -->
+            <div class="stat-item">
+                <div class="stat-icon-wrapper">
+                    <i class="fa fa-tasks stat-icon"></i>
         </div>
-         <!-- Gas追踪功能已删除 -->
+                <div class="stat-title">待办任务</div>
+                <div class="stat-value" id="task-count">0</div>
     </div>
-     <div class="widget quick-actions-panel">
-        <h4><i class="fa fa-bolt"></i> 快捷操作</h4>
-        <div class="actions-grid">
-            <button onclick="loadPageWithContext('script-plugins', 'Bridge')"><i class="fa fa-random"></i> 批量跨链</button>
-            <button onclick="loadPageWithContext('script-plugins', 'Swap')"><i class="fa fa-exchange"></i> 批量Swap</button>
-            <button onclick="loadPage('wallets')"><i class="fa fa-google-wallet"></i> 钱包管理</button>
-            <button onclick="loadPage('social')"><i class="fa fa-twitter"></i> 社交任务</button>
-            <button onclick="loadPage('tutorials')"><i class="fa fa-book"></i> 查看教程</button>
         </div>
     </div>
 </div> 

@@ -1,9 +1,11 @@
 const { ipcMain, dialog, BrowserWindow, app } = require('electron');
-const fs = require('fs').promises; // <-- 使用同步版本即可，或保持异步看场景
+const fs = require('fs'); // 使用标准fs模块
+const fsPromises = require('fs').promises; // 单独引入promises API
 const path = require('path');
 const db = require('../db/index.js'); // Updated path
 const { ethers } = require('ethers'); // 导入 ethers
 const cryptoService = require('../core/cryptoService.js'); // Updated path
+const os = require('os'); // 导入 os 模块
 
 // *** TODO: Make this configurable in settings ***
 const DEFAULT_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/eOvLOWiFwLA0k3YIYnfJzmKrfUUO_dgo'; // Replace with a real key or use a public one carefully
@@ -29,6 +31,384 @@ function getProvider() {
         }
     }
     return jsonRpcProvider;
+}
+
+// --- 添加设置处理函数 ---
+const settings = {
+    // 默认设置对象，与前端保持一致
+    defaultSettings: {
+        // 通用设置
+        language: 'zh-CN',
+        theme: 'auto',
+        notifications: true,
+        autoStart: false,
+        startMinimized: false,
+        
+        // 安全与隐私
+        autoLockTimeout: 60,
+        collectUsageData: true,
+        autoCheckUpdate: true,
+        
+        // 网络设置
+        rpcUrl: '',
+        defaultProxyGroup: 'none',
+        connectionTimeout: 30,
+        
+        // 数据与备份
+        dataLocation: '',
+        autoBackup: 'daily',
+        
+        // 开发者选项
+        devMode: false,
+        logLevel: 'info'
+    },
+    
+    // 当前设置
+    currentSettings: null,
+    
+    // 初始化设置
+    init: async function() {
+        try {
+            // 获取设置文件路径
+            const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+            
+            // 检查设置文件是否存在
+            if (fs.existsSync(settingsPath)) {
+                // 读取设置文件
+                const data = await fsPromises.readFile(settingsPath, 'utf-8');
+                
+                // 解析设置文件
+                this.currentSettings = JSON.parse(data);
+                
+                // 合并默认设置和用户设置
+                this.currentSettings = { ...this.defaultSettings, ...this.currentSettings };
+                
+                console.log('[Settings] 已加载用户设置');
+            } else {
+                // 使用默认设置
+                this.currentSettings = { ...this.defaultSettings };
+                
+                // 保存默认设置到文件
+                await this.saveSettingsToFile();
+                
+                console.log('[Settings] 已初始化默认设置');
+            }
+            
+            // 应用设置
+            this.applySettings(this.currentSettings);
+            
+            return true;
+        } catch (error) {
+            console.error('[Settings] 初始化设置失败:', error);
+            
+            // 使用默认设置
+            this.currentSettings = { ...this.defaultSettings };
+            
+            return false;
+        }
+    },
+    
+    // 保存设置到文件
+    saveSettingsToFile: async function() {
+        try {
+            // 获取设置文件路径
+            const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+            
+            // 保存设置到文件
+            await fsPromises.writeFile(settingsPath, JSON.stringify(this.currentSettings, null, 2), 'utf-8');
+            
+            console.log('[Settings] 设置已保存到文件');
+            
+            return true;
+        } catch (error) {
+            console.error('[Settings] 保存设置到文件失败:', error);
+            
+            return false;
+        }
+    },
+    
+    // 应用设置
+    applySettings: function(settings) {
+        try {
+            // 应用设置
+            
+            // 1. 应用语言设置（移除不支持的API调用）
+            // 注释掉不支持的API调用
+            // app.setLocale(settings.language);
+            console.log(`[Settings] 语言设置已保存: ${settings.language}，但应用程序不支持动态更改语言`);
+            
+            // 2. 应用自启动设置
+            this.setAutoStart(settings.autoStart);
+            
+            // 3. 处理开机自启动时的最小化设置
+            // 如果开启自启动，传递最小化参数，否则不传参
+            if (settings.autoStart && settings.startMinimized) {
+                this.setAutoStart(true); // 重新设置，确保带有正确的参数
+            }
+            
+            console.log('[Settings] 已应用设置');
+            
+            return true;
+        } catch (error) {
+            console.error('[Settings] 应用设置失败:', error);
+            
+            return false;
+        }
+    },
+    
+    // 设置自启动
+    setAutoStart: function(enable) {
+        // 如果不是打包版本，直接返回
+        if (!app.isPackaged) return;
+        
+        // 根据操作系统设置自启动
+        if (process.platform === 'win32') {
+            try {
+                app.setLoginItemSettings({
+                    openAtLogin: enable,
+                    path: process.execPath,
+                    args: enable ? ['--startup'] : []
+                });
+                console.log(`[Settings] 已${enable ? '启用' : '禁用'}开机自启动功能`);
+                return true;
+            } catch (error) {
+                console.error('[Settings] 设置开机自启动失败:', error);
+                return false;
+            }
+        } else if (process.platform === 'darwin') {
+            // macOS的登录项设置
+            try {
+                app.setLoginItemSettings({
+                    openAtLogin: enable,
+                    openAsHidden: true // macOS特有，启动时隐藏窗口
+                });
+                console.log(`[Settings] macOS: 已${enable ? '启用' : '禁用'}开机自启动功能`);
+                return true;
+            } catch (error) {
+                console.error('[Settings] macOS: 设置开机自启动失败:', error);
+                return false;
+            }
+        } else {
+            // Linux需要其他方式实现（通常是创建.desktop文件）
+            console.log(`[Settings] ${process.platform}平台暂不支持自动设置开机自启动`);
+            return false;
+        }
+    }
+};
+
+function setupSettingsIpcHandlers() {
+    // 获取设置
+    ipcMain.handle('settings:getSettings', async () => {
+        try {
+            // 如果未初始化，先初始化
+            if (!settings.currentSettings) {
+                await settings.init();
+            }
+            
+            // 返回当前设置
+            return settings.currentSettings;
+        } catch (error) {
+            console.error('[IPC] 获取设置失败:', error);
+            
+            throw new Error('获取设置失败: ' + error.message);
+        }
+    });
+    
+    // 保存设置
+    ipcMain.handle('settings:saveSettings', async (event, newSettings) => {
+        try {
+            // 更新当前设置
+            settings.currentSettings = { ...settings.currentSettings, ...newSettings };
+            
+            // 保存设置到文件
+            await settings.saveSettingsToFile();
+            
+            // 应用设置
+            settings.applySettings(settings.currentSettings);
+            
+            return true;
+        } catch (error) {
+            console.error('[IPC] 保存设置失败:', error);
+            
+            throw new Error('保存设置失败: ' + error.message);
+        }
+    });
+    
+    // 重置设置
+    ipcMain.handle('settings:resetSettings', async () => {
+        try {
+            // 重置设置
+            settings.currentSettings = { ...settings.defaultSettings };
+            
+            // 保存设置到文件
+            await settings.saveSettingsToFile();
+            
+            // 应用设置
+            settings.applySettings(settings.currentSettings);
+            
+            return true;
+        } catch (error) {
+            console.error('[IPC] 重置设置失败:', error);
+            
+            throw new Error('重置设置失败: ' + error.message);
+        }
+    });
+    
+    // 应用设置
+    ipcMain.handle('settings:applySettings', async (event, newSettings) => {
+        try {
+            // 应用设置
+            settings.applySettings(newSettings);
+            
+            return true;
+        } catch (error) {
+            console.error('[IPC] 应用设置失败:', error);
+            
+            throw new Error('应用设置失败: ' + error.message);
+        }
+    });
+    
+    // 清除缓存
+    ipcMain.handle('app:clearCache', async () => {
+        try {
+            // 获取主窗口
+            const mainWindow = BrowserWindow.getFocusedWindow();
+            
+            if (mainWindow) {
+                // 清除缓存
+                await mainWindow.webContents.session.clearCache();
+                await mainWindow.webContents.session.clearStorageData({
+                    storages: ['appcache', 'cookies', 'filesystem', 'indexdb', 'localstorage', 'shadercache', 'websql', 'serviceworkers']
+                });
+                
+                console.log('[IPC] 已清除缓存');
+                
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('[IPC] 清除缓存失败:', error);
+            
+            throw new Error('清除缓存失败: ' + error.message);
+        }
+    });
+    
+    // 检查更新
+    ipcMain.handle('app:checkForUpdates', async () => {
+        try {
+            console.log('[IPC] 检查更新');
+            
+            // TODO: 实现更新检查逻辑
+            
+            return {
+                hasUpdate: false,
+                version: app.getVersion(),
+                releaseNotes: ''
+            };
+        } catch (error) {
+            console.error('[IPC] 检查更新失败:', error);
+            
+            throw new Error('检查更新失败: ' + error.message);
+        }
+    });
+    
+    // 下载更新
+    ipcMain.handle('app:downloadUpdate', async () => {
+        try {
+            console.log('[IPC] 下载更新');
+            
+            // TODO: 实现更新下载逻辑
+            
+            return {
+                success: false,
+                message: '更新下载功能尚未实现'
+            };
+        } catch (error) {
+            console.error('[IPC] 下载更新失败:', error);
+            
+            throw new Error('下载更新失败: ' + error.message);
+        }
+    });
+    
+    // 重启应用
+    ipcMain.handle('app:restart', () => {
+        console.log('[IPC] 重启应用');
+        
+        app.relaunch();
+        app.exit(0);
+        
+        return true;
+    });
+    
+    // 打开开发者工具
+    ipcMain.handle('app:openDevTools', (event) => {
+        console.log('[IPC] 打开开发者工具');
+        
+        const window = BrowserWindow.fromWebContents(event.sender);
+        
+        if (window) {
+            window.webContents.openDevTools();
+            return true;
+        }
+        
+        return false;
+    });
+    
+    // 生成调试报告
+    ipcMain.handle('app:generateDebugReport', async () => {
+        try {
+            console.log('[IPC] 生成调试报告');
+            
+            // 收集系统信息
+            const systemInfo = {
+                platform: process.platform,
+                arch: process.arch,
+                nodeVersion: process.versions.node,
+                electronVersion: process.versions.electron,
+                chromeVersion: process.versions.chrome,
+                v8Version: process.versions.v8,
+                appVersion: app.getVersion(),
+                osInfo: {
+                    platform: os.platform(),
+                    release: os.release(),
+                    arch: os.arch(),
+                    cpus: os.cpus().length,
+                    totalMem: os.totalmem(),
+                    freeMem: os.freemem()
+                }
+            };
+            
+            // 返回调试报告
+            return {
+                timestamp: new Date().toISOString(),
+                systemInfo,
+                // 可以添加更多信息，如日志、错误记录等
+            };
+        } catch (error) {
+            console.error('[IPC] 生成调试报告失败:', error);
+            
+            throw new Error('生成调试报告失败: ' + error.message);
+        }
+    });
+    
+    // 数据操作
+    ipcMain.handle('data:backup', async () => {
+        try {
+            console.log('[IPC] 备份数据');
+            
+            // TODO: 实现数据备份逻辑
+            
+            return {
+                success: false,
+                message: '数据备份功能尚未实现'
+            };
+        } catch (error) {
+            console.error('[IPC] 备份数据失败:', error);
+            
+            throw new Error('备份数据失败: ' + error.message);
+        }
+    });
 }
 
 function setupApplicationIpcHandlers(mainWindow) {
@@ -182,7 +562,7 @@ function setupApplicationIpcHandlers(mainWindow) {
             }
 
             console.log(`[IPC] app:saveFile - Saving file to: ${filePath}`);
-            await fs.writeFile(filePath, content, 'utf8');
+            await fsPromises.writeFile(filePath, content, 'utf8');
             console.log('[IPC] app:saveFile - File saved successfully.');
             return { success: true, filePath: filePath };
 
@@ -271,7 +651,7 @@ function setupApplicationIpcHandlers(mainWindow) {
             }
 
             // 写入文件 - 使用 fs.promises.writeFile
-            await fs.writeFile(saveResult.filePath, fileContent, { encoding: 'utf8' });
+            await fsPromises.writeFile(saveResult.filePath, fileContent, { encoding: 'utf8' });
             console.log(`[IPC] Plaintext wallets exported successfully to: ${saveResult.filePath}`);
             return { success: true, filePath: saveResult.filePath };
 
@@ -333,21 +713,19 @@ function setupApplicationIpcHandlers(mainWindow) {
         console.log(`[IPC] Attempting to load tutorials from: ${filePath}`);
 
         try {
-            // 使用同步读取，因为这是在 IPC handler 中，阻塞一下通常没问题，且简化逻辑
-            if (fs.existsSync(filePath)) {
-                const data = fs.readFileSync(filePath, 'utf-8');
+            // 使用异步读取文件
+            const data = await fsPromises.readFile(filePath, 'utf-8');
+            try {
                 const jsonData = JSON.parse(data);
                 console.log('[IPC] Tutorials loaded successfully.');
                 return jsonData;
-            } else {
-                console.error(`[IPC] Tutorials file not found at: ${filePath}`);
-                throw new Error(`教程文件未找到: ${filePath}`);
+            } catch (parseError) {
+                console.error('[IPC] Error parsing tutorials.json:', parseError);
+                return null;
             }
         } catch (error) {
-            console.error('[IPC] Error loading or parsing tutorials.json:', error);
-            // 将错误信息传递给渲染进程，或者只返回 null/空数组
-            // throw new Error(`加载教程数据失败: ${error.message}`);
-            return null; // 更倾向于返回 null，让渲染进程处理显示
+            console.error(`[IPC] Tutorials file not found or could not be read: ${error.message}`);
+            return []; // 返回空数组，而不是null
         }
     });
 
@@ -380,6 +758,9 @@ function setupApplicationIpcHandlers(mainWindow) {
             mainWindow.webContents.send('auth:needs-unlock');
         }
     });
+
+    // --- 设置相关处理函数 ---
+    setupSettingsIpcHandlers();
 
     console.log('[IPC] Application IPC handlers ready.');
 }

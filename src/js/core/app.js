@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUnlockModal();
             });
 
+            // 添加对auth:needs-unlock消息的处理
+            window.electron.ipcRenderer.on('auth:needs-unlock', () => {
+                console.log('[Renderer] Received auth:needs-unlock message.');
+                showUnlockModal();
+            });
+
             // Optional: Listen for unlock status changes from main process
              window.electron.ipcRenderer.on('app-unlocked-status', (data) => {
                  // 假设 preload 可能只传递了 args 而没有 event

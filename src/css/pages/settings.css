@@ -1,0 +1,210 @@
+/* ================= Settings Page Styles ================= */
+
+.settings-layout {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 两列布局 */
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 992px) {
+    .settings-layout {
+        grid-template-columns: 1fr; /* 在小屏幕上变为单列 */
+    }
+}
+
+/* 设置选项组样式 */
+.option-group {
+    margin-bottom: 20px;
+}
+
+.option-group:last-child {
+    margin-bottom: 0;
+}
+
+.option-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+/* 表单元素样式 */
+.option-group select,
+.option-group input[type="text"],
+.option-group input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 14px;
+    color: #495057;
+    background-color: #fff;
+    transition: border-color 0.2s;
+}
+
+.option-group select:focus,
+.option-group input[type="text"]:focus,
+.option-group input[type="number"]:focus {
+    border-color: #6c5ce7;
+    outline: 0;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.form-control-sm {
+    width: 80px;
+    padding: 6px 8px;
+}
+
+/* 复选框组样式 */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.checkbox-group:last-child {
+    margin-bottom: 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.checkbox-group label {
+    display: inline;
+    margin: 0;
+    font-weight: normal;
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.btn i {
+    margin-right: 8px;
+}
+
+.btn-primary {
+    background-color: #6c5ce7;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #5f51d9;
+}
+
+.btn-secondary {
+    background-color: #f1f3f5;
+    color: #495057;
+}
+
+.btn-secondary:hover {
+    background-color: #e9ecef;
+}
+
+.btn-warning {
+    background-color: #ffad63;
+    color: #fff;
+}
+
+.btn-warning:hover {
+    background-color: #ff9b41;
+}
+
+.btn-text {
+    background: none;
+    color: #6c5ce7;
+    padding: 4px 8px;
+    text-decoration: none;
+}
+
+.btn-text:hover {
+    background-color: #f0f0ff;
+    text-decoration: none;
+}
+
+/* 路径显示框 */
+.path-display {
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 5px;
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 输入提示 */
+.input-note {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 4px;
+}
+
+/* 通用提示信息 */
+.note {
+    font-size: 13px;
+    color: #6c757d;
+    font-style: italic;
+    margin-top: 15px;
+    margin-bottom: 0;
+}
+
+/* 关于部分的样式 */
+.about-content {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.app-logo {
+    margin-right: 20px;
+}
+
+.app-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    color: #343a40;
+}
+
+.version {
+    font-size: 14px;
+    color: #6c5ce7;
+    margin-bottom: 8px;
+}
+
+.copyright {
+    font-size: 13px;
+    color: #6c757d;
+    margin-top: 10px;
+}
+
+.links-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 15px;
+} 

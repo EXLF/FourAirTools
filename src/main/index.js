@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, Tray, globalShortcut } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
 const db = require('./db/index.js');
 const cryptoService = require('./core/cryptoService.js');
 const { autoUpdater } = require("electron-updater");
 const log = require('electron-log');
+const fs = require('fs');
+const os = require('os');
+const squirrelStartup = require('electron-squirrel-startup');
 
 const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
@@ -12,11 +15,87 @@ const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');
 const scriptEngine = require('./scriptEngine.js');
 
 let mainWindow = null;
+let tray = null; // 系统托盘
+// 添加属性以跟踪应用是否正在退出
+app.isQuitting = false;
 
-const KEYTAR_SERVICE = 'FourAirToolbox';
-const KEYTAR_ACCOUNT = 'MasterKey';
+const KEYTAR_SERVICE = 'FourAir-Wallet-Master';
+const KEYTAR_ACCOUNT = 'FourAir-App';
 
-function createWindow() {
+// 创建系统托盘
+function createTray() {
+  if (tray) return; // 如果已经存在托盘则不再创建
+  
+  try {
+    // 尝试使用不同的图标路径
+    let iconPath;
+    const iconPaths = [
+      path.join(__dirname, '../assets/icons/icon.png'),
+      path.join(__dirname, '../../assets/icons/icon.png'),
+      path.join(app.getAppPath(), 'assets/icons/icon.png')
+    ];
+    
+    // 查找第一个存在的图标路径
+    for (const testPath of iconPaths) {
+      if (fs.existsSync(testPath)) {
+        iconPath = testPath;
+        console.log(`[Main] 找到托盘图标: ${iconPath}`);
+        break;
+      }
+    }
+    
+    // 如果没有找到图标，使用空图标（或者可以提前准备一个默认图标）
+    if (!iconPath) {
+      console.warn('[Main] 未找到托盘图标，使用默认空图标');
+      iconPath = path.join(__dirname, '../assets/icons/icon.png'); // 尝试使用这个路径
+    }
+    
+    // 创建托盘
+    tray = new Tray(iconPath);
+    tray.setToolTip('FourAir社区撸毛工具箱');
+    
+    // 托盘上下文菜单
+    const contextMenu = Menu.buildFromTemplate([
+      { 
+        label: '显示主窗口', 
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }
+      },
+      { type: 'separator' },
+      { 
+        label: '退出', 
+        click: () => {
+          // 标记为正在退出，这样关闭窗口时不会触发最小化到托盘
+          app.isQuitting = true;
+          app.quit();
+        }
+      }
+    ]);
+    
+    tray.setContextMenu(contextMenu);
+    
+    // 点击托盘图标显示主窗口
+    tray.on('click', () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    
+    console.log('[Main] 系统托盘创建成功');
+    return true;
+  } catch (error) {
+    console.error('[Main] 创建系统托盘失败:', error);
+    // 托盘创建失败不阻止应用继续运行
+    return false;
+  }
+}
+
+function createWindow(startMinimized = false) {
   // 创建浏览器窗口
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -26,7 +105,11 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, '../preload.js'),
       webviewTag: true // 启用 webview 标签支持
-    }
+    },
+    // 自动隐藏菜单栏，按Alt键显示
+    autoHideMenuBar: true,
+    // 如果startMinimized为true，则不显示窗口
+    show: !startMinimized
   });
 
   // 移除默认菜单栏
@@ -115,6 +198,17 @@ function createWindow() {
                    showErrorDialog('凭据存储警告', '应用已成功解锁，但无法将凭据安全保存到系统。下次启动应用时可能需要重新输入密码。');
               }
 
+              // 新增：删除锁定状态文件
+              const lockFilePath = path.join(app.getPath('userData'), 'app.locked');
+              if (fs.existsSync(lockFilePath)) {
+                  try {
+                      fs.unlinkSync(lockFilePath);
+                      console.log('[Main] 已删除锁定状态文件');
+                  } catch (e) {
+                      console.error('[Main] 删除锁定状态文件失败:', e.message);
+                  }
+              }
+
               mainWindow.webContents.send('app-unlocked-status', { unlocked: true }); // Notify renderer (optional)
               return { success: true };
           } else {
@@ -173,6 +267,20 @@ function createWindow() {
   // 加载 index.html
   mainWindow.loadFile('index.html');
 
+  // 如果是最小化启动，处理窗口显示
+  if (startMinimized) {
+    // 尝试创建托盘，但不依赖它的成功
+    try {
+      createTray();
+    } catch (e) {
+      console.warn('[Main] 创建托盘失败，应用将仍然最小化启动:', e.message);
+      // 如果托盘创建失败，仍确保窗口最小化
+    }
+    
+    // 最小化窗口而不是完全隐藏，确保在任务栏可见
+    mainWindow.minimize();
+  }
+
   // 始终打开开发者工具 (根据用户要求，为打包后的应用保留控制台)
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
@@ -182,12 +290,35 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  
+  // 处理窗口关闭行为（最小化到托盘）
+  handleWindowClose();
 }
 
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用
 app.whenReady().then(async () => {
+  // 处理命令行参数
+  const startMinimized = process.argv.includes('--startup') || process.argv.includes('--minimized');
+  
   let needsSetup = false;
   let needsUnlock = true; // *** 默认需要解锁 ***
+
+  // 新增：检查锁定状态文件
+  const lockFilePath = path.join(app.getPath('userData'), 'app.locked');
+  const appWasLocked = fs.existsSync(lockFilePath);
+  if (appWasLocked) {
+    console.log('[Main] 检测到应用之前被锁定，强制进入解锁状态');
+    // 确保先删除keytar中可能存在的密钥，防止自动解锁
+    try {
+      await keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT);
+      console.log('[Main] 删除了可能存在的keytar密钥');
+    } catch (e) {
+      console.log('[Main] 清除keytar密钥时出错:', e.message);
+    }
+    needsUnlock = true;
+  } else {
+    console.log('[Main] 未检测到锁定状态文件，进行正常解锁检查');
+  }
 
   try {
     const configured = await cryptoService.isConfigured();
@@ -274,7 +405,22 @@ app.whenReady().then(async () => {
     if(!(await cryptoService.isConfigured())) needsUnlock = false;
   }
 
-  createWindow();
+  // 初始化数据库并创建窗口
+  try {
+    // 检查db模块是否存在init方法，如果没有则使用替代方案
+    if (typeof db.init === 'function') {
+      await db.init();
+    } else if (db.db) {
+      // 可能已经初始化，直接使用
+      console.log('[Main] 数据库已初始化');
+    } else {
+      console.warn('[Main] 数据库初始化方法不可用，尝试默认连接');
+      // 不阻止窗口创建
+    }
+    console.log('[Main] 数据库初始化检查完成');
+    
+    // 创建主窗口并传入startMinimized参数
+    createWindow(startMinimized);
 
   // 应用启动后，根据状态发送消息
   if (mainWindow && mainWindow.webContents) {
@@ -293,6 +439,10 @@ app.whenReady().then(async () => {
         mainWindow.webContents.send('app-unlocked-status', { unlocked: true });
       }
     });
+    }
+  } catch (error) {
+    console.error('[Main] 创建窗口时出错:', error);
+    showErrorDialog('窗口创建失败', `无法创建窗口，应用功能受限。\n错误: ${error.message}`);
   }
 
   // 新增：配置和启动自动更新
@@ -300,6 +450,44 @@ app.whenReady().then(async () => {
   autoUpdater.logger = log;
   autoUpdater.autoDownload = false; // 我们将手动触发下载
   // autoUpdater.autoInstallOnAppQuit = true; // 下载完成后退出时自动安装 (如果用户同意)
+  
+  // 注册快捷键来锁定应用
+  // Windows/Linux 上为 Ctrl+L，macOS 上为 Cmd+L
+  const lockShortcut = process.platform === 'darwin' ? 'Command+L' : 'Ctrl+L';
+  globalShortcut.register(lockShortcut, () => {
+    console.log(`[Main] 通过快捷键 ${lockShortcut} 锁定应用`);
+    if (cryptoService.isUnlocked()) {
+      // 调用已注册的锁定处理程序
+      try {
+        cryptoService.clearSessionKey(); // 清除内存中的密钥
+        keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT) // 从 keytar 删除密钥
+          .then(() => {
+            console.log('[Main][Keytar] 通过快捷键删除密钥成功');
+          })
+          .catch((err) => {
+            console.error('[Main][Keytar] 通过快捷键删除密钥错误:', err);
+          });
+        
+        // 通知渲染进程已锁定
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app-unlocked-status', { unlocked: false });
+          mainWindow.webContents.send('show-unlock-screen');
+          
+          // 显示通知
+          if (mainWindow.isFocused()) {
+            mainWindow.webContents.executeJavaScript(
+              `if(window.showToast) window.showToast('应用已锁定', 'info');`
+            ).catch(() => {});
+          }
+        }
+      } catch (error) {
+        console.error('[Main] 通过快捷键锁定应用出错:', error);
+      }
+    } else {
+      console.log('[Main] 应用已处于锁定状态，快捷键无效');
+    }
+  });
+  console.log(`[Main] 已注册应用锁定快捷键: ${lockShortcut}`);
 
   autoUpdater.on('checking-for-update', () => {
     log.info('正在检查更新...');
@@ -354,7 +542,8 @@ app.whenReady().then(async () => {
 // 在 macOS 上，应用程序及其菜单栏通常保持活动状态，
 // 直到用户使用 Cmd + Q 显式退出。
 app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') {
+  // 如果是通过托盘关闭窗口，则不退出应用
+  if (process.platform !== 'darwin' && app.isQuitting) {
     cryptoService.clearSessionKey(); // 清除会话密钥
     db.closeDatabase();
     app.quit();
@@ -363,6 +552,7 @@ app.on('window-all-closed', function () {
 
 // 在应用程序退出前确保数据库已关闭
 app.on('will-quit', () => {
+  app.isQuitting = true; // 确保设置退出标志
   cryptoService.clearSessionKey(); // 再次确保清除
   db.closeDatabase();
 });
@@ -380,6 +570,12 @@ ipcMain.handle('app:lock', async () => {
         cryptoService.clearSessionKey(); // 清除内存中的密钥
         await keytar.deletePassword(KEYTAR_SERVICE, KEYTAR_ACCOUNT); // 从 keytar 删除密钥
         console.log('[Main][Keytar] Key removed from keychain due to manual lock.');
+        
+        // 新增：保存锁定状态到文件
+        const lockFilePath = path.join(app.getPath('userData'), 'app.locked');
+        fs.writeFileSync(lockFilePath, new Date().toISOString());
+        console.log('[Main] 已保存锁定状态到文件:', lockFilePath);
+        
         // 可以通知渲染进程已锁定，例如重新显示解锁界面或禁用功能
         if (mainWindow) {
             mainWindow.webContents.send('app-unlocked-status', { unlocked: false });
@@ -404,3 +600,53 @@ ipcMain.on('updater-quit-and-install', () => {
   log.info('[IPC] Received updater-quit-and-install. Quitting and installing...');
   autoUpdater.quitAndInstall();
 }); 
+
+// 修改窗口关闭行为，实现关闭时最小化到托盘
+function handleWindowClose() {
+  // 读取配置确定是否应该最小化到托盘
+  let minimizeToTray = false;
+  
+  try {
+    // 从设置中读取
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+      const settings = JSON.parse(settingsData);
+      minimizeToTray = settings.startMinimized; // 我们继续使用相同的设置字段，但语义变为"关闭时最小化"
+    }
+  } catch (error) {
+    console.error('[Main] 读取设置失败:', error);
+    minimizeToTray = false;
+  }
+  
+  if (mainWindow) {
+    mainWindow.on('close', (event) => {
+      // 如果设置为最小化到托盘且不是应用退出（quit()调用），则阻止关闭
+      if (minimizeToTray && !app.isQuitting) {
+        event.preventDefault();
+        
+        // 确保托盘已创建
+        if (!tray) {
+          try {
+            createTray();
+          } catch (error) {
+            console.error('[Main] 创建托盘失败，窗口将直接关闭:', error);
+            return; // 如果无法创建托盘，允许窗口关闭
+          }
+        }
+        
+        // 隐藏窗口而不是关闭
+        mainWindow.hide();
+        
+        // 可选：显示提示消息
+        if (tray) {
+          tray.displayBalloon({
+            title: 'FourAir社区撸毛工具箱',
+            content: '应用已最小化到托盘，单击图标可重新打开。',
+            icon: path.join(__dirname, '../assets/icons/icon.png')
+          });
+        }
+      }
+    });
+  }
+} 

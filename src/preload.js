@@ -77,6 +77,7 @@ const validSendChannels = [
 const validReceiveChannels = [
     'show-setup-password',
     'show-unlock-screen',
+    'auth:needs-unlock', // 添加需要解锁的消息通道
     'app-unlocked-status', // 添加解锁状态通道
     // *** 新增：代理测试结果通知通道 ***
     'proxy:testResult',
@@ -138,7 +139,18 @@ const validInvokeChannels = [
     'db:deleteProxiesByIds',
     // *** 新增：代理测试与设置通道 ***
     'proxy:test', 
-    'proxy:set'
+    'proxy:set',
+    // *** 新增：设置相关通道 ***
+    'settings:getSettings',
+    'settings:saveSettings',
+    'settings:resetSettings',
+    'settings:applySettings',
+    'app:clearCache',
+    'app:checkForUpdates',
+    'app:downloadUpdate',
+    'app:restart',
+    'app:openDevTools',
+    'app:generateDebugReport'
 ];
 
 contextBridge.exposeInMainWorld('electron', {
@@ -301,8 +313,72 @@ contextBridge.exposeInMainWorld('appAPI', {
     // 请求解锁应用
     requestUnlock: () => {
       ipcRenderer.send('app:show-unlock');
+    },
+    // 清除缓存
+    clearCache: () => ipcRenderer.invoke('app:clearCache'),
+    // 检查更新
+    checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+    // 下载更新
+    downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+    // 重启应用
+    restart: () => ipcRenderer.invoke('app:restart'),
+    // 打开开发者工具
+    openDevTools: () => ipcRenderer.invoke('app:openDevTools'),
+    // 生成调试报告
+    generateDebugReport: () => ipcRenderer.invoke('app:generateDebugReport')
+});
+
+// *** 新增：暴露设置API ***
+contextBridge.exposeInMainWorld('settingsAPI', {
+    // 获取设置
+    getSettings: () => {
+        try {
+            return ipcRenderer.invoke('settings:getSettings');
+        } catch (error) {
+            console.error('[Preload] 获取设置失败:', error);
+            return null;
+        }
+    },
+    // 保存设置
+    saveSettings: (settings) => {
+        try {
+            return ipcRenderer.invoke('settings:saveSettings', settings);
+        } catch (error) {
+            console.error('[Preload] 保存设置失败:', error);
+            return false;
+        }
+    },
+    // 重置设置
+    resetSettings: () => {
+        try {
+            return ipcRenderer.invoke('settings:resetSettings');
+        } catch (error) {
+            console.error('[Preload] 重置设置失败:', error);
+            return false;
+        }
+    },
+    // 应用设置
+    applySettings: (settings) => {
+        try {
+            return ipcRenderer.invoke('settings:applySettings', settings);
+        } catch (error) {
+            console.error('[Preload] 应用设置失败:', error);
+            return false;
+        }
     }
-  });
+});
+
+// *** 新增：暴露数据API ***
+contextBridge.exposeInMainWorld('dataAPI', {
+    // 备份数据
+    backup: () => ipcRenderer.invoke('data:backup'),
+    // 导出数据
+    exportData: () => ipcRenderer.invoke('data:export'),
+    // 导入数据
+    importData: () => ipcRenderer.invoke('data:import'),
+    // 更改数据存储位置
+    changeDataLocation: () => ipcRenderer.invoke('data:changeLocation')
+});
 
 console.log('[Preload] Preload script executed successfully.');
 

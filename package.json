@@ -1,6 +1,6 @@
 {
   "name": "fouair-toolbox",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "FourAir社区撸毛工具箱桌面版",
   "main": "src/main/index.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "axios": "^1.9.0",
     "bip39": "^3.1.0",
     "electron-log": "^5.4.0",
+    "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.6.2",
     "ethereumjs-wallet": "^1.0.2",
     "ethers": "^6.14.0",
@@ -41,6 +42,7 @@
     "appId": "com.fourAir.fouairtoolbox",
     "productName": "FourAirToolbox",
     "asar": true,
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "publish": [
       {
         "provider": "github",
@@ -89,7 +91,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "src/assets/icons/logo.png"
     },
     "directories": {
       "buildResources": "build_resources",

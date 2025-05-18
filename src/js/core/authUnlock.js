@@ -6,9 +6,33 @@ import { showToast } from '../components/toast.js';
  * 这个模态框应该是持久的，不允许用户通过点击背景或按 Esc 关闭。
  */
 export function showUnlockModal() {
+    // 创建遮罩，防止访问下面的UI
+    const existingOverlay = document.getElementById('lock-overlay');
+    if (!existingOverlay) {
+        const overlay = document.createElement('div');
+        overlay.id = 'lock-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        overlay.style.zIndex = '9998'; // 确保在其他内容之上
+        document.body.appendChild(overlay);
+    }
+    
     // 注意：使用 'modal.js' 的 showModal，它默认不是持久的
-    // 可能需要修改 modal.js 或在这里添加额外逻辑来阻止关闭
+    // 创建一个不可关闭的模态框
     showModal('tpl-unlock-app', (modalElement) => {
+        // 调整模态框样式
+        modalElement.style.zIndex = '9999'; // 确保在遮罩之上
+        
+        // 禁用关闭按钮
+        const closeBtn = modalElement.querySelector('.modal-close-btn');
+        if (closeBtn) {
+            closeBtn.style.display = 'none';
+        }
+        
         const form = modalElement.querySelector('#unlock-form-actual');
         const passwordInput = modalElement.querySelector('#unlock-password');
         const errorElement = modalElement.querySelector('.unlock-error');
@@ -53,6 +77,11 @@ export function showUnlockModal() {
 
                     if (result.success) {
                         showToast('应用解锁成功！', 'success');
+                        // 移除锁定遮罩
+                        const overlay = document.getElementById('lock-overlay');
+                        if (overlay) {
+                            overlay.remove();
+                        }
                         hideModal(); // 解锁成功后关闭模态框
                         // 这里可能需要触发一些事件或重新加载UI来反映解锁状态
                         // 例如: document.dispatchEvent(new Event('app-unlocked'));
@@ -77,10 +106,24 @@ export function showUnlockModal() {
 
         form.addEventListener('submit', handleSubmit);
 
-        // 注意：我们没有添加 modalElement.querySelector('.modal-close-btn') 的监听
-        // 因为这个模态框不应该有关闭按钮。同时，需要确保 modal.js 不会因为点击背景而关闭它。
-        // 可能需要给 modal overlay 添加一个特定类或属性，让 modal.js 知道它不应被关闭。
-        // 或者修改 showModal 接受一个 'persistent' 选项。 (待办)
+        // 阻止一切可能关闭模态框的操作
+        // 阻止点击背景关闭模态框
+        const modalOverlay = document.querySelector('.modal-overlay');
+        if (modalOverlay) {
+            const originalClickHandler = modalOverlay.onclick;
+            modalOverlay.onclick = (e) => {
+                e.stopPropagation();
+                return false;
+            };
+        }
+
+        // 阻止ESC键关闭
+        document.addEventListener('keydown', function preventEsc(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
 
     }, { persistent: true }); // 假设 modal.js 支持 persistent 选项
 } 
