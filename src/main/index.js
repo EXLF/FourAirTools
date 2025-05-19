@@ -297,6 +297,9 @@ function createWindow(startMinimized = false) {
   
   // 处理窗口关闭行为（最小化到托盘）
   handleWindowClose();
+  
+  // 设置窗口关闭事件监听，用于动态更新关闭行为
+  setupWindowCloseListener();
 }
 
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用
@@ -546,8 +549,8 @@ app.whenReady().then(async () => {
 // 在 macOS 上，应用程序及其菜单栏通常保持活动状态，
 // 直到用户使用 Cmd + Q 显式退出。
 app.on('window-all-closed', function () {
-  // 如果是通过托盘关闭窗口，则不退出应用
-  if (process.platform !== 'darwin' && app.isQuitting) {
+  // 在非macOS平台，当所有窗口关闭时退出应用
+  if (process.platform !== 'darwin') {
     cryptoService.clearSessionKey(); // 清除会话密钥
     db.closeDatabase();
     app.quit();
@@ -607,26 +610,35 @@ ipcMain.on('updater-quit-and-install', () => {
 
 // 修改窗口关闭行为，实现关闭时最小化到托盘
 function handleWindowClose() {
-  // 读取配置确定是否应该最小化到托盘
-  let minimizeToTray = false;
-  
-  try {
-    // 从设置中读取
-    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const settingsData = fs.readFileSync(settingsPath, 'utf-8');
-      const settings = JSON.parse(settingsData);
-      minimizeToTray = settings.startMinimized; // 我们继续使用相同的设置字段，但语义变为"关闭时最小化"
-    }
-  } catch (error) {
-    console.error('[Main] 读取设置失败:', error);
-    minimizeToTray = false;
-  }
-  
+  // 清除之前的close事件处理程序(如果存在)，防止重复添加
   if (mainWindow) {
-    mainWindow.on('close', (event) => {
-      // 如果设置为最小化到托盘且不是应用退出（quit()调用），则阻止关闭
+    // 移除所有现有的close事件监听器，完全重新设置
+    mainWindow.removeAllListeners('close');
+    
+    // 创建新的处理函数
+    const closeHandler = (event) => {
+      // 每次都重新读取设置，确保获取最新值
+      let minimizeToTray = false;
+      
+      try {
+        // 从设置中读取
+        const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+        if (fs.existsSync(settingsPath)) {
+          const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+          const settings = JSON.parse(settingsData);
+          // 使用"关闭时最小化到托盘"设置
+          minimizeToTray = settings.startMinimized; 
+        }
+      } catch (error) {
+        console.error('[Main] 读取设置失败:', error);
+        minimizeToTray = false; // 读取失败时默认为false，允许完全关闭
+      }
+      
+      console.log('[Main] 捕获到窗口关闭事件, minimizeToTray =', minimizeToTray, ', app.isQuitting =', app.isQuitting);
+      
+      // 如果应该最小化到托盘，并且不是通过quit()方法退出
       if (minimizeToTray && !app.isQuitting) {
+        // 阻止默认关闭行为
         event.preventDefault();
         
         // 确保托盘已创建
@@ -651,6 +663,64 @@ function handleWindowClose() {
           });
         }
       }
+      // 注意：我们移除了else分支中的app.isQuitting = true，防止它被错误设置
+    };
+    
+    // 添加新的close事件处理程序
+    mainWindow.on('close', closeHandler);
+    
+    // 读取当前设置值，只用于日志
+    let currentMinimizeToTray = false;
+    try {
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      if (fs.existsSync(settingsPath)) {
+        const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+        const settings = JSON.parse(settingsData);
+        currentMinimizeToTray = settings.startMinimized;
+      }
+    } catch (e) {}
+    
+    console.log('[Main] 已添加新的窗口关闭处理程序，minimizeToTray =', currentMinimizeToTray);
+  }
+}
+
+// 添加一个监听函数，用于接收设置更改的通知
+function setupWindowCloseListener() {
+  if (mainWindow) {
+    // 监听"关闭时最小化到托盘"选项的更改
+    ipcMain.on('settings:updateTrayOption', (event, minimizeToTray) => {
+      console.log('[Main] 收到设置更新通知，minimizeToTray =', minimizeToTray);
+      // 重新设置窗口关闭行为
+      handleWindowClose();
+    });
+    
+    // 也监听从渲染进程发来的更新请求
+    mainWindow.webContents.on('ipc-message', (event, channel, ...args) => {
+      if (channel === 'settings:trayOptionChanged') {
+        console.log('[Main] 收到设置更改事件，minimizeToTray =', args[0]);
+        // 重新设置窗口关闭行为
+        handleWindowClose();
+      }
     });
   }
-} 
+}
+
+// 添加直接监听设置更新的IPC处理函数
+ipcMain.on('direct:updateCloseHandler', (event, minimizeToTray) => {
+  console.log('[Main] 收到直接更新窗口关闭行为请求，minimizeToTray =', minimizeToTray);
+  // 立即重新应用窗口关闭行为
+  if (mainWindow) {
+    // 立即重新设置窗口关闭行为
+    handleWindowClose();
+  }
+});
+
+// 也处理settings:updateTrayOption通道的消息
+ipcMain.on('settings:updateTrayOption', (event, minimizeToTray) => {
+  console.log('[Main] 收到更新托盘选项请求，minimizeToTray =', minimizeToTray);
+  // 立即重新应用窗口关闭行为
+  if (mainWindow) {
+    // 立即重新设置窗口关闭行为
+    handleWindowClose();
+  }
+}); 

@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showUnlockModal();
             });
 
+            // 添加对auth:needs-setup消息的处理
+            window.electron.ipcRenderer.on('auth:needs-setup', () => {
+                console.log('[Renderer] Received auth:needs-setup message.');
+                showSetupPasswordModal();
+            });
+
             // 添加对auth:needs-unlock消息的处理
             window.electron.ipcRenderer.on('auth:needs-unlock', () => {
                 console.log('[Renderer] Received auth:needs-unlock message.');

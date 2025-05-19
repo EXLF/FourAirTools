@@ -4,7 +4,7 @@
 // import * as actions from './actions.js';
 
 // 设置功能实现
-import { showMessage } from '../../utils/notifications.js';
+import { showToast } from '../../components/toast.js';
 
 // 默认设置对象
 const defaultSettings = {
@@ -12,24 +12,16 @@ const defaultSettings = {
     language: 'zh-CN',
     theme: 'auto',
     notifications: true,
-    autoStart: false,
-    startMinimized: false,
+    autoStart: true,
+    startMinimized: true,
     
     // 安全与隐私
     autoCheckUpdate: true,
-    
-    // 网络设置
-    rpcUrl: '',
-    defaultProxyGroup: 'none',
-    connectionTimeout: 30,
+
     
     // 数据与备份
     dataLocation: '',
     autoBackup: 'daily',
-    
-    // 开发者选项
-    devMode: false,
-    logLevel: 'info'
 };
 
 // 当前设置
@@ -280,15 +272,42 @@ function setupChangeListeners(contentArea, selectors, handler) {
  * 处理设置变更
  */
 async function handleSettingChange(contentArea) {
-    const newSettings = getSettingsFromUI(contentArea);
-    currentSettings = newSettings;
+    console.log("Settings changed, saving...");
     
-    // 保存设置
-    if (await saveSettings(newSettings)) {
-        showMessage('设置已保存', 'success');
-        applySettings(newSettings);
-    } else {
-        showMessage('保存设置失败', 'error');
+    // 获取新的设置值
+    const newSettings = getSettingsFromUI(contentArea);
+    
+    // 检查"关闭时最小化到托盘"选项是否更改
+    let minimizeToTrayChanged = false;
+    if (newSettings.startMinimized !== currentSettings.startMinimized) {
+        minimizeToTrayChanged = true;
+        console.log("关闭时最小化到托盘选项已更改:", newSettings.startMinimized);
+    }
+    
+    // 只有在设置有变化时才保存
+    if (JSON.stringify(newSettings) !== JSON.stringify(currentSettings)) {
+        currentSettings = newSettings;
+        
+        // 保存设置
+        if (await saveSettings(newSettings)) {
+            showToast('设置已保存', 'success');
+            applySettings(newSettings);
+            
+            // 如果"关闭时最小化到托盘"选项已更改，则直接通知主进程
+            if (minimizeToTrayChanged && window.electron && window.electron.ipcRenderer) {
+                try {
+                    console.log("发送关闭行为更改通知到主进程");
+                    // 使用特定通道通知主进程立即更新窗口关闭行为
+                    window.electron.ipcRenderer.send('settings:updateTrayOption', newSettings.startMinimized);
+                    // 再发送一个备用通道消息，确保消息能被接收
+                    window.electron.ipcRenderer.send('direct:updateCloseHandler', newSettings.startMinimized);
+                } catch (error) {
+                    console.error("通知主进程更新关闭行为失败:", error);
+                }
+            }
+        } else {
+            showToast('保存设置失败', 'error');
+        }
     }
 }
 
@@ -379,13 +398,13 @@ async function handleBackupNow() {
     try {
         if (window.dataAPI && window.dataAPI.backup) {
             await window.dataAPI.backup();
-            showMessage('数据备份成功', 'success');
+            showToast('数据备份成功', 'success');
         } else {
-            showMessage('备份功能尚未实现', 'info');
+            showToast('备份功能尚未实现', 'info');
         }
     } catch (error) {
         console.error('备份数据失败:', error);
-        showMessage('备份数据失败', 'error');
+        showToast('备份数据失败', 'error');
     }
 }
 
@@ -394,35 +413,35 @@ async function handleClearCache() {
         if (confirm('确定要清除缓存数据吗？这不会删除您的设置和钱包数据。')) {
             if (window.appAPI && window.appAPI.clearCache) {
                 await window.appAPI.clearCache();
-                showMessage('缓存数据已清除', 'success');
+                showToast('缓存数据已清除', 'success');
             } else {
-                showMessage('清除缓存功能尚未实现', 'info');
+                showToast('清除缓存功能尚未实现', 'info');
             }
         }
     } catch (error) {
         console.error('清除缓存失败:', error);
-        showMessage('清除缓存失败: ' + error.message, 'error');
+        showToast('清除缓存失败: ' + error.message, 'error');
     }
 }
 
 async function handleCheckUpdate() {
     try {
         if (window.appAPI && window.appAPI.checkForUpdates) {
-            showMessage('正在检查更新...', 'info');
+            showToast('正在检查更新...', 'info');
             const result = await window.appAPI.checkForUpdates();
             if (result.hasUpdate) {
                 if (confirm(`发现新版本: ${result.version}。是否现在更新？`)) {
                     await window.appAPI.downloadUpdate();
                 }
             } else {
-                showMessage('您已经使用最新版本', 'success');
+                showToast('您已经使用最新版本', 'success');
             }
         } else {
-            showMessage('检查更新功能尚未实现', 'info');
+            showToast('检查更新功能尚未实现', 'info');
         }
     } catch (error) {
         console.error('检查更新失败:', error);
-        showMessage('检查更新失败: ' + error.message, 'error');
+        showToast('检查更新失败: ' + error.message, 'error');
     }
 }
 
@@ -444,13 +463,13 @@ async function handleDebugReport() {
             const report = await window.appAPI.generateDebugReport();
             // 可以在这里打开一个模态框显示报告内容
             console.log('调试报告:', report);
-            showMessage('调试报告已生成', 'success');
+            showToast('调试报告已生成', 'success');
         } else {
-            showMessage('生成调试报告功能尚未实现', 'info');
+            showToast('生成调试报告功能尚未实现', 'info');
         }
     } catch (error) {
         console.error('生成调试报告失败:', error);
-        showMessage('生成调试报告失败: ' + error.message, 'error');
+        showToast('生成调试报告失败: ' + error.message, 'error');
     }
 }
 
@@ -460,15 +479,15 @@ async function handleManualLock() {
         if (window.electron && window.electron.ipcRenderer) {
             const result = await window.electron.ipcRenderer.invoke('app:lock');
             if (result.success) {
-                showMessage('应用已锁定', 'info');
+                showToast('应用已锁定', 'info');
             } else {
-                showMessage(`锁定应用失败：${result.error || '未知错误'}`, 'error');
+                showToast(`锁定应用失败：${result.error || '未知错误'}`, 'error');
             }
         } else {
-            showMessage('锁定功能不可用：IPC未初始化', 'error');
+            showToast('锁定功能不可用：IPC未初始化', 'error');
         }
     } catch (error) {
         console.error('锁定应用失败:', error);
-        showMessage('锁定应用失败: ' + error.message, 'error');
+        showToast('锁定应用失败: ' + error.message, 'error');
     }
 } 

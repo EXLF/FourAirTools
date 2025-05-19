@@ -154,8 +154,8 @@ const settings = {
         language: 'zh-CN',
         theme: 'auto',
         notifications: true,
-        autoStart: false,
-        startMinimized: false,
+        autoStart: true,
+        startMinimized: true,
         
         // 安全与隐私
         autoLockTimeout: 60,
@@ -342,6 +342,15 @@ function setupSettingsIpcHandlers() {
             
             // 应用设置
             settings.applySettings(settings.currentSettings);
+            
+            // 新增：如果"关闭时最小化到托盘"(startMinimized)设置已更改，则通知主进程重新应用窗口关闭行为
+            if (newSettings.hasOwnProperty('startMinimized')) {
+                // 使用新的IPC通道通知主进程更新窗口关闭行为
+                const mainWindow = BrowserWindow.fromWebContents(event.sender);
+                if (mainWindow) {
+                    mainWindow.webContents.send('settings:trayOptionChanged', newSettings.startMinimized);
+                }
+            }
             
             return true;
         } catch (error) {

@@ -72,11 +72,16 @@ const validSendChannels = [
     'open-external-link',
     // 更新器相关
     'updater-start-download',
-    'updater-quit-and-install'
+    'updater-quit-and-install',
+    // 设置更改通知通道
+    'settings:updateTrayOption',
+    'direct:updateCloseHandler',
+    'settings:trayOptionChanged'
 ];
 const validReceiveChannels = [
     'show-setup-password',
     'show-unlock-screen',
+    'auth:needs-setup', // 添加首次设置密码的消息通道
     'auth:needs-unlock', // 添加需要解锁的消息通道
     'app-unlocked-status', // 添加解锁状态通道
     // *** 新增：代理测试结果通知通道 ***
