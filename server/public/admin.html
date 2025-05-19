@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教程管理</title>
+    <style>
+        /* 基本样式 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f8f9fa; color: #343a40; line-height: 1.6; margin: 0; }
+        .container { max-width: 900px; /* 稍微加宽以容纳列表 */ margin: 20px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #007bff; margin-bottom: 1.5em; }
+        button, .button { display: inline-block; background-color: #007bff; color: white; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; font-weight: 500; text-align: center; transition: background-color 0.2s ease; margin-left: 5px; }
+        button:hover, .button:hover { background-color: #0056b3; }
+        button:disabled, .button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        input[type="text"], input[type="search"], textarea, select {
+            width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 1rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        input[type="text"]:focus, input[type="search"]:focus, textarea:focus, select:focus {
+            border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        textarea { min-height: 100px; resize: vertical; }
+
+        /* 顶部操作区域 */
+        .top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .search-box { flex-grow: 1; max-width: 400px; margin-right: 15px; }
+
+        /* 列表样式 */
+        #existing-tutorials-list ul { list-style: none; padding: 0; }
+        #existing-tutorials-list li { background-color: #fff; border: 1px solid #e9ecef; margin-bottom: 12px; padding: 15px 20px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; transition: box-shadow 0.2s ease; }
+        #existing-tutorials-list li:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .tutorial-details { flex-grow: 1; margin-right: 20px; }
+        .tutorial-details strong { font-size: 1.1rem; color: #212529; display: block; margin-bottom: 5px; }
+        .tutorial-details small { color: #6c757d; display: block; margin-bottom: 3px; font-size: 0.9rem; }
+        .tutorial-details .desc { color: #495057; font-size: 0.95rem; }
+        .tutorial-details .url { word-break: break-all; }
+        .tutorial-actions { display: flex; align-items: center; flex-shrink: 0; }
+        .tutorial-actions button { padding: 6px 12px; font-size: 0.85rem; }
+        button.edit-btn { background-color: #ffc107; color: #343a40; margin-right: 5px; }
+        button.edit-btn:hover { background-color: #e0a800; }
+        button.delete-btn { background-color: #dc3545; }
+        button.delete-btn:hover { background-color: #c82333; }
+
+        /* 模态框样式 */
+        .modal { display: none; /* 默认隐藏 */ position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); /* 半透明背景 */ justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal.show { display: flex; opacity: 1; }
+        .modal-content { background-color: #fff; margin: auto; padding: 30px 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 90%; max-width: 600px; position: relative; transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal.show .modal-content { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dee2e6; padding-bottom: 15px; margin-bottom: 20px; }
+        .modal-title { font-size: 1.5rem; color: #007bff; margin: 0; }
+        .close-btn { background: none; border: none; font-size: 2rem; font-weight: bold; color: #6c757d; cursor: pointer; padding: 0; line-height: 1; }
+        .close-btn:hover { color: #343a40; }
+        .modal-body form label { margin-bottom: 5px; font-weight: 600; }
+        .modal-footer { border-top: 1px solid #dee2e6; padding-top: 15px; margin-top: 30px; text-align: right; }
+        .modal-footer .button.cancel-btn { background-color: #6c757d; margin-left: 10px; }
+        .modal-footer .button.cancel-btn:hover { background-color: #5a6268; }
+        
+        /* 消息提示 */
+        #toast-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #333; color: white; padding: 10px 20px; border-radius: 4px; z-index: 1100; opacity: 0; transition: opacity 0.5s ease; font-size: 0.9rem; }
+        #toast-message.show { opacity: 1; }
+        #toast-message.success { background-color: #28a745; }
+        #toast-message.error { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>教程列表管理</h2>
+
+        <div class="top-actions">
+            <div class="search-box">
+                 <input type="search" id="search-input" placeholder="搜索教程标题或描述...">
+            </div>
+            <button id="add-tutorial-btn" class="button">+ 新增教程</button>
+        </div>
+
+        <div id="existing-tutorials-list">
+            <!-- 教程列表将由 JS 动态填充 -->
+            <p>正在加载教程列表...</p>
+        </div>
+        
+        <!-- 分页控件容器 -->
+        <div id="pagination-controls" style="margin-top: 20px; text-align: center;">
+            <!-- 分页按钮将由 JS 动态填充 -->
+        </div>
+    </div>
+
+    <!-- 模态框结构 -->
+    <div id="tutorial-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title" class="modal-title">新增教程</h3>
+                <button type="button" class="close-btn" id="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="tutorial-form">
+                    <input type="hidden" id="edit-id" name="editId"> <!-- 存储正在编辑的ID -->
+                    <div>
+                        <label for="tutorial-title">标题:</label>
+                        <input type="text" id="tutorial-title" name="title" required>
+                    </div>
+                    <div>
+                        <label for="tutorial-category">分类:</label>
+                        <select id="tutorial-category" name="category" required>
+                            <option value="">请选择分类</option>
+                            <option value="项目教程">项目教程</option>
+                            <option value="新手入门">新手入门</option>
+                            <option value="工具技巧">工具技巧</option>
+                            <option value="安全知识">安全知识</option>
+                            <option value="其他分类">其他分类</option> 
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tutorial-description">描述:</label>
+                        <textarea id="tutorial-description" name="description" required></textarea>
+                    </div>
+                    <div>
+                        <label for="tutorial-url">URL (留空则显示'敬请期待'):</label>
+                        <input type="text" id="tutorial-url" name="url">
+                    </div>
+                    <div>
+                        <label for="tutorial-image-url">图片URL (留空则使用默认图片):</label>
+                        <input type="text" id="tutorial-image-url" name="imageUrl">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                 <button type="submit" id="modal-submit-btn" class="button" form="tutorial-form">添加教程</button>
+                 <button type="button" id="modal-cancel-btn" class="button cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息提示框 -->
+    <div id="toast-message"></div>
+
+    <script src="admin.js"></script>
+</body>
+</html> 

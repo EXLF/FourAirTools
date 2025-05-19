@@ -9,28 +9,98 @@ let currentPage = 1;
 let totalPages = 1;
 let itemsPerPage = 5; // 修改为每页5条
 
-// 从服务器获取教程数据的函数（不包含分类筛选）
-async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTerm = '', fetchAll = false) {
+// 添加当前搜索词变量
+let currentSearchTerm = '';
+
+// 缓存系统
+const tutorialsCache = {
+    data: {}, // 按照"分类-页码-搜索词"形式存储
+    timestamp: {}, // 记录每个缓存的时间戳
+    ttl: 5 * 60 * 1000, // 缓存有效期: 5分钟
+    
+    // 生成缓存键
+    getKey(category, page, searchTerm = '') {
+        return `${category}-${page}-${searchTerm}`;
+    },
+    
+    // 获取缓存
+    get(category, page, searchTerm = '') {
+        const key = this.getKey(category, page, searchTerm);
+        const cacheEntry = this.data[key];
+        
+        // 检查缓存是否存在且未过期
+        if (cacheEntry && (Date.now() - this.timestamp[key] < this.ttl)) {
+            console.log(`使用缓存数据: ${key}`);
+            return cacheEntry;
+        }
+        
+        return null;
+    },
+    
+    // 设置缓存
+    set(category, page, searchTerm = '', data) {
+        const key = this.getKey(category, page, searchTerm);
+        this.data[key] = data;
+        this.timestamp[key] = Date.now();
+        console.log(`缓存数据: ${key}`);
+    },
+    
+    // 清除特定分类的缓存
+    clear(category) {
+        const keysToDelete = [];
+        for (const key in this.data) {
+            if (category === 'all' || key.startsWith(`${category}-`)) {
+                keysToDelete.push(key);
+            }
+        }
+        
+        keysToDelete.forEach(key => {
+            delete this.data[key];
+            delete this.timestamp[key];
+        });
+        
+        console.log(`清除缓存: ${category === 'all' ? '所有' : category} (${keysToDelete.length}个条目)`);
+    }
+};
+
+// 从服务器获取教程数据的函数
+async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, category = currentCategory, searchTerm = '', fetchAll = false) {
     const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; // 服务器API地址
-    // 构建API URL，添加分页和搜索参数
-    let fullApiUrl = `${apiUrl}?page=${page}`;
     
-    // 如果fetchAll为true，设置一个很大的limit值来获取全部数据
+    // 构建查询参数
+    const params = new URLSearchParams();
+    params.append('page', page);
+    
+    // 如果fetchAll为true，使用较大的limit值
     if (fetchAll) {
-        fullApiUrl += `&limit=1000`; // 使用更大的值确保获取所有数据
+        params.append('limit', 1000); // 获取所有数据
     } else {
-        fullApiUrl += `&limit=${limit}`;
+        params.append('limit', limit);
     }
     
+    // 添加分类筛选参数
+    if (category && category !== 'all') {
+        params.append('category', category);
+    }
+    
+    // 添加搜索参数
     if (searchTerm) {
-        fullApiUrl += `&search=${encodeURIComponent(searchTerm)}`;
+        params.append('search', searchTerm);
     }
     
+    const fullApiUrl = `${apiUrl}?${params.toString()}`;
     console.log(`获取教程数据: ${fullApiUrl} (fetchAll: ${fetchAll}, 当前分类: ${currentCategory})`);
+    
     try {
-        const response = await fetch(fullApiUrl);
+        // 添加超时控制
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const response = await fetch(fullApiUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
-            // 尝试解析错误信息，如果服务器返回了 JSON 格式的错误
+            // 尝试解析错误信息
             let errorMsg = `HTTP error! status: ${response.status}`;
             try {
                  const errorData = await response.json();
@@ -38,27 +108,163 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTe
             } catch (e) { /* 忽略解析错误 */ }
             throw new Error(errorMsg);
         }
+        
         const data = await response.json();
         
-        // 从响应中获取教程数组
-        const tutorials = data.tutorials || [];
-        if (!Array.isArray(tutorials)) {
-            console.error("获取的教程数据不是数组格式:", tutorials);
+        if (!Array.isArray(data.tutorials)) {
+            console.error("获取的教程数据不是数组格式:", data.tutorials);
             return { tutorials: [], totalPages: 0, currentPage: 1 };
         }
         
-        console.log(`成功获取 ${tutorials.length} 个教程, 总页数: ${data.totalPages || 1}`);
+        console.log(`成功获取 ${data.tutorials.length} 个教程, 总页数: ${data.totalPages || 1}`);
         return { 
-            tutorials, 
+            tutorials: data.tutorials, 
             totalPages: data.totalPages || 1, 
             currentPage: data.currentPage || 1,
             totalItems: data.totalItems || 0
         };
     } catch (error) {
         console.error("无法从服务器获取教程:", error);
-        // 返回空数组和默认分页信息，不使用本地数据
+        // 返回空数组和默认分页信息
         return { tutorials: [], totalPages: 0, currentPage: 1, totalItems: 0 }; 
     }
+}
+
+// 显示加载状态
+function showLoadingState(container) {
+    container.innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>正在加载教程列表...</p>
+        </div>
+    `;
+}
+
+// 显示空状态
+function showEmptyState(container, message) {
+    container.innerHTML = `
+        <div class="empty-state">
+            <div style="margin-bottom: 15px; color: #999; font-size: 48px;">📚</div>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+// 显示错误状态
+function showErrorState(container, message) {
+    container.innerHTML = `
+        <div class="error-state">
+            <div style="margin-bottom: 15px; color: #e74c3c; font-size: 48px;">⚠️</div>
+            <p>${message}</p>
+            <button id="retry-btn" class="retry-button" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 15px;">重试</button>
+        </div>
+    `;
+    
+    const retryBtn = container.querySelector('#retry-btn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+            loadPage(document.querySelector('.content-area'), container, currentPage);
+        });
+    }
+}
+
+// 检查是否离线
+function isOffline() {
+    return !navigator.onLine;
+}
+
+// 显示离线提示
+function showOfflineWarning(contentArea) {
+    // 如果已经存在提示，不重复显示
+    if (contentArea.querySelector('.offline-warning')) return;
+    
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'offline-warning';
+    warningDiv.style.cssText = 'background-color: #f8d7da; color: #721c24; padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center;';
+    warningDiv.innerHTML = '您当前处于离线状态，显示的是缓存数据';
+    
+    // 插入到内容区顶部
+    contentArea.insertBefore(warningDiv, contentArea.firstChild);
+    
+    // 5秒后自动隐藏
+    setTimeout(() => {
+        if (warningDiv.parentNode) {
+            warningDiv.parentNode.removeChild(warningDiv);
+        }
+    }, 5000);
+}
+
+/**
+ * 添加教程中心相关样式
+ */
+function addTutorialStyles() {
+    // 检查样式是否已存在
+    const styleId = 'tutorial-center-styles';
+    if (document.getElementById(styleId)) return;
+    
+    // 创建样式标签
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+        /* 加载状态样式 */
+        .loading-state, .empty-state, .error-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 123, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: #007bff;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state, .error-state {
+            font-size: 1.1rem;
+        }
+        
+        .retry-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .retry-button:hover {
+            background: #0069d9;
+        }
+        
+        .offline-warning {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    `;
+    
+    // 添加到文档头部
+    document.head.appendChild(style);
 }
 
 /**
@@ -68,6 +274,9 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTe
  */
 export async function initTutorialsPage(contentArea) {
     console.log("Initializing Tutorials Page...");
+
+    // 添加CSS样式
+    addTutorialStyles();
 
     const categoryLinks = contentArea.querySelectorAll('.tutorial-categories a');
     const tutorialListContainer = contentArea.querySelector('#tutorial-list-container');
@@ -82,11 +291,12 @@ export async function initTutorialsPage(contentArea) {
     }
 
     // --- 显示加载提示 ---
-    tutorialListContainer.innerHTML = '<p style="padding: 20px; text-align: center;">正在加载教程列表...</p>';
+    showLoadingState(tutorialListContainer);
 
     // --- 初始化页码和分类 ---
     currentPage = 1;
     currentCategory = 'all'; // 默认显示所有教程
+    currentSearchTerm = ''; // 默认无搜索词
     
     // --- 初始加载第一页数据 ---
     loadPage(contentArea, tutorialListContainer, currentPage);
@@ -278,56 +488,64 @@ function renderPagination(contentArea, listContainer, totalPages, currentPage) {
  * @param {number} page - 要加载的页码。
  */
 async function loadPage(contentArea, listContainer, page) {
-    console.log(`开始加载页面: 页码=${page}, 当前分类=${currentCategory}`);
-    listContainer.innerHTML = '<p style="padding: 20px; text-align: center;">加载中...</p>';
+    console.log(`开始加载页面: 页码=${page}, 当前分类=${currentCategory}, 搜索词=${currentSearchTerm}`);
     
-    // 更新当前页码
-    currentPage = page;
+    // 显示加载状态
+    showLoadingState(listContainer);
     
-    // 如果是初始加载或者没有缓存数据，从服务器获取所有数据
-    if (!tutorialsData || tutorialsData.length === 0) {
-        console.log("初始加载或没有缓存数据，从服务器获取所有数据");
-        
-        // 获取所有数据
-        const result = await fetchTutorialsFromServer(1, itemsPerPage, '', true);
-        const allTutorials = result.tutorials;
-        console.log(`从服务器获取了 ${allTutorials.length} 条教程数据`);
-        
-        // 根据当前分类筛选
-        if (currentCategory !== 'all') {
-            tutorialsData = allTutorials.filter(t => t.category === currentCategory);
-            console.log(`初始筛选分类 "${currentCategory}" 后剩余 ${tutorialsData.length} 条教程`);
-        } else {
-            tutorialsData = allTutorials;
+    try {
+        // 检查离线状态
+        if (isOffline()) {
+            showOfflineWarning(contentArea);
         }
+        
+        // 更新当前页码
+        currentPage = page;
+        
+        // 尝试从缓存获取数据
+        const cachedData = tutorialsCache.get(currentCategory, page, currentSearchTerm);
+        
+        // 用于保存数据的变量
+        let result;
+        
+        if (cachedData) {
+            // 使用缓存数据
+            result = cachedData;
+            console.log(`使用缓存数据: 分类=${currentCategory}, 页码=${page}, 总页数=${result.totalPages}`);
+        } else {
+            // 从服务器获取数据
+            result = await fetchTutorialsFromServer(page, itemsPerPage, currentCategory, currentSearchTerm);
+            
+            // 缓存获取的数据
+            if (result.tutorials.length > 0) {
+                tutorialsCache.set(currentCategory, page, currentSearchTerm, result);
+            }
+        }
+        
+        // 更新全局变量
+        tutorialsData = result.tutorials;
+        totalPages = result.totalPages;
+        
+        // 渲染教程列表
+        if (result.tutorials.length > 0) {
+            renderTutorialList(result.tutorials, listContainer);
+        } else {
+            let emptyMessage = '暂无教程数据';
+            if (currentCategory !== 'all') {
+                emptyMessage = `"${currentCategory}"分类暂无教程`;
+            } else if (currentSearchTerm) {
+                emptyMessage = `没有找到与"${currentSearchTerm}"匹配的教程`;
+            }
+            showEmptyState(listContainer, emptyMessage);
+        }
+        
+        // 更新分页控件
+        renderPagination(contentArea, listContainer, result.totalPages, currentPage);
+        
+    } catch (error) {
+        console.error('加载页面失败:', error);
+        showErrorState(listContainer, '加载数据失败，请稍后重试');
     }
-    
-    // 使用已筛选的数据进行分页
-    const totalItems = tutorialsData.length;
-    totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-    
-    // 确保当前页码在有效范围内
-    if (currentPage > totalPages) {
-        currentPage = totalPages;
-    }
-    
-    // 计算当前页的数据范围
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-    
-    console.log(`加载第 ${currentPage}/${totalPages} 页，显示索引 ${startIndex}-${endIndex-1}，总共 ${totalItems} 条教程`);
-    
-    // 获取当前页的数据
-    const pageData = tutorialsData.slice(startIndex, endIndex);
-    
-    if (pageData.length > 0) {
-        renderTutorialList(pageData, listContainer);
-    } else {
-        listContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">此页没有教程数据。</p>';
-    }
-    
-    // 更新分页控件
-    renderPagination(contentArea, listContainer, totalPages, currentPage);
 }
 
 /**
@@ -396,69 +614,38 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
     const clickedLink = event.target.closest('a');
     if (!clickedLink) return;
 
-    // 更新 active 状态
+    // 更新UI状态
     categoryLinks.forEach(l => l.closest('li').classList.remove('active'));
     clickedLink.closest('li').classList.add('active');
 
+    // 确定选中的分类
     const selectedCategoryText = clickedLink.textContent.trim();
-    // 添加对"所有教程"的判断逻辑
     const isAllCategory = clickedLink.dataset.category === 'all' || selectedCategoryText === '所有教程'; 
     
     // 记录切换前的分类
     const previousCategory = currentCategory;
+    const newCategory = isAllCategory ? 'all' : selectedCategoryText;
+    
+    // 如果分类没变，不做任何操作
+    if (previousCategory === newCategory) return;
     
     // 更新当前分类
-    currentCategory = isAllCategory ? 'all' : selectedCategoryText;
+    currentCategory = newCategory;
     
     console.log(`切换分类: 从 "${previousCategory}" 到 "${currentCategory}"`);
 
-    // 重置分页并加载该分类的第一页数据
-    listContainer.innerHTML = '<p style="padding: 20px; text-align: center;">加载中...</p>';
-
-    // 确保 WebView 是隐藏的
+    // 关闭WebView（如果打开）
     closeWebview(webviewContainer, listContainer); 
     
-    // 从服务器获取所有数据，然后在客户端进行筛选
-    fetchTutorialsFromServer(1, itemsPerPage, '', true).then(result => {
-        // 保存完整的教程数据
-        const allTutorials = result.tutorials;
-        console.log(`获取了全部 ${allTutorials.length} 条教程数据用于分类筛选`);
-        
-        // 根据分类筛选数据
-        if (currentCategory !== 'all') {
-            tutorialsData = allTutorials.filter(t => t.category === currentCategory);
-            console.log(`筛选分类 "${currentCategory}" 后剩余 ${tutorialsData.length} 条教程`);
-        } else {
-            tutorialsData = allTutorials;
-            console.log(`显示所有分类，共 ${tutorialsData.length} 条教程`);
-        }
-        
-        // 重置页码
-        currentPage = 1;
-        
-        // 计算筛选后的总页数
-        const totalItems = tutorialsData.length;
-        totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-        console.log(`总共 ${totalItems} 条教程，共 ${totalPages} 页，每页 ${itemsPerPage} 条`);
-        
-        // 获取第一页数据
-        const startIndex = 0;
-        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-        const pageData = tutorialsData.slice(startIndex, endIndex);
-        
-        // 渲染当前页的数据
-        if (pageData.length > 0) {
-            renderTutorialList(pageData, listContainer);
-        } else {
-            listContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">此分类暂无教程数据。</p>';
-        }
-        
-        // 更新分页信息
-        renderPagination(contentArea, listContainer, totalPages, 1);
-    }).catch(error => {
-        console.error("获取教程数据失败:", error);
-        listContainer.innerHTML = '<p style="color: red; padding: 20px; text-align: center;">获取教程数据失败，请稍后重试。</p>';
-    });
+    // 重置搜索和页码
+    currentSearchTerm = '';
+    currentPage = 1;
+    
+    // 显示加载提示
+    showLoadingState(listContainer);
+    
+    // 加载新分类的数据
+    loadPage(contentArea, listContainer, 1);
 }
 
 /**
