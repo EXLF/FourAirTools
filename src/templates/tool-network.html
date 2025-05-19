@@ -220,7 +220,7 @@
     <div class="modal-overlay">
         <div class="modal-box">
             <button class="modal-close-btn">&times;</button>
-            <h3 class="modal-title">添加/编辑代理配置</h3>
+            <h3 class="modal-title">添加代理配置</h3>
             <form id="proxy-form" class="modal-content">
                 <input type="hidden" name="id" value="">
                 <div class="form-group">
@@ -243,9 +243,27 @@
                     <label for="proxy-username">用户名 (可选)</label>
                     <input type="text" id="proxy-username" name="username">
                 </div>
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="proxy-password">密码 (可选)</label>
                     <input type="password" id="proxy-password" name="password" placeholder="留空则不修改">
+                </div>
+                
+                <!-- 添加批量导入区域 -->
+                <div class="form-section">
+                    <hr>
+                    <h4>批量导入</h4>
+                    <div class="form-group">
+                        <textarea id="proxy-batch-import" name="batchImport" rows="5" placeholder="例如:&#10;123.45.67.89:8080:username123:password123&#10;192.168.1.100:1080:testuser:testpass"></textarea>
+                    </div>
+                    <div class="format-help">
+                        <p>每行一个代理，支持以下格式:</p>
+                        <ul>
+                            <li>IP:端口:用户名:密码</li>
+                            <li>IP:端口</li>
+                            <li>协议类型:IP:端口:用户名:密码</li>
+                        </ul>
+                        <button type="button" id="batch-import-btn" class="btn btn-primary"><i class="fa fa-sync"></i> 解析代理</button>
+                    </div>
                 </div>
             </form>
             <div class="modal-actions">

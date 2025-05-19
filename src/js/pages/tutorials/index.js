@@ -2,18 +2,31 @@
 
 let tutorialsData = []; // 存储从服务器获取的教程数据
 let currentWebview = null; // 存储当前活动的 webview 元素
+let currentCategory = 'all'; // 当前选中的分类
 
 // 新增：分页状态变量
 let currentPage = 1;
 let totalPages = 1;
-let itemsPerPage = 10;
+let itemsPerPage = 5; // 修改为每页5条
 
-// 新增：从服务器获取教程数据的函数
-async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTerm = '') {
+// 从服务器获取教程数据的函数（不包含分类筛选）
+async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTerm = '', fetchAll = false) {
     const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; // 服务器API地址
     // 构建API URL，添加分页和搜索参数
-    const fullApiUrl = `${apiUrl}?page=${page}&limit=${limit}${searchTerm ? '&search=' + encodeURIComponent(searchTerm) : ''}`;
-    console.log(`Fetching tutorials from: ${fullApiUrl}`);
+    let fullApiUrl = `${apiUrl}?page=${page}`;
+    
+    // 如果fetchAll为true，设置一个很大的limit值来获取全部数据
+    if (fetchAll) {
+        fullApiUrl += `&limit=1000`; // 使用更大的值确保获取所有数据
+    } else {
+        fullApiUrl += `&limit=${limit}`;
+    }
+    
+    if (searchTerm) {
+        fullApiUrl += `&search=${encodeURIComponent(searchTerm)}`;
+    }
+    
+    console.log(`获取教程数据: ${fullApiUrl} (fetchAll: ${fetchAll}, 当前分类: ${currentCategory})`);
     try {
         const response = await fetch(fullApiUrl);
         if (!response.ok) {
@@ -26,11 +39,6 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTe
             throw new Error(errorMsg);
         }
         const data = await response.json();
-        console.log("Successfully fetched data:", data);
-        
-        // 保存分页信息
-        currentPage = data.currentPage || 1;
-        totalPages = data.totalPages || 1;
         
         // 从响应中获取教程数组
         const tutorials = data.tutorials || [];
@@ -39,7 +47,7 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTe
             return { tutorials: [], totalPages: 0, currentPage: 1 };
         }
         
-        console.log(`成功获取 ${tutorials.length} 个教程，总页数: ${totalPages}，当前页: ${currentPage}`);
+        console.log(`成功获取 ${tutorials.length} 个教程, 总页数: ${data.totalPages || 1}`);
         return { 
             tutorials, 
             totalPages: data.totalPages || 1, 
@@ -48,7 +56,7 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, searchTe
         };
     } catch (error) {
         console.error("无法从服务器获取教程:", error);
-        // 返回空数组和默认分页信息，让调用者处理 UI
+        // 返回空数组和默认分页信息，不使用本地数据
         return { tutorials: [], totalPages: 0, currentPage: 1, totalItems: 0 }; 
     }
 }
@@ -76,21 +84,12 @@ export async function initTutorialsPage(contentArea) {
     // --- 显示加载提示 ---
     tutorialListContainer.innerHTML = '<p style="padding: 20px; text-align: center;">正在加载教程列表...</p>';
 
-    // --- 从服务器加载教程数据 --- 
-    const result = await fetchTutorialsFromServer();
-    tutorialsData = result.tutorials;
-    currentPage = result.currentPage;
-    totalPages = result.totalPages;
-
-    // --- 渲染列表或错误信息 ---
-    if (tutorialsData && tutorialsData.length > 0) {
-        renderTutorialList(tutorialsData, tutorialListContainer); // 初始渲染当前页教程
-        // 渲染分页控件
-        renderPagination(contentArea, tutorialListContainer, result.totalPages, result.currentPage);
-    } else {
-        // fetchTutorialsFromServer 内部已打印错误，这里只显示用户提示
-        tutorialListContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">无法加载教程列表或列表为空。</p>';
-    }
+    // --- 初始化页码和分类 ---
+    currentPage = 1;
+    currentCategory = 'all'; // 默认显示所有教程
+    
+    // --- 初始加载第一页数据 ---
+    loadPage(contentArea, tutorialListContainer, currentPage);
 
     // --- 事件监听 --- 
 
@@ -273,24 +272,62 @@ function renderPagination(contentArea, listContainer, totalPages, currentPage) {
 }
 
 /**
- * 加载特定页码的数据。
+ * 加载特定页码的数据
  * @param {HTMLElement} contentArea - 教程页面的主容器。
  * @param {HTMLElement} listContainer - 教程列表容器。
  * @param {number} page - 要加载的页码。
  */
 async function loadPage(contentArea, listContainer, page) {
+    console.log(`开始加载页面: 页码=${page}, 当前分类=${currentCategory}`);
     listContainer.innerHTML = '<p style="padding: 20px; text-align: center;">加载中...</p>';
     
-    const result = await fetchTutorialsFromServer(page);
-    tutorialsData = result.tutorials;
+    // 更新当前页码
+    currentPage = page;
     
-    if (tutorialsData && tutorialsData.length > 0) {
-        renderTutorialList(tutorialsData, listContainer);
+    // 如果是初始加载或者没有缓存数据，从服务器获取所有数据
+    if (!tutorialsData || tutorialsData.length === 0) {
+        console.log("初始加载或没有缓存数据，从服务器获取所有数据");
+        
+        // 获取所有数据
+        const result = await fetchTutorialsFromServer(1, itemsPerPage, '', true);
+        const allTutorials = result.tutorials;
+        console.log(`从服务器获取了 ${allTutorials.length} 条教程数据`);
+        
+        // 根据当前分类筛选
+        if (currentCategory !== 'all') {
+            tutorialsData = allTutorials.filter(t => t.category === currentCategory);
+            console.log(`初始筛选分类 "${currentCategory}" 后剩余 ${tutorialsData.length} 条教程`);
+        } else {
+            tutorialsData = allTutorials;
+        }
+    }
+    
+    // 使用已筛选的数据进行分页
+    const totalItems = tutorialsData.length;
+    totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    
+    // 确保当前页码在有效范围内
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
+    
+    // 计算当前页的数据范围
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+    
+    console.log(`加载第 ${currentPage}/${totalPages} 页，显示索引 ${startIndex}-${endIndex-1}，总共 ${totalItems} 条教程`);
+    
+    // 获取当前页的数据
+    const pageData = tutorialsData.slice(startIndex, endIndex);
+    
+    if (pageData.length > 0) {
+        renderTutorialList(pageData, listContainer);
     } else {
         listContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">此页没有教程数据。</p>';
     }
     
-    renderPagination(contentArea, listContainer, result.totalPages, result.currentPage);
+    // 更新分页控件
+    renderPagination(contentArea, listContainer, totalPages, currentPage);
 }
 
 /**
@@ -367,7 +404,13 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
     // 添加对"所有教程"的判断逻辑
     const isAllCategory = clickedLink.dataset.category === 'all' || selectedCategoryText === '所有教程'; 
     
-    console.log(`切换到分类: ${isAllCategory ? '所有教程' : selectedCategoryText}`);
+    // 记录切换前的分类
+    const previousCategory = currentCategory;
+    
+    // 更新当前分类
+    currentCategory = isAllCategory ? 'all' : selectedCategoryText;
+    
+    console.log(`切换分类: 从 "${previousCategory}" 到 "${currentCategory}"`);
 
     // 重置分页并加载该分类的第一页数据
     listContainer.innerHTML = '<p style="padding: 20px; text-align: center;">加载中...</p>';
@@ -375,24 +418,46 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
     // 确保 WebView 是隐藏的
     closeWebview(webviewContainer, listContainer); 
     
-    // 根据分类请求新数据
-    // 注意：这里理想情况下应该通过API筛选，但当前API似乎不支持按分类筛选
-    // 作为替代方案，我们先获取全部数据，然后在客户端筛选
-    fetchTutorialsFromServer(1).then(result => {
-        let filteredTutorials;
+    // 从服务器获取所有数据，然后在客户端进行筛选
+    fetchTutorialsFromServer(1, itemsPerPage, '', true).then(result => {
+        // 保存完整的教程数据
+        const allTutorials = result.tutorials;
+        console.log(`获取了全部 ${allTutorials.length} 条教程数据用于分类筛选`);
         
-        if (isAllCategory) {
-            filteredTutorials = result.tutorials;
+        // 根据分类筛选数据
+        if (currentCategory !== 'all') {
+            tutorialsData = allTutorials.filter(t => t.category === currentCategory);
+            console.log(`筛选分类 "${currentCategory}" 后剩余 ${tutorialsData.length} 条教程`);
         } else {
-            filteredTutorials = result.tutorials.filter(t => t.category === selectedCategoryText);
+            tutorialsData = allTutorials;
+            console.log(`显示所有分类，共 ${tutorialsData.length} 条教程`);
         }
         
-        // 渲染筛选后的数据
-        renderTutorialList(filteredTutorials, listContainer);
+        // 重置页码
+        currentPage = 1;
         
-        // 如果数据经过客户端筛选，我们需要重新计算分页信息
-        const filteredTotalPages = Math.ceil(filteredTutorials.length / itemsPerPage);
-        renderPagination(contentArea, listContainer, filteredTotalPages, 1);
+        // 计算筛选后的总页数
+        const totalItems = tutorialsData.length;
+        totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+        console.log(`总共 ${totalItems} 条教程，共 ${totalPages} 页，每页 ${itemsPerPage} 条`);
+        
+        // 获取第一页数据
+        const startIndex = 0;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        const pageData = tutorialsData.slice(startIndex, endIndex);
+        
+        // 渲染当前页的数据
+        if (pageData.length > 0) {
+            renderTutorialList(pageData, listContainer);
+        } else {
+            listContainer.innerHTML = '<p style="color: orange; padding: 20px; text-align: center;">此分类暂无教程数据。</p>';
+        }
+        
+        // 更新分页信息
+        renderPagination(contentArea, listContainer, totalPages, 1);
+    }).catch(error => {
+        console.error("获取教程数据失败:", error);
+        listContainer.innerHTML = '<p style="color: red; padding: 20px; text-align: center;">获取教程数据失败，请稍后重试。</p>';
     });
 }
 

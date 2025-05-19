@@ -124,7 +124,7 @@ function showImportConfirmDialog(proxies, loadProxies) {
 }
 
 // 解析代理列表文本内容
-function parseProxyList(content) {
+export function parseProxyList(content) {
     const proxies = [];
     const lines = content.split(/\r?\n/);
 

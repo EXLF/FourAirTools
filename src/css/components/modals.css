@@ -119,6 +119,76 @@
     border-bottom-right-radius: 12px;
 }
 
+/* 代理模态框批量导入区域样式 */
+.form-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.form-section h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 15px;
+}
+
+.form-section textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.format-help {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+.format-help p {
+    margin: 0 0 8px 0;
+    font-weight: 500;
+}
+
+.format-help ul {
+    margin: 0 0 10px 0;
+    padding-left: 20px;
+}
+
+.format-help ul li {
+    margin-bottom: 4px;
+}
+
+.format-help button {
+    margin-top: 10px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: 500;
+    display: block;
+    width: 100%;
+}
+
+#batch-import-btn {
+    background-color: #6C5CE7;
+    border-color: #6C5CE7;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+#batch-import-btn:hover {
+    background-color: #5b4bd4;
+    border-color: #5b4bd4;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
 /* Specific Modal Styles */
 .run-modal {
     background: #fff;
@@ -1319,4 +1389,61 @@
     transform: none; /* 覆盖来自 .modal 类的 transform */
     /* top, left, width, height, display, justify-content, align-items 
        由 showConfirmDialog 中的内联样式正确设置。*/
+}
+
+/* 批量导入代理的样式 */
+.form-section {
+    margin-top: 20px;
+    padding-top: 10px;
+}
+
+.form-section h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #343a40;
+}
+
+.form-section hr {
+    margin: 15px 0;
+    border: 0;
+    border-top: 1px solid #e9ecef;
+}
+
+.form-section textarea {
+    width: 100%;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.format-help {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.format-help p {
+    margin: 0 0 5px 0;
+    font-weight: 500;
+}
+
+.format-help ul {
+    margin: 5px 0 10px 20px;
+    padding: 0;
+}
+
+.format-help li {
+    margin-bottom: 3px;
+}
+
+.format-help .btn-sm {
+    padding: 3px 8px;
+    font-size: 12px;
 } 

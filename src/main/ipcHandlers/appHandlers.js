@@ -876,6 +876,13 @@ function setupApplicationIpcHandlers(mainWindow) {
     // --- 设置相关处理函数 ---
     setupSettingsIpcHandlers();
 
+    // 添加加载本地教程数据的处理程序
+    ipcMain.handle('load-local-tutorials', async () => {
+        // 直接返回空数组，不加载本地数据
+        console.log('[Tutorials] 根据用户要求，不加载本地教程数据');
+        return [];
+    });
+
     console.log('[IPC] Application IPC handlers ready.');
 }
 
