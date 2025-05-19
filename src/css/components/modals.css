@@ -972,99 +972,97 @@
 
 /* Script Cards Grid Layout */
 .script-cards-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* 进一步减小卡片最小宽度 */
+    gap: 15px; /* 增加卡片之间的间距 */
+    padding: 0 15px 15px;
     justify-content: flex-start;
 }
 
-/* 脚本卡片样式 */
+/* 脚本卡片样式 - 统一设计 */
 .script-card {
     background: #fff;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    border: none;
-    width: 200px;
-    height: auto; /* 移除固定高度，自适应内容 */
+    border: 1px solid #e9ecef;
+    width: auto;
+    height: auto;
     margin: 0;
     position: relative;
+    padding: 3px; /* 调整整体内边距与图标上边距一致 */
 }
 
 .script-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* 脚本卡片图片容器样式 - 设置为正方形 */
+/* 图片区域 - 保持比例但缩小内边距 */
 .script-card .card-icon {
-    width: calc(100% - 20px); /* 减去左右各10px内边距 */
-    aspect-ratio: 1; /* 强制1:1比例，创建正方形 */
-    height: auto; /* 移除固定高度，使用aspect-ratio控制 */
+    width: 75%; /* 进一步增加图标区域占比 */
+    aspect-ratio: 1/1; /* 设置为1:1的正方形 */
     background: #000;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border-radius: 3px;
-    margin: 10px;
-    border: 1px solid #000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 3px auto 2px; /* 减小顶部边距，增加底部边距 */
+    border-radius: 3px; /* 圆角稍微调小 */
 }
 
 .script-card .card-icon i {
-    font-size: 50px;
+    font-size: 22px; /* 进一步缩小图标尺寸 */
     color: #fff;
 }
 
 .script-card .script-image {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* 改为contain，确保图片完整显示不裁剪 */
+    object-fit: contain; /* 使用contain确保图片完整显示不变形 */
     object-position: center;
     border: none;
     padding: 0;
 }
 
-/* 内容区域样式 */
+/* 内容区域 - 缩小内边距 */
 .script-card .card-content {
-    padding: 12px;
+    padding: 3px 0; /* 增加上下内边距 */
     flex: 1;
     display: flex;
     flex-direction: column;
+    align-items: center; /* 将所有内容居中对齐 */
+    justify-content: center; /* 垂直居中 */
+    min-height: 50px; /* 增加最小高度以适应更大的文字 */
 }
 
 .script-card .card-title {
-    font-size: 16px;
+    font-size: 14px; /* 增加标题字体大小 */
     font-weight: 600;
-    color: #000;
-    margin-bottom: 8px;
+    color: #333;
+    margin-bottom: 4px; /* 增加底部间距 */
+    text-align: center; /* 标题居中 */
+    width: 100%; /* 确保宽度100% */
+    padding: 0 2px; /* 添加左右内边距 */
+    line-height: 1.3;
 }
 
 .script-card .card-description {
-    font-size: 13px;
-    color: #4c4f52;
-    line-height: 1.4;
-    flex: 1; /* 让描述区域占据剩余空间 */
+    font-size: 12px; /* 增加描述字体大小 */
+    color: #666;
+    line-height: 1.3;
+    flex: 1;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 3; /* 限制显示3行 */
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-}
-
-/* 底部样式 */
-.script-card .card-footer {
-    padding: 10px 12px;
-    background: #f8f8f8;
-    border-top: 1px solid #eee;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    width: 100%; /* 确保宽度100% */
+    padding: 0 2px; /* 添加左右内边距 */
+    text-align: center; /* 描述文字也居中 */
 }
 
 /* 代码图标特殊样式 */
@@ -1077,13 +1075,20 @@
 }
 
 .script-card .card-icon.code-icon i {
-    font-size: 50px;
+    font-size: 22px; /* 进一步缩小图标尺寸 */
     color: #fff;
     display: flex;
     width: 100%;
     height: 100%;
     align-items: center;
     justify-content: center;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .script-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); /* 在中等屏幕上进一步减小卡片尺寸 */
+    }
 }
 
 /* Script Config Modal */

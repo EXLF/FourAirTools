@@ -174,3 +174,34 @@
 ## 免责声明
 
 本工具仅供学习和研究使用，用户需自行承担使用过程中的所有风险。开发者不对因使用本工具导致的任何直接或间接损失负责。
+
+## 用户脚本
+
+FourAir支持自定义脚本，用于自动化与各种Web3项目的交互。目前支持以下项目的脚本：
+
+1. **Web3登录** - 自动化登录支持Web3钱包登录的网站
+2. **代币批量转账** - 批量转账ERC20代币到目标地址
+3. **Pharos Network** - 自动化与Pharos Network项目交互
+4. **MapleStory Universe NXPC** - 自动化与MapleStory Universe NXPC项目交互 
+5. **SOON** - 自动化与SOON协议交互
+6. **Nockchain** - 自动化与Nockchain项目交互
+7. **Energy Labs** - 自动化与Energy Labs项目交互
+8. **Lighter** - 自动化与Lighter项目交互
+9. **LAUNCHCOIN PASTERNAK** - 自动化与LAUNCHCOIN PASTERNAK平台交互
+10. **Aster** - 自动化与Aster项目交互
+11. **Camp Network** - 自动化与Camp Network项目交互
+12. **Sui SUI** - 自动化与Sui链和生态系统交互
+
+### 如何使用脚本
+
+1. 在FourAir界面中导航到"脚本"页面
+2. 选择要使用的脚本
+3. 配置必要的参数
+4. 点击"运行"按钮执行脚本
+
+### 自定义脚本开发
+
+您可以通过在`user_scripts/scripts/`目录下创建新的JS文件来添加自定义脚本。每个脚本文件需要导出两个函数：
+
+- `getConfig()`: 返回脚本的配置信息，包括名称、描述、参数等
+- `main(context)`: 脚本的主执行函数，接收context对象，包含钱包、配置等信息

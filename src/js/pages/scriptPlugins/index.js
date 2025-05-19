@@ -263,8 +263,8 @@ async function loadAndRenderScriptCards(cardsContainer, typeFilterElement, statu
 }
 
 /**
- * 创建脚本卡片元素
- * @param {Object} scriptData - 包含脚本信息的对象
+ * 创建单个脚本卡片元素
+ * @param {Object} scriptData - 脚本数据对象
  *            { id, name, description, type, status, icon, imageUrl }
  * @returns {HTMLElement} 卡片DOM元素
  */
@@ -284,18 +284,11 @@ function createScriptCard(scriptData) {
         iconHTML = `<div class="card-icon code-icon"><i class="fas fa-code"></i></div>`;
     }
     
-    const typeDisplay = scriptData.category || scriptData.type || 'N/A';
-    const statusDisplay = (scriptData.status === 'active' ? '可用' : (scriptData.status || '未知'));
-
     card.innerHTML = `
         ${iconHTML}
         <div class="card-content">
             <h3 class="card-title">${scriptData.name || '未命名脚本'}</h3>
             <p class="card-description">${scriptData.description || '无描述'}</p>
-        </div>
-        <div class="card-footer">
-            <span class="card-meta">${typeDisplay}</span>
-            <span class="card-status ${scriptData.status}">${statusDisplay}</span>
         </div>
     `;
     
