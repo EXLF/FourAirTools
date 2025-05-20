@@ -87,7 +87,7 @@
         }
       ],
       "icon": "src/assets/icons/logo256.ico"
-        },
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
