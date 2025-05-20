@@ -1,35 +1,61 @@
 let currentOpenModal = null; // 跟踪当前打开的模态框元素
+let modalCounter = 0; // 用于生成唯一的模态框ID
 
 /**
  * 通过克隆其模板并将其添加到 body 来显示模态框。
  * 处理关闭先前的模态框和添加关闭监听器。
- * @param {string} templateId - 模态框模板元素的 ID。
+ * @param {string|HTMLElement|DocumentFragment} content - 模态框内容：模板ID或HTML内容
  * @param {function} setupFunction - 用于设置模态框内容和监听器的回调函数。接收 modalElement 作为参数。
  * @param {object} options - 模态框的选项，例如 { persistent: true } 表示模态框不能轻易关闭。
+ * @returns {string} 生成的模态框ID
  */
-export function showModal(templateId, setupFunction, options = {}) {
+export function showModal(content, setupFunction, options = {}) {
     if (currentOpenModal) {
         // 如果当前打开的是持久化模态框，并且尝试打开新的，则阻止
         if (currentOpenModal.dataset.persistent === 'true' && options.persistent) {
             console.warn("一个持久化模态框已打开，无法打开新的持久化模态框。");
-            return;
+            return null;
         }
         // 如果当前打开的是持久化模态框，但新打开的不是持久化的，也阻止（或根据需求调整）
         if (currentOpenModal.dataset.persistent === 'true' && !options.persistent) {
             console.warn("一个持久化模态框已打开，请先处理。");
-            return;
+            return null;
         }
         console.warn("另一个模态框已打开。正在先关闭它。");
         hideModal(); // 先关闭任何已存在的模态框
     }
 
-    const template = document.getElementById(templateId);
-    if (!template || !template.content) {
-        console.error(`Modal template not found: ${templateId}`);
-        return;
+    let newModalElement;
+    
+    // 判断内容类型
+    if (typeof content === 'string' && document.getElementById(content)) {
+        // 如果是字符串并且是有效的元素ID
+        const template = document.getElementById(content);
+        if (!template || !template.content) {
+            console.error(`Modal template not found: ${content}`);
+            return null;
+        }
+        newModalElement = template.content.firstElementChild.cloneNode(true);
+    } else if (content instanceof Node) {
+        // 如果是DOM节点或DocumentFragment
+        if (content instanceof DocumentFragment) {
+            // 如果是DocumentFragment，获取第一个元素
+            newModalElement = content.firstElementChild.cloneNode(true);
+        } else {
+            // 直接使用传入的节点
+            newModalElement = content.cloneNode(true);
+        }
+    } else {
+        // 如果是HTML字符串或其他
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        newModalElement = tempDiv.firstElementChild;
     }
 
-    const newModalElement = template.content.firstElementChild.cloneNode(true); // 使用局部变量
+    // 生成唯一的模态框ID
+    const modalId = `modal_${Date.now()}_${++modalCounter}`;
+    newModalElement.id = modalId;
+    
     const modalToShow = newModalElement; // 保存引用
     currentOpenModal = modalToShow; // 更新全局状态
 
@@ -43,13 +69,13 @@ export function showModal(templateId, setupFunction, options = {}) {
         try {
             setupFunction(currentOpenModal);
         } catch (error) {
-            console.error(`模态框 ${templateId} 的设置函数出错:`, error);
+            console.error(`模态框 ${modalId} 的设置函数出错:`, error);
             // 可选：移除损坏的模态框或显示错误消息
             if (currentOpenModal.parentNode === document.body) {
                  document.body.removeChild(currentOpenModal);
             }
             currentOpenModal = null;
-            return; // 如果设置失败则停止执行
+            return null; // 如果设置失败则停止执行
         }
     }
 
@@ -61,13 +87,13 @@ export function showModal(templateId, setupFunction, options = {}) {
     // 仅当模态框不是持久化时才添加标准关闭监听器
     if (!options.persistent) {
         if (closeButton) {
-            closeButton.addEventListener('click', hideModal);
+            closeButton.addEventListener('click', () => hideModal());
         }
         if (cancelButton) {
-            cancelButton.addEventListener('click', hideModal);
+            cancelButton.addEventListener('click', () => hideModal());
         }
         if (footerCloseButton) { // 为文章模态框页脚按钮添加
-            footerCloseButton.addEventListener('click', hideModal);
+            footerCloseButton.addEventListener('click', () => hideModal());
         }
 
         // 可选：添加点击背景关闭的功能（仅非持久化时）
@@ -86,6 +112,9 @@ export function showModal(templateId, setupFunction, options = {}) {
             modalToShow.classList.add('visible');
         }
     });
+    
+    // 返回模态框ID，以便后续操作
+    return modalId;
 }
 
 /**
@@ -116,6 +145,31 @@ export function hideModal() {
         console.log(`[${Date.now()}] hideModal: Element removed directly from DOM`); 
     }
     // --- ---------------------- ---
+}
+
+/**
+ * closeModal函数 - hideModal的增强版，支持通过ID关闭特定模态框
+ * @param {string} modalId - 可选的模态框ID
+ */
+export function closeModal(modalId = null) {
+    // 如果未提供ID或ID与当前打开的模态框匹配，则关闭当前模态框
+    if (!modalId || (currentOpenModal && currentOpenModal.id === modalId)) {
+        hideModal();
+        return;
+    }
+    
+    // 如果指定了特定ID，但与当前打开的不匹配，则尝试查找并关闭
+    const modalToClose = document.getElementById(modalId);
+    if (modalToClose) {
+        if (modalToClose === currentOpenModal) {
+            hideModal();
+        } else {
+            // 如果不是当前正在跟踪的模态框，直接从DOM中移除
+            if (modalToClose.parentNode === document.body) {
+                document.body.removeChild(modalToClose);
+            }
+        }
+    }
 }
 
 /**

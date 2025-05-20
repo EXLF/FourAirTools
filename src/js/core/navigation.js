@@ -130,6 +130,11 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/scriptPlugins/index.js';
             initFunctionName = 'initScriptPluginPage';
             break;
+        // 批量脚本管理页面
+        case 'batch-scripts':
+            modulePath = '../pages/batchScripts/index.js';
+            initFunctionName = 'initBatchScriptsPage';
+            break;
         // 网络工具页面
         case 'tool-network':
             modulePath = '../pages/network/index.js';

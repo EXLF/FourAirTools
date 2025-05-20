@@ -1,0 +1,173 @@
+<!-- 批量脚本管理页面 -->
+<div class="page-container plugin-page" id="batchScriptCardsPage">
+    
+    <div class="page-header">
+        <h1>批量脚本</h1>
+        <p>高效管理多账户脚本执行，批量处理多任务</p>
+        <div class="header-actions">
+            <button id="refresh-batch-scripts-btn" class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新列表</button>
+        </div>
+    </div>
+
+    <div class="scripts-filter-bar">
+        <div class="search-box">
+            <input type="text" id="batchScriptSearchInput" placeholder="搜索批量脚本...">
+            <i class="fas fa-search"></i>
+        </div>
+        <div class="filter-actions">
+            <select id="batchScriptTypeFilter">
+                <option value="">全部分类</option>
+                <!-- 类型/分类选项将由JavaScript动态生成 -->
+            </select>
+            <select id="batchScriptStatusFilter">
+                <option value="">全部状态</option>
+                <option value="active">可用</option>
+                <!-- 如有需要，其他状态选项可由JS动态生成或在此硬编码 -->
+            </select>
+        </div>
+    </div>
+
+    <div class="script-cards-grid" id="batchScriptCardsContainer">
+        <!-- 批量脚本卡片将由JavaScript动态填充 -->
+    </div>
+</div>
+
+<!-- 新的模块化批量任务管理模板 -->
+<template id="tpl-modular-batch-task-manager">
+    <div class="page-container modular-manager-page">
+        <div class="page-header">
+            <h1 id="modular-task-title">批量任务管理：<span id="batch-script-type-name"></span></h1>
+            <div class="header-actions">
+                <button id="back-to-cards-btn" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回卡片</button>
+                <button id="save-task-config-btn" class="btn btn-primary"><i class="fas fa-save"></i> 保存配置</button>
+            </div>
+        </div>
+
+        <div class="modular-content-area">
+            <nav class="module-navigation">
+                <ul>
+                    <li data-module="basic-info" class="active"><a href="#"><i class="fas fa-info-circle"></i> 基本信息</a></li>
+                    <li data-module="script-selection"><a href="#"><i class="fas fa-code"></i> 脚本选择</a></li>
+                    <li data-module="account-config"><a href="#"><i class="fas fa-users"></i> 账户配置</a></li>
+                    <li data-module="proxy-settings"><a href="#"><i class="fas fa-network-wired"></i> 代理设置</a></li>
+                    <li data-module="params-config"><a href="#"><i class="fas fa-sliders-h"></i> 参数配置</a></li>
+                    <li data-module="execution-settings"><a href="#"><i class="fas fa-cogs"></i> 执行设置</a></li>
+                    <li data-module="monitor-panel"><a href="#"><i class="fas fa-chart-line"></i> 监控面板</a></li>
+                </ul>
+            </nav>
+            <main class="module-content-display" id="moduleContentDisplay">
+                <!-- 选定模块的内容将在此处动态加载 -->
+                <div class="module-placeholder">请从左侧选择一个配置模块。</div>
+            </main>
+        </div>
+
+        <div class="modular-footer-actions">
+            <button id="import-config-btn" class="btn btn-info"><i class="fas fa-upload"></i> 导入配置</button>
+            <button id="export-config-btn" class="btn btn-info"><i class="fas fa-download"></i> 导出配置</button>
+            <div class="spacer"></div>
+            <button id="prev-module-btn" class="btn btn-secondary" disabled><i class="fas fa-chevron-left"></i> 上一步</button>
+            <button id="next-module-btn" class="btn btn-primary">下一步 <i class="fas fa-chevron-right"></i></button>
+            <button id="start-execution-btn" class="btn btn-success" style="display:none;"><i class="fas fa-play"></i> 开始执行</button>
+        </div>
+    </div>
+</template>
+
+<!-- 创建批量任务模态框 - 保留，可能用于快速创建或某些特定场景 -->
+<template id="tpl-create-batch-task-modal">
+    <div class="modal-overlay">
+        <div class="modal-box batch-task-modal">
+            <button class="modal-close-btn">&times;</button>
+            <h3 class="modal-title">创建批量脚本任务</h3>
+            <div class="modal-content">
+                <form id="create-batch-task-form">
+                    <div class="form-section">
+                        <h4>基本信息</h4>
+                        <div class="option-group">
+                            <label for="batch-task-name">任务名称 <span class="required">*</span></label>
+                            <input type="text" id="batch-task-name" name="taskName" required placeholder="请输入任务名称">
+                        </div>
+                        <div class="option-group">
+                            <label for="batch-task-description">任务描述</label>
+                            <textarea id="batch-task-description" name="taskDescription" placeholder="描述此批量任务的目的..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4>脚本选择</h4>
+                        <div class="option-group">
+                            <label for="batch-script-select">选择脚本 <span class="required">*</span></label>
+                            <select id="batch-script-select" name="scriptId" required>
+                                <option value="">-- 请选择脚本 --</option>
+                                <!-- 脚本选项将由JavaScript动态填充 -->
+                            </select>
+                        </div>
+                        <div id="script-params-container">
+                            <!-- 脚本参数表单将根据所选脚本动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4>账户选择</h4>
+                        <div class="wallet-selection">
+                            <div class="selection-actions">
+                                <button type="button" class="btn-link" id="selectAllWallets">全选</button>
+                                <button type="button" class="btn-link" id="invertWalletSelection">反选</button>
+                                <div class="wallet-search-container">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="search" placeholder="搜索钱包..." id="walletSearchInput">
+                                </div>
+                            </div>
+                            
+                            <div class="wallet-group-tabs">
+                                <div class="group-tab-buttons" id="walletGroupTabs">
+                                    <!-- 分组标签将由JavaScript动态填充 -->
+                                </div>
+                                <div class="wallets-scroll-container" id="walletsContainer">
+                                    <!-- 钱包列表将由JavaScript动态填充 -->
+                                </div>
+                            </div>
+                            
+                            <div class="wallet-list-footer">
+                                <p class="selected-count">已选: <span id="selectedWalletCount">0</span> 个钱包</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4>执行设置</h4>
+                        <div class="option-group inline">
+                            <label>任务间隔(秒):</label>
+                            <input type="number" id="task-interval-min" name="intervalMin" value="3" min="1"> - 
+                            <input type="number" id="task-interval-max" name="intervalMax" value="10" min="1">
+                            <input type="checkbox" id="random-interval" name="randomInterval" checked>
+                            <label for="random-interval">随机</label>
+                        </div>
+                        <div class="option-group inline">
+                            <label for="max-concurrency">最大并行数:</label>
+                            <input type="number" id="max-concurrency" name="maxConcurrency" value="5" min="1" max="50">
+                        </div>
+                        <div class="option-group inline">
+                            <label for="error-strategy">错误处理策略:</label>
+                            <select id="error-strategy" name="errorStrategy">
+                                <option value="continue">继续执行其他任务</option>
+                                <option value="retry">自动重试(3次)</option>
+                                <option value="stop">停止所有任务</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                <button type="submit" form="create-batch-task-form" class="btn btn-primary">创建任务</button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- 旧的批量任务详情模板 - 暂时注释掉或移除，根据后续决定 -->
+<!--
+<template id="tpl-batch-task-detail">
+    ...
+</template> 
+--> 
