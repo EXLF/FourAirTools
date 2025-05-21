@@ -746,4 +746,647 @@
         padding-left: 0;
         padding-top: 10px;
     }
+}
+
+/* 新的配置部分的样式 */
+.module-content-panel {
+    padding: 5px;
+}
+
+.config-section {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fbfbfb;
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.section-header h3 i {
+    margin-right: 8px;
+    color: #4a90e2;
+}
+
+/* 钱包选择相关样式 */
+.wallet-selection-container {
+    padding: 15px;
+}
+
+.wallet-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.wallet-search {
+    position: relative;
+    flex: 1;
+    max-width: 300px;
+}
+
+.wallet-search input {
+    width: 100%;
+    padding: 6px 30px 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.wallet-search i {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    pointer-events: none;
+}
+
+.wallet-selection-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.wallets-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 10px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+.wallet-group {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.wallet-group:last-child {
+    border-bottom: none;
+}
+
+.wallet-group-header {
+    padding: 8px 10px;
+    background-color: #f9f9f9;
+    cursor: pointer;
+    user-select: none;
+}
+
+.group-title {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    font-size: 14px;
+    color: #555;
+}
+
+.group-title i {
+    margin-right: 6px;
+    color: #888;
+}
+
+.wallet-group-content {
+    padding: 5px 10px;
+}
+
+.wallet-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 4px;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+}
+
+.wallet-item:hover {
+    background-color: #f5f7fa;
+}
+
+.wallet-label {
+    margin-left: 8px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    cursor: pointer;
+}
+
+.wallet-name {
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.wallet-address {
+    font-size: 12px;
+    color: #888;
+    font-family: monospace;
+}
+
+.wallet-selection-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 5px 5px 5px;
+    color: #666;
+    font-size: 13px;
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.summary-label {
+    color: #888;
+}
+
+.summary-value {
+    font-weight: 500;
+}
+
+.summary-value.highlight {
+    color: #4a90e2;
+    font-weight: 600;
+}
+
+/* 代理相关样式 */
+.proxy-config-section .section-header {
+    margin-bottom: 0;
+}
+
+.proxy-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 切换开关样式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 22px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .3s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+}
+
+input:checked + .slider {
+    background-color: #4a90e2;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #4a90e2;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+.slider.round {
+    border-radius: 22px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.proxy-options {
+    padding: 15px;
+}
+
+/* 新的代理策略选择器样式 */
+.proxy-strategy-selector {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.strategy-option {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.strategy-option:hover {
+    border-color: #4a90e2;
+    background-color: #f5f8fc;
+}
+
+.strategy-option.selected {
+    border-color: #4a90e2;
+    background-color: #e7f0fb;
+}
+
+.strategy-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.strategy-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f5f5f5;
+    margin-right: 12px;
+    color: #555;
+    font-size: 16px;
+}
+
+.strategy-option.selected .strategy-icon {
+    background-color: #4a90e2;
+    color: white;
+}
+
+.strategy-text {
+    flex: 1;
+}
+
+.strategy-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.strategy-desc {
+    font-size: 13px;
+    color: #777;
+}
+
+/* 代理策略详情区域 */
+.proxy-strategy-details {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.proxy-strategy-description {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    color: #666;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.proxy-strategy-description i {
+    margin-right: 8px;
+    margin-top: 2px;
+    color: #4a90e2;
+}
+
+/* 一对一模式的样式 */
+.proxy-assignment-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 0;
+    gap: 20px;
+}
+
+.accounts-count, .proxies-count {
+    text-align: center;
+    background-color: white;
+    border-radius: 8px;
+    padding: 12px 20px;
+    min-width: 100px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.count-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.count-label {
+    font-size: 13px;
+    color: #777;
+}
+
+.count-warning {
+    font-size: 12px;
+    color: #e65100;
+    margin-top: 4px;
+}
+
+.assignment-arrow {
+    font-size: 24px;
+    color: #aaa;
+}
+
+.proxies-count.warning {
+    border: 1px solid #ffcc80;
+    background-color: #fff8e1;
+}
+
+/* 一对多模式的样式 */
+.assignment-diagram {
+    position: relative;
+    width: 80px;
+    height: 60px;
+}
+
+.assignment-lines {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(to right, #ccc 1px, transparent 1px),
+                      linear-gradient(to right, #ccc 1px, transparent 1px),
+                      linear-gradient(to right, #ccc 1px, transparent 1px);
+    background-position: 0 10px, 0 30px, 0 50px;
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
+}
+
+.assignment-lines:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    background-color: #ccc;
+}
+
+.assignment-lines:after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    background-color: #ccc;
+}
+
+.proxy-distribution {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.distribution-label {
+    color: #777;
+}
+
+.distribution-value {
+    font-weight: 500;
+    color: #333;
+}
+
+/* 代理列表管理部分 */
+.proxy-management {
+    background-color: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.proxy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.proxy-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.proxy-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.proxy-manual-input textarea {
+    width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.proxy-count-info {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #777;
+}
+
+.proxy-warning {
+    color: #e65100;
+    margin-left: 5px;
+}
+
+/* 钱包组和勾选框相关样式 */
+.group-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+}
+
+.group-checkbox {
+    margin-right: 12px; /* 增加勾选框右侧间距 */
+    margin-left: 4px; /* 增加勾选框左侧间距 */
+    position: relative;
+    top: 1px; /* 微调勾选框垂直对齐 */
+}
+
+/* 确保标签中的图标和文字有良好的间距 */
+.group-title label i {
+    margin-right: 6px;
+    margin-left: 2px;
+}
+
+/* 代理卡片信息行样式 */
+.proxy-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    flex-wrap: wrap;
+}
+
+.proxy-info-row span {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.proxy-info-row .proxy-protocol {
+    background-color: #f0f2f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #666;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+
+.proxy-info-row .proxy-host {
+    color: #333;
+    font-weight: 500;
+}
+
+.proxy-info-row .proxy-port {
+    color: #555;
+}
+
+.proxy-info-row .proxy-port:before {
+    content: ":";
+    margin-right: 2px;
+}
+
+.proxy-info-row .proxy-location {
+    color: #0277bd;
+    margin-left: auto;
+}
+
+.proxy-info-row .proxy-location i {
+    margin-right: 4px;
+    font-size: 12px;
+}
+
+.proxy-info-row .proxy-auth-badge {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.proxy-info-row .proxy-auth-badge i {
+    margin-right: 3px;
+    font-size: 10px;
+}
+
+.proxy-info-row .proxy-status {
+    background-color: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.proxy-info-row .proxy-status i {
+    font-size: 8px;
+    margin-right: 3px;
+}
+
+.proxy-info-row .status-active {
+    color: #2e7d32;
+    background-color: #e8f5e9;
+}
+
+.proxy-info-row .status-inactive {
+    color: #d32f2f;
+    background-color: #ffebee;
+}
+
+.proxy-info-row .status-error {
+    color: #d32f2f;
+    background-color: #ffebee;
+}
+
+.proxy-info-row .status-unknown {
+    color: #757575;
+    background-color: #f5f5f5;
+}
+
+/* 更新可视化代理列表样式 */
+.proxy-visual-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.proxy-item {
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    transition: background-color 0.2s;
+}
+
+.proxy-item:last-child {
+    border-bottom: none;
+}
+
+.proxy-item:hover {
+    background-color: #f9f9f9;
+}
+
+.proxy-item.selected {
+    background-color: #e3f2fd;
+}
+
+.proxy-card-checkbox {
+    padding: 0 5px;
+}
+
+.proxy-card-content {
+    flex: 1;
+    overflow: hidden;
 } 

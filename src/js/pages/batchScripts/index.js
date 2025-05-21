@@ -5,6 +5,7 @@
 
 import { showModal } from '../../components/modal.js';
 import { setupFilteringAndSearch } from '../../components/tableHelper.js';
+import { translateLocation } from '../../utils/locationTranslator.js';
 // import { BatchTaskManager } from './batchTaskManager.js'; // 暂时注释，新的管理器将不同
 // import { renderTaskDetail } from './taskDetail.js'; // 暂时注释
 // import { createBatchTask } from './createTask.js'; // 暂时注释
@@ -85,26 +86,14 @@ const batchScriptTypes = [
     }
 ];
 
-// 模块定义，用于导航和内容加载
+// 模块定义，用于导航和内容加载 - 简化配置，不再需要多模块导航
 const modules = [
-    { id: 'basic-info', name: '基本信息', icon: 'fas fa-info-circle' },
-    { id: 'script-selection', name: '脚本选择', icon: 'fas fa-code' },
-    { id: 'account-config', name: '账户配置', icon: 'fas fa-users' },
-    { id: 'proxy-settings', name: '代理设置', icon: 'fas fa-network-wired' },
-    { id: 'params-config', name: '参数配置', icon: 'fas fa-sliders-h' },
-    { id: 'execution-settings', name: '执行设置', icon: 'fas fa-cogs' },
-    { id: 'monitor-panel', name: '监控面板', icon: 'fas fa-chart-line' }
+    { id: 'simple-config', name: '任务配置', icon: 'fas fa-cogs' }
 ];
 
-let currentModuleIndex = 0; // 当前激活模块的索引
+let currentModuleIndex = 0; // 当前激活模块的索引 - 实际上只有一个模块了
 const moduleOrder = [
-    "basic-info",
-    "script-selection",
-    "account-config",
-    "proxy-settings",
-    "param-config",
-    "execution-settings",
-    "monitoring-panel"
+    "simple-config" 
 ];
 
 // 存储每个脚本卡片(任务实例)对应的任务配置数据
@@ -235,7 +224,9 @@ function createBatchScriptCard(scriptData) {
     
     card.addEventListener('click', () => {
         currentBatchScriptType = scriptData; // 保存选中的卡片类型信息
-        navigateToModularTaskManager();
+        // 生成一个唯一的任务实例ID
+        const taskInstanceId = `task_${scriptData.id}_${Date.now()}`;
+        navigateToModularTaskManager(taskInstanceId);
     });
     
     return card;
@@ -311,48 +302,63 @@ function populateFilters(typeFilterElement, statusFilterElement, scriptData) {
  * 导航到模块化任务管理器视图
  */
 function navigateToModularTaskManager(taskInstanceId) {
+    console.log("尝试导航到模块化任务管理器...");
     currentView = 'manager';
-    if (!contentAreaRef || !currentBatchScriptType) return;
-
-    const managerTemplate = document.getElementById('tpl-modular-batch-task-manager');
-    if (!managerTemplate || !managerTemplate.innerHTML.trim()) {
-        console.error('模块化任务管理器模板未找到或为空!');
-        contentAreaRef.innerHTML = '<p>错误: 无法加载任务配置界面模板。</p>';
+    if (!contentAreaRef || !currentBatchScriptType) {
+        console.error("contentAreaRef或currentBatchScriptType未定义");
         return;
     }
 
-    const managerNode = managerTemplate.content.cloneNode(true);
-    contentAreaRef.innerHTML = '';
-    contentAreaRef.appendChild(managerNode);
+    // 更新模板以反映简化的单页配置
+    const templateHtml = `
+    <div class="page-container modular-manager-page simple-config-page">
+        <div class="page-header">
+            <h1 id="modular-manager-title">配置批量任务</h1>
+            <div class="header-actions">
+                <button id="back-to-cards-btn" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回卡片</button>
+            </div>
+        </div>
+        <main class="module-content-display" id="moduleContentDisplay">
+            <!-- 简化的配置内容将在此处动态加载 -->
+        </main>
+        <div class="simple-config-footer-actions">
+             <button id="start-execution-btn" class="btn btn-success"><i class="fas fa-play"></i> 开始执行</button>
+        </div>
+    </div>
+    `;
+
+    contentAreaRef.innerHTML = templateHtml;
+    console.log("已直接加载简化模板HTML到内容区域");
     
     const managerTitle = contentAreaRef.querySelector('#modular-manager-title');
     if (managerTitle && currentBatchScriptType) {
         managerTitle.textContent = `配置批量任务: ${currentBatchScriptType.name}`;
     }
 
+    if (!taskInstanceId) {
+        taskInstanceId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        console.log(`生成新的任务实例ID: ${taskInstanceId}`);
+    }
+
+    // 简化 batchTaskConfigs 初始化
     if (!batchTaskConfigs[taskInstanceId]) {
         batchTaskConfigs[taskInstanceId] = {
-            scriptTypeId: currentBatchScriptType.id,
-            basicInfo: { 
-                taskName: `${currentBatchScriptType.name} - 新任务`,
-                taskDescription: currentBatchScriptType.description || '',
-                taskTags: currentBatchScriptType.category || '' 
-            },
-            scriptSelection: { selectedScriptPath: null, scriptParamsSchema: null },
-            accountConfig: { accounts: [], accountType: 'privateKey' },
-            proxySettings: { proxies: [], assignmentStrategy: 'round-robin' },
-            paramConfig: { globalParams: {}, accountSpecificParams: {} },
-            executionSettings: { concurrentTasks: 1, taskInterval: 0, retryAttempts: 0, randomDelayMin:0, randomDelayMax:0 },
+            scriptTypeId: currentBatchScriptType.id, // 保留脚本类型ID
+            scriptName: currentBatchScriptType.name, // 保留脚本名称，方便传递
+            accounts: [], // 选择的账户列表
+            proxyConfig: {
+                enabled: false,
+                strategy: 'one-to-one', // 'one-to-one' 或 'one-to-many'
+                proxies: [] // 代理IP列表，如果启用了代理并且需要用户输入
+            }
         };
-        console.log(`为 ${taskInstanceId} 初始化了配置: `, batchTaskConfigs[taskInstanceId]);
+        console.log(`为 ${taskInstanceId} 初始化了简化配置: `, batchTaskConfigs[taskInstanceId]);
     }
     
     currentModuleIndex = 0; 
-    bindModularManagerEvents(taskInstanceId);
-    // loadModuleContent 会在 bindModularManagerEvents 内部首次调用，或者在bind之后立即调用以加载初始模块
-    //确保初始模块被加载并且导航按钮被更新
+    bindModularManagerEvents(taskInstanceId); // 事件绑定也需要调整
     loadModuleContent(moduleOrder[currentModuleIndex], taskInstanceId); 
-    updateModuleNavigationButtons(taskInstanceId); 
+    // updateModuleNavigationButtons 不再需要，因为没有多模块导航了
 }
 
 /**
@@ -360,275 +366,583 @@ function navigateToModularTaskManager(taskInstanceId) {
  * @param {string} taskInstanceId - 当前配置的任务实例的唯一ID
  */
 function bindModularManagerEvents(taskInstanceId) {
-    const modularManagerPage = contentAreaRef.querySelector('.modular-manager-page');
-    if (!modularManagerPage) {
-        console.error("Modular manager page element not found in DOM for binding events.");
+    const managerPage = contentAreaRef.querySelector('.simple-config-page');
+    if (!managerPage) {
+        console.error("Simple config page element not found for binding events.");
         return;
     }
 
-    const backToCardsButton = modularManagerPage.querySelector('.back-to-cards-button');
+    const backToCardsButton = managerPage.querySelector('#back-to-cards-btn');
     if (backToCardsButton) {
         backToCardsButton.addEventListener('click', (event) => {
             event.preventDefault();
             saveCurrentModuleData(taskInstanceId); 
-            renderBatchScriptCardsView(); 
+            renderBatchScriptCardsView(contentAreaRef); // 确保传递 contentAreaRef
         });
     }
 
-    const moduleLinks = modularManagerPage.querySelectorAll('.module-links a');
-    moduleLinks.forEach(link => {
-        link.addEventListener('click', (event) => {
-            event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
-            const moduleId = link.dataset.module;
-            currentModuleIndex = moduleOrder.indexOf(moduleId);
-            loadModuleContent(moduleId, taskInstanceId);
-            updateModuleNavigationButtons(taskInstanceId); 
-        });
-    });
-
-    const prevButton = modularManagerPage.querySelector('#prev-module-btn');
-    const nextButton = modularManagerPage.querySelector('#next-module-btn');
-    const startTaskButton = modularManagerPage.querySelector('#start-task-btn');
-
-    if (prevButton) {
-        prevButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
-            if (currentModuleIndex > 0) {
-                currentModuleIndex--;
-                loadModuleContent(moduleOrder[currentModuleIndex], taskInstanceId);
-                updateModuleNavigationButtons(taskInstanceId);
-            }
-        });
-    }
-
-    if (nextButton) {
-        nextButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
-            if (currentModuleIndex < moduleOrder.length - 1) {
-                currentModuleIndex++;
-                loadModuleContent(moduleOrder[currentModuleIndex], taskInstanceId);
-                updateModuleNavigationButtons(taskInstanceId);
-            }
-        });
-    }
-
+    const startTaskButton = managerPage.querySelector('#start-execution-btn');
     if (startTaskButton) {
         startTaskButton.addEventListener('click', (event) => {
             event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
+            saveCurrentModuleData(taskInstanceId);
+            
+            // 检查选择的账户是否为空
+            if (batchTaskConfigs[taskInstanceId].accounts.length === 0) {
+                alert('请至少选择一个钱包账户');
+                return;
+            }
+            
+            // 检查代理配置
+            const proxyConfig = batchTaskConfigs[taskInstanceId].proxyConfig;
+            if (proxyConfig.enabled && proxyConfig.proxies.length === 0) {
+                alert('已启用代理，但代理列表为空。请添加代理或禁用代理功能。');
+                return;
+            }
+            
+            // 检查一对一代理策略时的代理数量是否足够
+            if (proxyConfig.enabled && proxyConfig.strategy === 'one-to-one' && 
+                proxyConfig.proxies.length < batchTaskConfigs[taskInstanceId].accounts.length) {
+                alert(`一对一代理策略需要至少与钱包数量相同的代理IP。\n当前钱包数量: ${batchTaskConfigs[taskInstanceId].accounts.length}\n当前代理数量: ${proxyConfig.proxies.length}`);
+                return;
+            }
+            
             console.log(`尝试为 ${taskInstanceId} 启动任务，配置如下:`, batchTaskConfigs[taskInstanceId]);
-            alert(`启动任务: ${taskInstanceId}\n类型: ${currentBatchScriptType.name}\n配置: ${JSON.stringify(batchTaskConfigs[taskInstanceId], null, 2)}\n(功能开发中)`);
+            
+            // 使用相同的IPC检测逻辑，避免重复代码
+            let ipc = null;
+            // 尝试检测IPC接口的不同可能位置和命名
+            const ipcOptions = [
+                window.ipcRenderer,
+                window.electron?.ipcRenderer,
+                window.api?.invoke ? { invoke: window.api.invoke } : null,
+                window.bridge?.invoke ? { invoke: window.bridge.invoke } : null,
+                window.ipc
+            ];
+            
+            for (const option of ipcOptions) {
+                if (option && typeof option.invoke === 'function') {
+                    ipc = option;
+                    break;
+                }
+            }
+            
+            if (!ipc) {
+                alert('无法执行脚本：IPC通信未配置。这可能是开发环境或预览模式引起的。请联系开发者配置preload.js文件。');
+                return;
+            }
+            
+            // 在这里，调用实际的脚本执行逻辑
+            try {
+                // @ts-ignore
+                ipc.invoke('script:execute', {
+                    scriptType: currentBatchScriptType.id,
+                    scriptName: currentBatchScriptType.name,
+                    taskId: taskInstanceId,
+                    accounts: batchTaskConfigs[taskInstanceId].accounts,
+                    proxyConfig: batchTaskConfigs[taskInstanceId].proxyConfig
+                }).then(result => {
+                    console.log('脚本执行结果:', result);
+                    alert(`脚本已启动执行\n类型: ${currentBatchScriptType.name}\n账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
+                }).catch(err => {
+                    console.error('脚本执行失败:', err);
+                    alert(`脚本执行失败: ${err.message || '未知错误'}`);
+                });
+            } catch (error) {
+                console.error('调用脚本执行时发生错误:', error);
+                alert(`启动执行时出错: ${error.message || '未知错误'}`);
+            }
         });
     }
-    // 移除之前可能存在的初始调用，因为 navigateToModularTaskManager 末尾会调用 loadModuleContent 和 updateModuleNavigationButtons
+}
+
+/**
+ * 格式化钱包地址，显示前6位和后4位
+ * @param {string} address - 完整的钱包地址
+ * @returns {string} 格式化后的地址，如 0x1234...5678
+ */
+function formatAddress(address) {
+    if (!address || typeof address !== 'string' || address.length < 12) {
+        return address;
+    }
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 }
 
 /**
  * 加载指定模块的内容到显示区域
- * @param {string} moduleId - 要加载的模块ID
+ * @param {string} moduleId - 要加载的模块ID (现在只有一个 'simple-config')
+ * @param {string} taskInstanceId
  */
-function loadModuleContent(moduleId, taskInstanceId) {
+async function loadModuleContent(moduleId, taskInstanceId) {
     console.log(`加载模块内容: ${moduleId} for task ${taskInstanceId}`);
-    const contentDisplay = contentAreaRef.querySelector('#module-content-display');
+    const contentDisplay = contentAreaRef.querySelector('#moduleContentDisplay');
     if (!contentDisplay) {
-        console.error('模块内容显示区域 #module-content-display 未找到!');
+        console.error('模块内容显示区域 #moduleContentDisplay 未找到!');
         return;
     }
 
-    const currentTaskConfig = batchTaskConfigs[taskInstanceId] || {};
-    let htmlContent = '';
+    const currentTaskConfig = batchTaskConfigs[taskInstanceId];
+    if (!currentTaskConfig) {
+        console.error(`未找到任务配置 for ${taskInstanceId}`);
+        contentDisplay.innerHTML = '<p>错误：任务配置数据丢失。</p>';
+        return;
+    }
 
-    // HTML模板字符串，确保所有内部的反引号和 ${} 都被正确转义以适应 edit_file
-    switch (moduleId) {
-        case 'basic-info':
-            const basicInfo = currentTaskConfig.basicInfo || { taskName: '', taskDescription: '', taskTags: '' };
-            htmlContent = `
-                <div id="module-basic-info" class="module-content-panel active-module">
-                    <h3>1. 基本信息</h3>
-                    <p>为您的批量任务设置一个清晰的名称、详细的描述和相关的标签，方便后续查找和管理。</p>
-                    <form id="basic-info-form" class="module-form">
-                        <div class="form-group">
-                            <label for="task-name-${taskInstanceId}">任务名称:</label>
-                            <input type="text" id="task-name-${taskInstanceId}" name="task-name" value="${basicInfo.taskName}" required placeholder="例如：每日签到任务-${taskInstanceId.substring(0,4)}">
+    let htmlContent = '';
+    contentDisplay.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> 正在加载配置选项...</p>'; // 加载状态
+
+    let availableWallets = [];
+    let availableProxies = [];
+    
+    // 尝试检测IPC接口的不同可能位置和命名
+    // 有些项目使用electron, 有些使用api, 有些直接用ipcRenderer
+    const ipcOptions = [
+        window.ipcRenderer,
+        window.electron?.ipcRenderer,
+        window.api?.invoke ? { invoke: window.api.invoke } : null,
+        window.bridge?.invoke ? { invoke: window.bridge.invoke } : null,
+        window.ipc,
+        // 如果上面都找不到，最后添加一个全局搜索
+        Object.keys(window).some(key => window[key]?.invoke && typeof window[key].invoke === 'function') 
+            ? Object.keys(window).find(key => window[key]?.invoke && typeof window[key].invoke === 'function')
+            : null
+    ];
+    
+    let ipc = null;
+    
+    for (const option of ipcOptions) {
+        if (option && typeof option.invoke === 'function') {
+            ipc = option;
+            console.log(`找到IPC接口: ${option === window.ipcRenderer ? 'window.ipcRenderer' : 
+                option === window.electron?.ipcRenderer ? 'window.electron.ipcRenderer' : 
+                option === window.api ? 'window.api' : 
+                option === window.bridge ? 'window.bridge' : 
+                option === window.ipc ? 'window.ipc' : '未知来源'}`);
+            break;
+        }
+    }
+    
+    const hasIpcRenderer = !!ipc;
+    
+    if (!hasIpcRenderer) {
+        console.warn("在window对象上找不到有效的IPC接口。使用模拟数据。");
+        // 使用模拟数据，允许页面继续工作
+        availableWallets = [
+            { id: 'wallet1', address: '0x1234...5678', name: '主钱包1', group: 'L0组' },
+            { id: 'wallet2', address: '0xabcd...efgh', name: '测试钱包A', group: 'Base组' },
+            { id: 'wallet3', address: '0xdef1...2345', name: '空投钱包X', group: 'zkSync组' },
+            { id: 'wallet4', address: '0xffff...0000', name: '分组钱包Y', group: 'Arbitrum组' },
+        ];
+        
+        // 模拟代理数据
+        availableProxies = [
+            { id: 1, host: '192.168.1.1', port: 8080, protocol: 'http', username: 'user1', password: 'pass1' },
+            { id: 2, host: '192.168.1.2', port: 8080, protocol: 'socks5', username: 'user2', password: 'pass2' },
+            { id: 3, host: '192.168.1.3', port: 8080, protocol: 'http', username: 'user3', password: 'pass3' },
+        ];
+    }
+
+    if (moduleId === 'simple-config') {
+        if (hasIpcRenderer) {
+            try {
+                // 并行获取钱包和代理数据以提高加载速度
+                const [walletResponse, proxyResponse] = await Promise.all([
+                    ipc.invoke('db:getWallets', { /* 如果需要参数，在此处添加 */ }),
+                    ipc.invoke('db:getProxies', { 
+                        page: 1,
+                        limit: 1000, // 请求足够多的代理，以确保获取全部
+                        sortBy: 'id',
+                        sortOrder: 'asc',
+                        type: 'all',
+                        groupId: 'all',
+                        status: 'all',
+                        search: ''
+                    })
+                ]);
+                
+                console.log("成功获取钱包列表: ", walletResponse);
+                console.log("成功获取代理列表: ", proxyResponse);
+                
+                // 处理钱包数据
+                if (walletResponse && Array.isArray(walletResponse.wallets)) {
+                    availableWallets = walletResponse.wallets;
+                    console.log(`成功解析钱包数据，共 ${walletResponse.totalCount} 个钱包`);
+                } else if (Array.isArray(walletResponse)) {
+                    availableWallets = walletResponse;
+                    console.log(`成功解析钱包数据，数组长度为 ${walletResponse.length}`);
+                } else {
+                    console.warn("db:getWallets 返回格式异常", walletResponse);
+                    availableWallets = [];
+                }
+                
+                // 处理代理数据
+                if (proxyResponse && Array.isArray(proxyResponse.proxies)) {
+                    availableProxies = proxyResponse.proxies;
+                    console.log(`成功解析代理数据，共 ${proxyResponse.totalCount} 个代理`);
+                } else if (Array.isArray(proxyResponse)) {
+                    availableProxies = proxyResponse;
+                    console.log(`成功解析代理数据，数组长度为 ${proxyResponse.length}`);
+                } else {
+                    console.warn("db:getProxies 返回格式异常", proxyResponse);
+                    availableProxies = [];
+                }
+            } catch (error) {
+                console.error("获取数据失败:", error);
+                contentDisplay.innerHTML = '<p>错误：无法加载数据。请检查控制台获取更多信息。</p>';
+                return;
+            }
+        }
+
+        const walletOptionsHtml = availableWallets.length > 0 
+            ? availableWallets.map(wallet => `
+                <div class="wallet-checkbox-item">
+                    <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" name="selected-wallets" value="${wallet.address}" ${currentTaskConfig.accounts.includes(wallet.address) ? 'checked' : ''}>
+                    <label for="wallet-${wallet.id}-${taskInstanceId}">${wallet.name || '未命名钱包'} ${wallet.group ? `(${wallet.group})` : ''} ${wallet.address}</label>
+                </div>
+            `).join('')
+            : '<p>没有可用的钱包账户。请先在钱包管理中添加钱包。</p>';
+        
+        // 格式化代理为字符串
+        const formatProxy = (proxy) => {
+            // 根据应用中的代理格式进行调整
+            if (proxy.protocol && proxy.host && proxy.port) {
+                if (proxy.username && proxy.password) {
+                    return `${proxy.protocol}://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`;
+                }
+                return `${proxy.protocol}://${proxy.host}:${proxy.port}`;
+            } else if (proxy.url) {
+                return proxy.url;
+            } else if (proxy.proxy_url) {
+                return proxy.proxy_url;
+            } else if (typeof proxy === 'string') {
+                return proxy;
+            }
+            // 如果没有标准格式，尝试JSON字符串化
+            return JSON.stringify(proxy);
+        };
+        
+        // 如果当前没有选择代理但有可用代理，则预填充
+        if (currentTaskConfig.proxyConfig.proxies.length === 0 && availableProxies.length > 0) {
+            currentTaskConfig.proxyConfig.proxies = availableProxies.map(formatProxy);
+        }
+        
+        const proxyEnabled = currentTaskConfig.proxyConfig.enabled;
+        const proxyStrategy = currentTaskConfig.proxyConfig.strategy;
+        
+        // 将钱包按组分类
+        const walletGroups = {};
+        availableWallets.forEach(wallet => {
+            const group = wallet.group || wallet.groupName || '默认分组';
+            if (!walletGroups[group]) {
+                walletGroups[group] = [];
+            }
+            walletGroups[group].push(wallet);
+        });
+
+        // 生成分组的钱包选择HTML
+        const walletGroupsHtml = Object.keys(walletGroups).length > 0
+            ? Object.entries(walletGroups).map(([group, wallets]) => `
+                <div class="wallet-group">
+                    <div class="wallet-group-header" data-group="${group}">
+                        <div class="group-title">
+                            <span class="group-toggle"><i class="fas fa-chevron-down"></i></span>
+                            <input type="checkbox" id="group-${group.replace(/\s+/g, '-')}-${taskInstanceId}" 
+                                class="group-checkbox" data-group="${group}">
+                            <label for="group-${group.replace(/\s+/g, '-')}-${taskInstanceId}">
+                                <i class="fas fa-folder"></i> ${group} (${wallets.length})
+                            </label>
                         </div>
-                        <div class="form-group">
-                            <label for="task-description-${taskInstanceId}">任务描述:</label>
-                            <textarea id="task-description-${taskInstanceId}" name="task-description" rows="4" placeholder="例如：执行所有账户的XX平台每日签到脚本，领取积分。">${basicInfo.taskDescription}</textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="task-tags-${taskInstanceId}">标签 (逗号分隔):</label>
-                            <input type="text" id="task-tags-${taskInstanceId}" name="task-tags" value="${basicInfo.taskTags}" placeholder="例如：签到, 日常, XX平台">
-                        </div>
-                    </form>
+                    </div>
+                    <div class="wallet-group-content">
+                        ${wallets.map(wallet => `
+                            <div class="wallet-item">
+                                <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" 
+                                    name="selected-wallets" value="${wallet.address}" 
+                                    data-group="${group}"
+                                    ${currentTaskConfig.accounts.includes(wallet.address) ? 'checked' : ''}>
+                                <label for="wallet-${wallet.id}-${taskInstanceId}" class="wallet-label">
+                                    <div class="wallet-name">${wallet.name || '未命名钱包'}</div>
+                                    <div class="wallet-address" title="${wallet.address}">${formatAddress(wallet.address)}</div>
+                                </label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('')
+            : '<p>没有可用的钱包账户。请先在钱包管理中添加钱包。</p>';
+
+        // 格式化代理为可视化卡片列表
+        const proxyListUI = availableProxies.length > 0
+            ? `
+                <div class="proxy-visual-list">
+                    ${availableProxies.map((proxy, index) => {
+                        const proxyStr = formatProxy(proxy);
+                        const isSelected = currentTaskConfig.proxyConfig.proxies.includes(proxyStr);
+                        // 地区转换为中文
+                        let location = '';
+                        if (proxy.country) {
+                            // 使用导入的地区转换函数
+                            try {
+                                location = translateLocation(proxy.country);
+                                if (proxy.city) {
+                                    location += `-${proxy.city}`;
+                                }
+                            } catch (e) {
+                                location = proxy.country + (proxy.city ? `-${proxy.city}` : '');
+                            }
+                        }
+                        
+                        return `
+                            <div class="proxy-item ${isSelected ? 'selected' : ''}" data-proxy="${encodeURIComponent(proxyStr)}">
+                                <div class="proxy-card-checkbox">
+                                    <input type="checkbox" id="proxy-${index}-${taskInstanceId}" class="proxy-checkbox" 
+                                        ${isSelected ? 'checked' : ''}>
+                                    <label for="proxy-${index}-${taskInstanceId}"></label>
+                                </div>
+                                <div class="proxy-card-content">
+                                    <div class="proxy-info-row">
+                                        <span class="proxy-protocol">${proxy.protocol || 'http'}</span>
+                                        <span class="proxy-host">${proxy.host || (proxy.url || '').split('://')[1]?.split(':')[0] || 'N/A'}</span>
+                                        <span class="proxy-port">${proxy.port || 'N/A'}</span>
+                                        ${location ? `<span class="proxy-location"><i class="fas fa-globe-asia"></i> ${location}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="proxy-selection-summary">
+                    <span>已选择 <span class="selected-proxy-count">${currentTaskConfig.proxyConfig.proxies.length}</span> / ${availableProxies.length} 个代理</span>
+                    <div class="proxy-actions">
+                        <button id="select-all-proxies-${taskInstanceId}" class="btn btn-sm btn-outline">全选</button>
+                        <button id="deselect-all-proxies-${taskInstanceId}" class="btn btn-sm btn-outline">取消全选</button>
+                        <button id="add-proxy-${taskInstanceId}" class="btn btn-sm"><i class="fas fa-plus"></i> 添加代理</button>
+                    </div>
+                </div>
+            `
+            : `
+                <div class="no-proxies-message">
+                    <p>暂无可用代理。</p>
+                    <button id="add-proxy-${taskInstanceId}" class="btn btn-primary"><i class="fas fa-plus"></i> 添加代理</button>
                 </div>
             `;
-            break;
-        case 'script-selection':
-             const scriptSelection = currentTaskConfig.scriptSelection || { selectedScriptPath: '', scriptParamsSchema: null };
-            htmlContent = `
-                <div id="module-script-selection" class="module-content-panel active-module">
-                    <h3>2. 脚本选择</h3>
-                    <p>选择您希望在此批量任务中执行的脚本。系统会自动检测并提示所需参数。</p>
-                    <div class="form-group">
-                        <label for="script-path-${taskInstanceId}">脚本文件路径:</label>
-                        <input type="text" id="script-path-${taskInstanceId}" name="script-path" value="${scriptSelection.selectedScriptPath || ''}" placeholder="例如：user_scripts/scripts/my_awesome_script.js">
-                        <button id="browse-script-${taskInstanceId}" class="btn btn-secondary btn-sm">浏览...</button>
-                    </div>
-                    <div id="script-params-info-${taskInstanceId}">
-                        ${scriptSelection.scriptParamsSchema ? `<pre>${JSON.stringify(scriptSelection.scriptParamsSchema, null, 2)}</pre>` : '<p>选择脚本后将显示所需参数信息。</p>'}
-                    </div>
-                    <p><em>脚本选择和参数解析功能正在开发中...</em></p>
+            
+        // 重新设计代理配置部分以适应一对一和一对多场景
+        const oneToOneUI = `
+            <div class="proxy-one-to-one">
+                <div class="proxy-strategy-description">
+                    <i class="fas fa-info-circle"></i>
+                    <span>一对一模式下，每个账户将分配一个唯一的代理，代理数量需≥账户数量</span>
                 </div>
-            `;
-            break;
-        case 'account-config':
-            const accountConfig = currentTaskConfig.accountConfig || { accounts: [], accountType: 'privateKey' };
-            htmlContent = `
-                <div id="module-account-config" class="module-content-panel active-module">
-                    <h3>3. 账户配置</h3>
-                    <p>配置执行脚本所需的账户信息。您可以导入多种类型的账户。</p>
-                     <div class="form-group">
-                        <label for="account-type-${taskInstanceId}">账户类型:</label>
-                        <select id="account-type-${taskInstanceId}" name="account-type">
-                            <option value="privateKey" ${accountConfig.accountType === 'privateKey' ? 'selected' : ''}>钱包私钥</option>
-                            <option value="mnemonic" ${accountConfig.accountType === 'mnemonic' ? 'selected' : ''}>助记词</option>
-                            <option value="apiKeys" ${accountConfig.accountType === 'apiKeys' ? 'selected' : ''}>API密钥对</option>
-                            <option value="usernamePassword" ${accountConfig.accountType === 'usernamePassword' ? 'selected' : ''}>用户名/密码</option>
-                            <option value="cookies" ${accountConfig.accountType === 'cookies' ? 'selected' : ''}>Cookies</option>
-                            <option value="custom" ${accountConfig.accountType === 'custom' ? 'selected' : ''}>自定义文本</option>
-                        </select>
+                <div class="proxy-assignment-preview">
+                    <div class="accounts-count">
+                        <div class="count-value">${currentTaskConfig.accounts.length}</div>
+                        <div class="count-label">账户数</div>
                     </div>
-                    <div class="form-group">
-                        <label for="accounts-input-${taskInstanceId}">账户列表 (每行一个):</label>
-                        <textarea id="accounts-input-${taskInstanceId}" name="accounts-input" rows="5" placeholder="在此处输入账户信息，每行一个账户。\n例如私钥：\n0xabcdef12345... \n0x12345abcdef...">${accountConfig.accounts.join('\n')}</textarea>
+                    <div class="assignment-arrow">
+                        <i class="fas fa-long-arrow-alt-right"></i>
                     </div>
-                    <button id="import-accounts-${taskInstanceId}" class="btn btn-secondary btn-sm">从文件导入</button>
-                    <p>已配置账户数量: <span id="account-count-${taskInstanceId}">${accountConfig.accounts.length}</span></p>
-                    <p><em>账户导入和验证功能正在开发中...</em></p>
+                    <div class="proxies-count ${currentTaskConfig.proxyConfig.proxies.length < currentTaskConfig.accounts.length ? 'warning' : ''}">
+                        <div class="count-value">${currentTaskConfig.proxyConfig.proxies.length}</div>
+                        <div class="count-label">代理数</div>
+                        ${currentTaskConfig.proxyConfig.proxies.length < currentTaskConfig.accounts.length ? 
+                            `<div class="count-warning">代理不足</div>` : ''}
+                    </div>
                 </div>
-            `;
-            break;
-        case 'proxy-settings':
-            const proxySettings = currentTaskConfig.proxySettings || { proxies: [], assignmentStrategy: 'round-robin' };
-            htmlContent = `
-                <div id="module-proxy-settings" class="module-content-panel active-module">
-                    <h3>4. 代理设置</h3>
-                    <p>为您的任务配置代理服务器。支持多种格式，并可以为每个账户或任务分配独立代理。</p>
-                    <div class="form-group">
-                        <label for="proxy-input-${taskInstanceId}">代理列表 (每行一个):</label>
-                        <textarea id="proxy-input-${taskInstanceId}" name="proxy-input" rows="5" placeholder="例如: http://user:pass@host:port 或 socks5://host:port">${proxySettings.proxies.join('\n')}</textarea>
-                    </div>
-                     <div class="form-group">
-                        <label for="proxy-assignment-${taskInstanceId}">代理分配策略:</label>
-                        <select id="proxy-assignment-${taskInstanceId}" name="proxy-assignment">
-                            <option value="round-robin" ${proxySettings.assignmentStrategy === 'round-robin' ? 'selected' : ''}>轮询分配给账户</option>
-                            <option value="sticky" ${proxySettings.assignmentStrategy === 'sticky' ? 'selected' : ''}>固定分配 (账户对应代理)</option>
-                            <option value="global" ${proxySettings.assignmentStrategy === 'global' ? 'selected' : ''}>全局轮询 (所有请求)</option>
-                        </select>
-                    </div>
-                    <button id="import-proxies-${taskInstanceId}" class="btn btn-secondary btn-sm">从文件导入</button>
-                     <p>已配置代理数量: <span id="proxy-count-${taskInstanceId}">${proxySettings.proxies.length}</span></p>
-                    <p><em>代理格式验证和分配逻辑正在开发中...</em></p>
+            </div>
+        `;
+        
+        const oneToManyUI = `
+            <div class="proxy-one-to-many">
+                <div class="proxy-strategy-description">
+                    <i class="fas fa-info-circle"></i>
+                    <span>一对多模式下，多个账户共用一组代理，适合代理数量有限的场景</span>
                 </div>
-            `;
-            break;
-        case 'param-config':
-            const paramConfig = currentTaskConfig.paramConfig || { globalParams: {}, accountSpecificParams: {} };
-            htmlContent = `
-                <div id="module-param-config" class="module-content-panel active-module">
-                    <h3>5. 参数配置</h3>
-                    <p>根据所选脚本的要求，配置必要的运行参数。此处参数将应用于所有账户，特定账户的参数可在高级设置中调整。</p>
-                    <div id="global-params-container-${taskInstanceId}">
-                        <p><em>根据 "脚本选择" 模块动态生成参数表单...</em></p>
-                        <!-- 示例: -->
-                        <!-- <div class="form-group">
-                            <label for="param-example-${taskInstanceId}">示例参数:</label>
-                            <input type="text" id="param-example-${taskInstanceId}" name="param-example" value="${paramConfig.globalParams?.example || ''}">
-                        </div> -->
+                <div class="proxy-assignment-preview">
+                    <div class="accounts-count">
+                        <div class="count-value">${currentTaskConfig.accounts.length}</div>
+                        <div class="count-label">账户数</div>
                     </div>
-                     <p><em>动态参数表单及账户特定参数配置正在开发中...</em></p>
+                    <div class="assignment-diagram">
+                        <div class="assignment-lines"></div>
+                    </div>
+                    <div class="proxies-count">
+                        <div class="count-value">${currentTaskConfig.proxyConfig.proxies.length}</div>
+                        <div class="count-label">代理数</div>
+                        ${currentTaskConfig.proxyConfig.proxies.length === 0 ? 
+                            `<div class="count-warning">至少需要1个代理</div>` : ''}
+                    </div>
                 </div>
-            `;
-            break;
-        case 'execution-settings':
-            const execSettings = currentTaskConfig.executionSettings || { concurrentTasks: 1, taskInterval: 0, retryAttempts: 0, randomDelayMin:0, randomDelayMax:0 };
-            htmlContent = `
-                <div id="module-execution-settings" class="module-content-panel active-module">
-                    <h3>6. 执行设置</h3>
-                    <p>设置任务的执行方式，如并发数、执行间隔、失败重试策略等。</p>
-                    <form id="execution-settings-form-${taskInstanceId}" class="module-form">
-                        <div class="form-group">
-                            <label for="concurrent-tasks-${taskInstanceId}">并发账户数:</label>
-                            <input type="number" id="concurrent-tasks-${taskInstanceId}" name="concurrent-tasks" min="1" value="${execSettings.concurrentTasks}">
+                <div class="proxy-distribution">
+                    <div class="distribution-label">每个代理将服务:</div>
+                    <div class="distribution-value">
+                        ${currentTaskConfig.proxyConfig.proxies.length > 0 ? 
+                            `约 ${Math.ceil(currentTaskConfig.accounts.length / currentTaskConfig.proxyConfig.proxies.length)} 个账户` : 
+                            '全部账户'}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        htmlContent = `
+            <div id="module-simple-config" class="module-content-panel active-module">
+                <div class="config-section wallet-config-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-wallet"></i> 账户选择</h3>
+                        <div class="wallet-actions">
+                            <div class="wallet-search">
+                                <input type="text" id="wallet-search-${taskInstanceId}" placeholder="搜索钱包...">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div class="wallet-selection-controls">
+                                <button id="select-all-wallets-${taskInstanceId}" class="btn btn-sm btn-outline">全选</button>
+                                <button id="deselect-all-wallets-${taskInstanceId}" class="btn btn-sm btn-outline">取消全选</button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="task-interval-${taskInstanceId}">任务执行间隔 (毫秒):</label>
-                            <input type="number" id="task-interval-${taskInstanceId}" name="task-interval" min="0" value="${execSettings.taskInterval}" placeholder="每个账户执行完毕后的等待时间">
-                        </div>
-                         <div class="form-group">
-                            <label for="random-delay-min-${taskInstanceId}">随机延迟范围 (最小毫秒):</label>
-                            <input type="number" id="random-delay-min-${taskInstanceId}" name="random-delay-min" min="0" value="${execSettings.randomDelayMin || 0}" placeholder="例如 1000">
-                        </div>
-                        <div class="form-group">
-                            <label for="random-delay-max-${taskInstanceId}">随机延迟范围 (最大毫秒):</label>
-                            <input type="number" id="random-delay-max-${taskInstanceId}" name="random-delay-max" min="0" value="${execSettings.randomDelayMax || 0}" placeholder="例如 5000">
-                        </div>
-                        <div class="form-group">
-                            <label for="retry-attempts-${taskInstanceId}">失败重试次数:</label>
-                            <input type="number" id="retry-attempts-${taskInstanceId}" name="retry-attempts" min="0" value="${execSettings.retryAttempts}">
-                        </div>
-                    </form>
-                    <p><em>更多高级执行设置 (如 IP 绑定策略、错误处理回调) 正在开发中...</em></p>
-                </div>
-            `;
-            break;
-        case 'monitoring-panel':
-             // 在监控面板加载时，确保配置是最新的
-            const latestConfigForMonitoring = batchTaskConfigs[taskInstanceId] || {};
-            htmlContent = `
-                <div id="module-monitoring-panel" class="module-content-panel active-module">
-                    <h3>7. 监控与执行</h3>
-                    <p>任务配置完成后，您可以在此启动任务，并实时监控执行状态、查看日志、进行必要的操作（如暂停、停止）。</p>
-                    <div id="task-summary-${taskInstanceId}">
-                        <h4>任务配置总览:</h4>
-                        <pre id="config-summary-display-${taskInstanceId}">${JSON.stringify(latestConfigForMonitoring, null, 2)}</pre>
                     </div>
-                    <div id="task-controls-${taskInstanceId}" style="margin-top: 20px;">
-                         <!-- 启动按钮已在底部栏提供 -->
-                    </div>
-                    <div id="task-logs-${taskInstanceId}" style="margin-top: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding:10px; background:#f9f9f9;">
-                        <p><em>任务日志将在此显示... (开发中)</em></p>
+                    <div class="wallet-selection-container">
+                        <div id="wallets-list-${taskInstanceId}" class="wallets-list">
+                            ${walletGroupsHtml}
+                        </div>
+                        <div class="wallet-selection-summary">
+                            <div class="summary-item">
+                                <span class="summary-label">总钱包数:</span>
+                                <span class="summary-value">${availableWallets.length}</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">已选择:</span>
+                                <span id="selected-accounts-count-${taskInstanceId}" class="summary-value highlight">${currentTaskConfig.accounts.length}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            `;
-            break;
-        default:
-            htmlContent = '<p>未知模块或模块正在建设中。</p>';
-            console.warn(`Unknown module ID: ${moduleId}`);
+
+                <div class="config-section proxy-config-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-network-wired"></i> 代理配置</h3>
+                        <div class="proxy-toggle">
+                            <label class="switch">
+                                <input type="checkbox" id="proxy-enabled-${taskInstanceId}" ${proxyEnabled ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                            <span>启用代理</span>
+                        </div>
+                    </div>
+                    
+                    <div id="proxy-options-${taskInstanceId}" class="proxy-options" style="display: ${proxyEnabled ? 'block' : 'none'};">
+                        <div class="proxy-strategy-selector">
+                            <div class="strategy-option ${proxyStrategy === 'one-to-one' ? 'selected' : ''}" data-strategy="one-to-one">
+                                <input type="radio" id="strategy-one-to-one-${taskInstanceId}" name="proxy-strategy" 
+                                    value="one-to-one" ${proxyStrategy === 'one-to-one' ? 'checked' : ''}>
+                                <label for="strategy-one-to-one-${taskInstanceId}">
+                                    <div class="strategy-icon"><i class="fas fa-exchange-alt"></i></div>
+                                    <div class="strategy-text">
+                                        <div class="strategy-title">一对一</div>
+                                        <div class="strategy-desc">每个账户一个代理</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="strategy-option ${proxyStrategy === 'one-to-many' ? 'selected' : ''}" data-strategy="one-to-many">
+                                <input type="radio" id="strategy-one-to-many-${taskInstanceId}" name="proxy-strategy" 
+                                    value="one-to-many" ${proxyStrategy === 'one-to-many' ? 'checked' : ''}>
+                                <label for="strategy-one-to-many-${taskInstanceId}">
+                                    <div class="strategy-icon"><i class="fas fa-share-alt"></i></div>
+                                    <div class="strategy-text">
+                                        <div class="strategy-title">一对多</div>
+                                        <div class="strategy-desc">多个账户共用代理</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="proxy-strategy-details">
+                            ${proxyStrategy === 'one-to-one' ? oneToOneUI : oneToManyUI}
+                        </div>
+
+                        <div class="proxy-management">
+                            <div class="proxy-header">
+                                <h4>代理列表</h4>
+                                <div class="proxy-tools">
+                                    <div class="proxy-search">
+                                        <input type="text" id="proxy-search-${taskInstanceId}" placeholder="搜索代理...">
+                                        <i class="fas fa-search"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="proxy-list-container">
+                                ${proxyListUI}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${!hasIpcRenderer ? 
+                    '<div class="warning-banner"><i class="fas fa-exclamation-triangle"></i> 注意：当前使用的是模拟数据，因为IPC通信未配置。真实数据不可用。</div>' : ''}
+            </div>
+        `;
+    } else {
+        htmlContent = '<p>未知配置模块。</p>';
     }
     contentDisplay.innerHTML = htmlContent;
-    bindModuleSpecificInputEvents(moduleId, taskInstanceId);
+    bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies);
+    
+    // 初始化分组折叠功能
+    initWalletGroupCollapse();
 }
 
 /**
- * 处理模块间的导航（上一步/下一步）
- * @param {number} direction - 1表示下一步, -1表示上一步
+ * 初始化钱包分组折叠功能
+ * 允许用户点击组标题来展开/折叠组内容
  */
-function navigateModules(direction) {
-    const currentIndex = modules.findIndex(m => m.id === currentModule);
-    const nextIndex = currentIndex + direction;
+function initWalletGroupCollapse() {
+    const groupHeaders = document.querySelectorAll('.wallet-group-header');
+    
+    groupHeaders.forEach(header => {
+        // 移除旧事件监听器（如果有）
+        header.removeEventListener('click', handleGroupHeaderClick);
+        
+        // 添加新的事件监听器
+        header.addEventListener('click', handleGroupHeaderClick);
+        
+        // 确保初始状态是展开的
+        const groupContent = header.nextElementSibling;
+        if (groupContent && groupContent.classList.contains('wallet-group-content')) {
+            groupContent.style.display = 'block';
+            
+            // 确保箭头图标指向正确方向
+            const toggleIcon = header.querySelector('.group-toggle i');
+            if (toggleIcon) {
+                toggleIcon.className = 'fas fa-chevron-down';
+            }
+        }
+    });
+}
 
-    if (nextIndex >= 0 && nextIndex < modules.length) {
-        const nextModuleId = modules[nextIndex].id;
-        // 更新导航栏的激活状态
-        const navLinks = contentAreaRef.querySelectorAll('.module-navigation li');
-        navLinks.forEach(li => {
-            li.classList.toggle('active', li.dataset.module === nextModuleId);
-        });
-        loadModuleContent(nextModuleId);
+/**
+ * 处理组标题点击事件
+ * @param {Event} event - 点击事件
+ */
+function handleGroupHeaderClick(event) {
+    // 如果点击的是复选框或复选框的标签，不处理折叠/展开
+    if (event.target.type === 'checkbox' || 
+        event.target.tagName === 'LABEL' || 
+        event.target.closest('label')) {
+        return;
+    }
+    
+    const header = event.currentTarget;
+    const groupContent = header.nextElementSibling;
+    const toggleIcon = header.querySelector('.group-toggle i');
+    
+    if (groupContent && groupContent.classList.contains('wallet-group-content')) {
+        // 切换显示/隐藏状态
+        const isVisible = groupContent.style.display !== 'none';
+        groupContent.style.display = isVisible ? 'none' : 'block';
+        
+        // 更新箭头图标
+        if (toggleIcon) {
+            toggleIcon.className = isVisible ? 'fas fa-chevron-right' : 'fas fa-chevron-down';
+        }
     }
 }
 
@@ -636,147 +950,721 @@ function navigateModules(direction) {
  * 更新模块导航按钮（上一步/下一步/开始执行）的启用/禁用状态和可见性
  */
 function updateModuleNavigationButtons(taskInstanceId) {
-    const modularManagerPage = contentAreaRef.querySelector('.modular-manager-page');
-    if (!modularManagerPage) return;
-
-    const prevButton = modularManagerPage.querySelector('#prev-module-btn');
-    const nextButton = modularManagerPage.querySelector('#next-module-btn');
-    const startTaskButton = modularManagerPage.querySelector('#start-task-btn');
-    const moduleLinks = modularManagerPage.querySelectorAll('.module-links a');
-
-    moduleLinks.forEach(link => {
-        link.classList.remove('active');
-        if (link.dataset.module === moduleOrder[currentModuleIndex]) {
-            link.classList.add('active');
-        }
-    });
-
-    if (prevButton) {
-        prevButton.disabled = currentModuleIndex === 0;
-    }
-    if (nextButton) {
-        nextButton.style.display = (currentModuleIndex === moduleOrder.length - 1) ? 'none' : 'inline-block';
-    }
-    if (startTaskButton) {
-        startTaskButton.style.display = (currentModuleIndex === moduleOrder.length - 1) ? 'inline-block' : 'none';
-        if (moduleOrder[currentModuleIndex] === 'monitoring-panel' && taskInstanceId && batchTaskConfigs[taskInstanceId]) {
-             const summaryDisplay = document.getElementById(`config-summary-display-${taskInstanceId}`);
-             if (summaryDisplay) {
-                summaryDisplay.textContent = JSON.stringify(batchTaskConfigs[taskInstanceId], null, 2);
-            }
-        }
-    }
+    // 此函数不再需要，因为已经没有多模块导航了
+    // 可以安全移除或注释掉调用它的地方
+    console.log("updateModuleNavigationButtons called, but no longer necessary in simple config.");
 }
 
 /**
  * 为特定模块内的输入元素绑定事件，以便实时更新配置对象
  * @param {string} moduleId - 当前模块的ID
  * @param {string} taskInstanceId - 当前任务实例的ID
+ * @param {Array} availableProxies - 可用的代理列表
  */
-function bindModuleSpecificInputEvents(moduleId, taskInstanceId) {
+function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies) {
     const currentTaskConfig = batchTaskConfigs[taskInstanceId];
     if (!currentTaskConfig) {
         console.warn(`bindModuleSpecificInputEvents: 未找到任务配置 for ${taskInstanceId}`);
         return;
     }
 
-    switch (moduleId) {
-        case 'basic-info':
-            const basicInfoForm = document.getElementById('basic-info-form');
-            if (basicInfoForm) {
-                basicInfoForm.addEventListener('input', (event) => {
-                    const target = event.target;
-                    if (target.name === 'task-name') currentTaskConfig.basicInfo.taskName = target.value;
-                    else if (target.name === 'task-description') currentTaskConfig.basicInfo.taskDescription = target.value;
-                    else if (target.name === 'task-tags') currentTaskConfig.basicInfo.taskTags = target.value;
-                });
-            }
-            break;
-        case 'script-selection':
-            const scriptPathInput = document.getElementById(`script-path-${taskInstanceId}`);
-            if (scriptPathInput) {
-                scriptPathInput.addEventListener('input', (event) => {
-                    currentTaskConfig.scriptSelection.selectedScriptPath = event.target.value;
-                });
-            }
-            break;
-        case 'account-config':
-            const accountTypeSelect = document.getElementById(`account-type-${taskInstanceId}`);
-            const accountsInputArea = document.getElementById(`accounts-input-${taskInstanceId}`);
-            const accountCountDisplay = document.getElementById(`account-count-${taskInstanceId}`);
-            if (accountTypeSelect) {
-                accountTypeSelect.addEventListener('change', (event) => {
-                    currentTaskConfig.accountConfig.accountType = event.target.value;
-                });
-            }
-            if (accountsInputArea && accountCountDisplay) {
-                 accountsInputArea.addEventListener('input', (event) => {
-                    const lines = event.target.value.split('\n').map(line => line.trim()).filter(line => line);
-                    currentTaskConfig.accountConfig.accounts = lines;
-                    accountCountDisplay.textContent = lines.length;
-                });
-            }
-            break;
-        case 'proxy-settings':
-            const proxyInputArea = document.getElementById(`proxy-input-${taskInstanceId}`);
-            const proxyAssignmentSelect = document.getElementById(`proxy-assignment-${taskInstanceId}`);
-            const proxyCountDisplay = document.getElementById(`proxy-count-${taskInstanceId}`);
-
-            if (proxyInputArea && proxyCountDisplay) {
-                proxyInputArea.addEventListener('input', (event) => {
-                    const lines = event.target.value.split('\n').map(line => line.trim()).filter(line => line);
-                    currentTaskConfig.proxySettings.proxies = lines;
-                    proxyCountDisplay.textContent = lines.length;
-                });
-            }
-            if (proxyAssignmentSelect) {
-                proxyAssignmentSelect.addEventListener('change', (event) => {
-                    currentTaskConfig.proxySettings.assignmentStrategy = event.target.value;
-                });
-            }
-            break;
-        case 'execution-settings':
-            const execForm = document.getElementById(`execution-settings-form-${taskInstanceId}`);
-            if (execForm) {
-                execForm.addEventListener('input', (event) => {
-                    const target = event.target;
-                    let value = target.type === 'number' ? parseFloat(target.value) : target.value;
-                    if (target.type === 'number' && isNaN(value) && target.value !== '') return; 
-                    if (target.type === 'number' && target.value === '') value = 0; 
-
-                    const settings = currentTaskConfig.executionSettings;
-                    if (target.name === 'concurrent-tasks') settings.concurrentTasks = Math.max(1, parseInt(value, 10) || 1);
-                    else if (target.name === 'task-interval') settings.taskInterval = Math.max(0, parseInt(value, 10) || 0);
-                    else if (target.name === 'retry-attempts') settings.retryAttempts = Math.max(0, parseInt(value, 10) || 0);
-                    else if (target.name === 'random-delay-min') settings.randomDelayMin = Math.max(0, parseInt(value, 10) || 0);
-                    else if (target.name === 'random-delay-max') settings.randomDelayMax = Math.max(0, parseInt(value, 10) || 0);
-
-                    if (settings.randomDelayMin > settings.randomDelayMax) {
-                        if (target.name === 'random-delay-min') {
-                             settings.randomDelayMax = settings.randomDelayMin;
-                             const maxInput = document.getElementById(`random-delay-max-${taskInstanceId}`);
-                             if(maxInput) maxInput.value = settings.randomDelayMax;
-                        } else if (target.name === 'random-delay-max' && settings.randomDelayMax < settings.randomDelayMin) {
-                            settings.randomDelayMin = settings.randomDelayMax; // Correction: if max is pulled below min, min should follow max
-                            const minInput = document.getElementById(`random-delay-min-${taskInstanceId}`);
-                            if(minInput) minInput.value = settings.randomDelayMin;
+    if (moduleId === 'simple-config') {
+        // 钱包选择相关事件
+        const walletsListDiv = document.getElementById(`wallets-list-${taskInstanceId}`);
+        const selectedAccountsCountSpan = document.getElementById(`selected-accounts-count-${taskInstanceId}`);
+        const walletSearchInput = document.getElementById(`wallet-search-${taskInstanceId}`);
+        const selectAllBtn = document.getElementById(`select-all-wallets-${taskInstanceId}`);
+        const deselectAllBtn = document.getElementById(`deselect-all-wallets-${taskInstanceId}`);
+        
+        // 钱包单选事件
+        if (walletsListDiv && selectedAccountsCountSpan) {
+            walletsListDiv.addEventListener('change', (event) => {
+                if (event.target.name === 'selected-wallets') {
+                    // 单个钱包的选择状态改变
+                    const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
+                                                .map(cb => cb.value);
+                    currentTaskConfig.accounts = selectedWallets;
+                    selectedAccountsCountSpan.textContent = selectedWallets.length;
+                    
+                    // 更新所属分组的选中状态
+                    if (event.target.dataset.group) {
+                        const group = event.target.dataset.group;
+                        const groupCheckbox = walletsListDiv.querySelector(`input[type="checkbox"].group-checkbox[data-group="${group}"]`);
+                        const groupWallets = walletsListDiv.querySelectorAll(`input[name="selected-wallets"][data-group="${group}"]`);
+                        const checkedGroupWallets = Array.from(groupWallets).filter(cb => cb.checked);
+                        
+                        if (groupCheckbox) {
+                            // 如果组内全部选中，则设置组复选框为选中
+                            // 如果组内部分选中，则设置组复选框为半选
+                            // 如果组内全部未选中，则设置组复选框为未选中
+                            if (checkedGroupWallets.length === groupWallets.length) {
+                                groupCheckbox.checked = true;
+                                groupCheckbox.indeterminate = false;
+                            } else if (checkedGroupWallets.length > 0) {
+                                groupCheckbox.checked = false;
+                                groupCheckbox.indeterminate = true;
+                            } else {
+                                groupCheckbox.checked = false;
+                                groupCheckbox.indeterminate = false;
+                            }
                         }
                     }
-                     // Update the other field if one is changed to make min > max
-                    if (target.name === 'random-delay-min' && settings.randomDelayMin > settings.randomDelayMax) {
-                        settings.randomDelayMax = settings.randomDelayMin;
-                        const maxInput = document.getElementById(`random-delay-max-${taskInstanceId}`);
-                        if (maxInput) maxInput.value = settings.randomDelayMax;
-                    } else if (target.name === 'random-delay-max' && settings.randomDelayMax < settings.randomDelayMin) {
-                         settings.randomDelayMin = settings.randomDelayMax;
-                         const minInput = document.getElementById(`random-delay-min-${taskInstanceId}`);
-                         if (minInput) minInput.value = settings.randomDelayMin;
+                    
+                    // 当选择钱包数量变化时，同时更新代理配置的UI显示
+                    updateProxyStrategyDetails(taskInstanceId);
+                } else if (event.target.classList.contains('group-checkbox')) {
+                    // 分组复选框的选择状态改变
+                    const group = event.target.dataset.group;
+                    const groupWallets = walletsListDiv.querySelectorAll(`input[name="selected-wallets"][data-group="${group}"]`);
+                    groupWallets.forEach(wallet => {
+                        wallet.checked = event.target.checked;
+                    });
+                    
+                    // 更新选中的钱包数据
+                    const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
+                                                .map(cb => cb.value);
+                    currentTaskConfig.accounts = selectedWallets;
+                    selectedAccountsCountSpan.textContent = selectedWallets.length;
+                    
+                    // 更新代理配置的UI显示
+                    updateProxyStrategyDetails(taskInstanceId);
+                }
+            });
+        }
+        
+        // 钱包搜索功能
+        if (walletSearchInput && walletsListDiv) {
+            walletSearchInput.addEventListener('input', (event) => {
+                const searchTerm = event.target.value.toLowerCase().trim();
+                const walletItems = walletsListDiv.querySelectorAll('.wallet-item');
+                const walletGroups = walletsListDiv.querySelectorAll('.wallet-group');
+                
+                if (searchTerm === '') {
+                    // 清空搜索，显示所有
+                    walletItems.forEach(item => {
+                        item.style.display = '';
+                    });
+                    walletGroups.forEach(group => {
+                        group.style.display = '';
+                    });
+                } else {
+                    // 按搜索词筛选钱包
+                    walletItems.forEach(item => {
+                        const nameEl = item.querySelector('.wallet-name');
+                        const addressEl = item.querySelector('.wallet-address');
+                        const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+                        const address = addressEl ? addressEl.title.toLowerCase() : '';
+                        
+                        if (name.includes(searchTerm) || address.includes(searchTerm)) {
+                            item.style.display = '';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                    
+                    // 更新组的显示状态（如果组内所有钱包都隐藏了，则也隐藏组）
+                    walletGroups.forEach(group => {
+                        const groupContent = group.querySelector('.wallet-group-content');
+                        const visibleItems = Array.from(groupContent.querySelectorAll('.wallet-item')).filter(
+                            item => item.style.display !== 'none'
+                        );
+                        
+                        if (visibleItems.length === 0) {
+                            group.style.display = 'none';
+                        } else {
+                            group.style.display = '';
+                        }
+                    });
+                }
+            });
+        }
+        
+        // 全选/取消全选事件
+        if (selectAllBtn && walletsListDiv) {
+            selectAllBtn.addEventListener('click', () => {
+                // 只选择当前可见的钱包（考虑搜索过滤后）
+                const visibleWallets = Array.from(walletsListDiv.querySelectorAll('.wallet-item:not([style*="display: none"]) input[name="selected-wallets"]'));
+                visibleWallets.forEach(wallet => {
+                    wallet.checked = true;
+                });
+                
+                // 更新分组复选框状态
+                walletsListDiv.querySelectorAll('.group-checkbox').forEach(groupCb => {
+                    const group = groupCb.dataset.group;
+                    const groupWallets = walletsListDiv.querySelectorAll(`input[name="selected-wallets"][data-group="${group}"]:not([style*="display: none"])`);
+                    const checkedGroupWallets = Array.from(groupWallets).filter(cb => cb.checked);
+                    
+                    if (checkedGroupWallets.length === groupWallets.length) {
+                        groupCb.checked = true;
+                        groupCb.indeterminate = false;
+                    } else if (checkedGroupWallets.length > 0) {
+                        groupCb.checked = false;
+                        groupCb.indeterminate = true;
+                    } else {
+                        groupCb.checked = false;
+                        groupCb.indeterminate = false;
                     }
                 });
+                
+                // 更新选中的钱包数据
+                const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
+                                            .map(cb => cb.value);
+                currentTaskConfig.accounts = selectedWallets;
+                selectedAccountsCountSpan.textContent = selectedWallets.length;
+                
+                // 更新代理配置的UI显示
+                updateProxyStrategyDetails(taskInstanceId);
+            });
+        }
+        
+        if (deselectAllBtn && walletsListDiv) {
+            deselectAllBtn.addEventListener('click', () => {
+                // 取消选择所有可见钱包
+                const visibleWallets = Array.from(walletsListDiv.querySelectorAll('.wallet-item:not([style*="display: none"]) input[name="selected-wallets"]'));
+                visibleWallets.forEach(wallet => {
+                    wallet.checked = false;
+                });
+                
+                // 更新分组复选框状态
+                walletsListDiv.querySelectorAll('.group-checkbox').forEach(groupCb => {
+                    groupCb.checked = false;
+                    groupCb.indeterminate = false;
+                });
+                
+                // 更新选中的钱包数据
+                const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
+                                            .map(cb => cb.value);
+                currentTaskConfig.accounts = selectedWallets;
+                selectedAccountsCountSpan.textContent = selectedWallets.length;
+                
+                // 更新代理配置的UI显示
+                updateProxyStrategyDetails(taskInstanceId);
+            });
+        }
+
+        // 代理配置相关事件
+        const proxyEnabledCheckbox = document.getElementById(`proxy-enabled-${taskInstanceId}`);
+        const proxyOptionsDiv = document.getElementById(`proxy-options-${taskInstanceId}`);
+        const proxySearchInput = document.getElementById(`proxy-search-${taskInstanceId}`);
+        const proxyContainerElement = document.querySelector('.proxy-visual-list');
+        const proxyCountElement = document.querySelector('.selected-proxy-count');
+        const selectAllProxiesBtn = document.getElementById(`select-all-proxies-${taskInstanceId}`);
+        const deselectAllProxiesBtn = document.getElementById(`deselect-all-proxies-${taskInstanceId}`);
+        const addProxyBtn = document.getElementById(`add-proxy-${taskInstanceId}`);
+        
+        // 代理策略选择器
+        const strategyOneToOneRadio = document.getElementById(`strategy-one-to-one-${taskInstanceId}`);
+        const strategyOneToManyRadio = document.getElementById(`strategy-one-to-many-${taskInstanceId}`);
+        const strategyOptions = document.querySelectorAll('.strategy-option');
+
+        // 代理启用/禁用
+        if (proxyEnabledCheckbox && proxyOptionsDiv) {
+            proxyEnabledCheckbox.addEventListener('change', (event) => {
+                currentTaskConfig.proxyConfig.enabled = event.target.checked;
+                proxyOptionsDiv.style.display = event.target.checked ? 'block' : 'none';
+            });
+        }
+        
+        // 代理策略选择 - 使用新的单选按钮和卡片式UI
+        if (strategyOptions.length > 0) {
+            strategyOptions.forEach(option => {
+                option.addEventListener('click', (event) => {
+                    // 切换选中状态的视觉样式
+                    strategyOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    
+                    // 更新单选按钮状态
+                    const radio = option.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = true;
+                        
+                        // 更新配置对象
+                        const strategy = radio.value;
+                        currentTaskConfig.proxyConfig.strategy = strategy;
+                        
+                        // 更新UI显示
+                        updateProxyStrategyDetails(taskInstanceId);
+                    }
+                });
+            });
+        }
+        
+        // 代理搜索功能
+        if (proxySearchInput && proxyContainerElement) {
+            proxySearchInput.addEventListener('input', (event) => {
+                const searchTerm = event.target.value.toLowerCase().trim();
+                const proxyItems = proxyContainerElement.querySelectorAll('.proxy-item');
+                
+                proxyItems.forEach(item => {
+                    const proxyInfo = item.querySelector('.proxy-main-info');
+                    if (!proxyInfo) return;
+                    
+                    const text = proxyInfo.textContent.toLowerCase();
+                    if (searchTerm === '' || text.includes(searchTerm)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
+        
+        // 代理选择点击事件（单个代理卡片的选择/取消选择）
+        if (proxyContainerElement) {
+            proxyContainerElement.addEventListener('click', (event) => {
+                const proxyItem = event.target.closest('.proxy-item');
+                if (!proxyItem) return;
+                
+                const checkbox = proxyItem.querySelector('.proxy-checkbox');
+                if (event.target === checkbox) {
+                    // 如果直接点击了复选框，不需要额外处理
+                    return;
+                }
+                
+                // 切换复选框状态
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    
+                    // 触发 change 事件以更新数据
+                    const changeEvent = new Event('change', { bubbles: true });
+                    checkbox.dispatchEvent(changeEvent);
+                }
+            });
+            
+            // 监听复选框的 change 事件
+            proxyContainerElement.addEventListener('change', (event) => {
+                if (event.target.classList.contains('proxy-checkbox')) {
+                    // 更新选择状态的视觉效果
+                    const proxyItem = event.target.closest('.proxy-item');
+                    if (proxyItem) {
+                        if (event.target.checked) {
+                            proxyItem.classList.add('selected');
+                        } else {
+                            proxyItem.classList.remove('selected');
+                        }
+                    }
+                    
+                    // 更新数据模型
+                    updateSelectedProxies(taskInstanceId, currentTaskConfig);
+                }
+            });
+        }
+        
+        // 全选代理按钮
+        if (selectAllProxiesBtn && proxyContainerElement) {
+            selectAllProxiesBtn.addEventListener('click', () => {
+                // 选择所有可见的代理卡片
+                const visibleProxies = Array.from(proxyContainerElement.querySelectorAll('.proxy-item:not([style*="display: none"]) .proxy-checkbox'));
+                visibleProxies.forEach(checkbox => {
+                    checkbox.checked = true;
+                    
+                    // 更新卡片样式
+                    const proxyItem = checkbox.closest('.proxy-item');
+                    if (proxyItem) {
+                        proxyItem.classList.add('selected');
+                    }
+                });
+                
+                // 更新数据模型
+                updateSelectedProxies(taskInstanceId, currentTaskConfig);
+            });
+        }
+        
+        // 取消全选代理按钮
+        if (deselectAllProxiesBtn && proxyContainerElement) {
+            deselectAllProxiesBtn.addEventListener('click', () => {
+                // 取消选择所有可见的代理卡片
+                const visibleProxies = Array.from(proxyContainerElement.querySelectorAll('.proxy-item:not([style*="display: none"]) .proxy-checkbox'));
+                visibleProxies.forEach(checkbox => {
+                    checkbox.checked = false;
+                    
+                    // 更新卡片样式
+                    const proxyItem = checkbox.closest('.proxy-item');
+                    if (proxyItem) {
+                        proxyItem.classList.remove('selected');
+                    }
+                });
+                
+                // 更新数据模型
+                updateSelectedProxies(taskInstanceId, currentTaskConfig);
+            });
+        }
+        
+        // 添加代理按钮
+        if (addProxyBtn) {
+            addProxyBtn.addEventListener('click', () => {
+                // 打开添加代理的模态框
+                showModal({
+                    title: '添加新代理',
+                    content: `
+                        <form id="add-proxy-form" class="modal-form">
+                            <div class="form-group">
+                                <label for="proxy-protocol">协议</label>
+                                <select id="proxy-protocol" class="form-control" required>
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                    <option value="socks4">SOCKS4</option>
+                                    <option value="socks5">SOCKS5</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="proxy-host">主机地址</label>
+                                <input type="text" id="proxy-host" class="form-control" placeholder="例如：127.0.0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="proxy-port">端口</label>
+                                <input type="number" id="proxy-port" class="form-control" placeholder="例如：8080" required>
+                            </div>
+                            <div class="form-group">
+                                <label>认证信息（可选）</label>
+                                <div class="auth-inputs">
+                                    <input type="text" id="proxy-username" class="form-control" placeholder="用户名">
+                                    <input type="password" id="proxy-password" class="form-control" placeholder="密码">
+                                </div>
+                            </div>
+                        </form>
+                    `,
+                    showCancel: true,
+                    confirmText: '添加',
+                    cancelText: '取消',
+                    onConfirm: async (modalElement) => {
+                        const form = modalElement.querySelector('#add-proxy-form');
+                        if (!form) return;
+                        
+                        // 基本验证
+                        const protocol = form.querySelector('#proxy-protocol').value;
+                        const host = form.querySelector('#proxy-host').value.trim();
+                        const port = form.querySelector('#proxy-port').value.trim();
+                        const username = form.querySelector('#proxy-username').value.trim();
+                        const password = form.querySelector('#proxy-password').value.trim();
+                        
+                        if (!host || !port) {
+                            // 显示错误提示
+                            showToast('请填写主机地址和端口', 'error');
+                            return false; // 不关闭模态框
+                        }
+                        
+                        // 创建代理对象
+                        const newProxy = {
+                            protocol,
+                            host,
+                            port,
+                            status: 'unknown'
+                        };
+                        
+                        if (username && password) {
+                            newProxy.username = username;
+                            newProxy.password = password;
+                        }
+                        
+                        try {
+                            // 保存到数据库
+                            if (hasIpcRenderer) {
+                                const result = await window.electron.ipcRenderer.invoke('db:addProxy', newProxy);
+                                if (result.success) {
+                                    showToast('代理添加成功', 'success');
+                                    
+                                    // 添加到可用代理列表
+                                    availableProxies.push(result.proxy || newProxy);
+                                    
+                                    // 刷新UI
+                                    reloadProxyList(taskInstanceId, currentTaskConfig, availableProxies);
+                                } else {
+                                    showToast(`添加失败: ${result.error}`, 'error');
+                                    return false;
+                                }
+                            } else {
+                                // 模拟模式
+                                showToast('模拟模式：代理已添加', 'info');
+                                
+                                // 添加到可用代理列表
+                                newProxy.id = Date.now(); // 模拟ID
+                                availableProxies.push(newProxy);
+                                
+                                // 刷新UI
+                                reloadProxyList(taskInstanceId, currentTaskConfig, availableProxies);
+                            }
+                        } catch (error) {
+                            console.error('添加代理失败:', error);
+                            showToast(`添加失败: ${error.message}`, 'error');
+                            return false;
+                        }
+                    }
+                });
+            });
+        }
+        
+        // 初始更新代理策略UI
+        updateProxyStrategyDetails(taskInstanceId);
+    }
+}
+
+/**
+ * 更新选中的代理列表并刷新UI
+ * @param {string} taskInstanceId - 任务实例ID
+ * @param {Object} taskConfig - 任务配置对象
+ */
+function updateSelectedProxies(taskInstanceId, taskConfig) {
+    const proxyContainer = document.querySelector('.proxy-visual-list');
+    if (!proxyContainer) return;
+    
+    // 获取所有选中的代理
+    const selectedProxyItems = Array.from(proxyContainer.querySelectorAll('.proxy-checkbox:checked'));
+    const selectedProxies = selectedProxyItems.map(checkbox => {
+        const proxyItem = checkbox.closest('.proxy-item');
+        const proxyData = proxyItem.dataset.proxy;
+        return decodeURIComponent(proxyData);
+    });
+    
+    // 更新配置对象
+    taskConfig.proxyConfig.proxies = selectedProxies;
+    
+    // 更新UI显示
+    const proxyCountElement = document.querySelector('.selected-proxy-count');
+    if (proxyCountElement) {
+        proxyCountElement.textContent = selectedProxies.length;
+    }
+    
+    // 更新代理策略详情
+    updateProxyStrategyDetails(taskInstanceId);
+}
+
+/**
+ * 重新加载代理列表UI
+ * @param {string} taskInstanceId - 任务实例ID
+ * @param {Object} taskConfig - 任务配置对象
+ * @param {Array} availableProxies - 可用的代理数组
+ */
+function reloadProxyList(taskInstanceId, taskConfig, availableProxies) {
+    const proxyContainer = document.querySelector('.proxy-visual-list');
+    if (!proxyContainer) return;
+    
+    // 格式化代理为字符串
+    const formatProxy = (proxy) => {
+        if (proxy.protocol && proxy.host && proxy.port) {
+            if (proxy.username && proxy.password) {
+                return `${proxy.protocol}://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`;
             }
-            break;
-        default:
-            break;
+            return `${proxy.protocol}://${proxy.host}:${proxy.port}`;
+        } else if (proxy.url) {
+            return proxy.url;
+        } else if (proxy.proxy_url) {
+            return proxy.proxy_url;
+        } else if (typeof proxy === 'string') {
+            return proxy;
+        }
+        return JSON.stringify(proxy);
+    };
+    
+    // 生成代理卡片HTML
+    const proxyCardsHTML = availableProxies.map((proxy, index) => {
+        const proxyId = `proxy-${index}-${taskInstanceId}`;
+        const proxyStr = formatProxy(proxy);
+        const isSelected = taskConfig.proxyConfig.proxies.includes(proxyStr);
+        const proxyStatus = proxy.status || 'unknown';
+        const statusClass = getProxyStatusClass(proxyStatus);
+        const statusText = getProxyStatusText(proxyStatus);
+        
+        // 提取主机和端口信息用于显示
+        let displayHost = '';
+        let displayPort = '';
+        let displayProtocol = '';
+        let hasAuth = false;
+        
+        if (proxy.host && proxy.port) {
+            displayHost = proxy.host;
+            displayPort = proxy.port;
+            displayProtocol = proxy.protocol || 'http';
+            hasAuth = !!(proxy.username && proxy.password);
+        } else if (typeof proxy === 'string' || proxy.url || proxy.proxy_url) {
+            const urlStr = proxy.url || proxy.proxy_url || proxy;
+            try {
+                const url = new URL(urlStr);
+                displayProtocol = url.protocol.replace(':', '');
+                displayHost = url.hostname;
+                displayPort = url.port || (displayProtocol === 'https' ? '443' : '80');
+                hasAuth = !!(url.username && url.password);
+            } catch (e) {
+                // 如果解析失败，直接显示原始字符串
+                displayHost = typeof urlStr === 'string' ? urlStr : JSON.stringify(urlStr);
+            }
+        } else {
+            displayHost = JSON.stringify(proxy);
+        }
+        
+        // 地区转换为中文
+        let location = '';
+        if (proxy.country) {
+            // 使用导入的地区转换函数
+            try {
+                location = translateLocation(proxy.country);
+                if (proxy.city) {
+                    location += `-${proxy.city}`;
+                }
+            } catch (e) {
+                location = proxy.country + (proxy.city ? `-${proxy.city}` : '');
+            }
+        }
+        
+        return `
+        <div class="proxy-item ${isSelected ? 'selected' : ''}" data-proxy="${encodeURIComponent(proxyStr)}">
+            <div class="proxy-card-checkbox">
+                <input type="checkbox" id="${proxyId}" class="proxy-checkbox" 
+                    ${isSelected ? 'checked' : ''}>
+                <label for="${proxyId}"></label>
+            </div>
+            <div class="proxy-card-content">
+                <div class="proxy-info-row">
+                    <span class="proxy-protocol">${displayProtocol}</span>
+                    <span class="proxy-host">${displayHost}</span>
+                    <span class="proxy-port">${displayPort}</span>
+                    ${location ? `<span class="proxy-location"><i class="fas fa-globe-asia"></i> ${location}</span>` : ''}
+                    ${hasAuth ? '<span class="proxy-auth-badge"><i class="fas fa-user-lock"></i> 认证</span>' : ''}
+                    <span class="proxy-status ${statusClass}">
+                        <i class="fas fa-circle"></i> ${statusText}
+                    </span>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join('');
+    
+    // 更新UI
+    proxyContainer.innerHTML = proxyCardsHTML;
+    
+    // 更新计数
+    const proxyCountElement = document.querySelector('.selected-proxy-count');
+    if (proxyCountElement) {
+        proxyCountElement.textContent = taskConfig.proxyConfig.proxies.length;
+    }
+}
+
+/**
+ * 获取代理状态的CSS类
+ * @param {string} status - 代理状态
+ * @returns {string} 对应的CSS类名
+ */
+function getProxyStatusClass(status) {
+    switch(status) {
+        case 'active': return 'status-active';
+        case 'inactive': return 'status-inactive';
+        case 'error': return 'status-error';
+        default: return 'status-unknown';
+    }
+}
+
+/**
+ * 获取代理状态的文本描述
+ * @param {string} status - 代理状态
+ * @returns {string} 状态的文本描述
+ */
+function getProxyStatusText(status) {
+    switch(status) {
+        case 'active': return '可用';
+        case 'inactive': return '不可用';
+        case 'error': return '错误';
+        default: return '未测试';
+    }
+}
+
+/**
+ * 更新代理策略详情区域的UI显示
+ * @param {string} taskInstanceId - 当前任务的ID
+ */
+function updateProxyStrategyDetails(taskInstanceId) {
+    const currentTaskConfig = batchTaskConfigs[taskInstanceId];
+    if (!currentTaskConfig) return;
+    
+    const proxyStrategyDetailsDiv = document.querySelector('.proxy-strategy-details');
+    if (!proxyStrategyDetailsDiv) return;
+    
+    const strategy = currentTaskConfig.proxyConfig.strategy;
+    const accountsCount = currentTaskConfig.accounts.length;
+    const proxiesCount = currentTaskConfig.proxyConfig.proxies.length;
+    
+    let detailsHTML = '';
+    
+    if (strategy === 'one-to-one') {
+        // 一对一策略的UI
+        detailsHTML = `
+            <div class="proxy-one-to-one">
+                <div class="proxy-strategy-description">
+                    <i class="fas fa-info-circle"></i>
+                    <span>一对一模式下，每个账户将分配一个唯一的代理，代理数量需≥账户数量</span>
+                </div>
+                <div class="proxy-assignment-preview">
+                    <div class="accounts-count">
+                        <div class="count-value">${accountsCount}</div>
+                        <div class="count-label">账户数</div>
+                    </div>
+                    <div class="assignment-arrow">
+                        <i class="fas fa-long-arrow-alt-right"></i>
+                    </div>
+                    <div class="proxies-count ${proxiesCount < accountsCount ? 'warning' : ''}">
+                        <div class="count-value">${proxiesCount}</div>
+                        <div class="count-label">代理数</div>
+                        ${proxiesCount < accountsCount ? 
+                            `<div class="count-warning">代理不足</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // 一对多策略的UI
+        const accountsPerProxy = proxiesCount > 0 ? Math.ceil(accountsCount / proxiesCount) : accountsCount;
+        
+        detailsHTML = `
+            <div class="proxy-one-to-many">
+                <div class="proxy-strategy-description">
+                    <i class="fas fa-info-circle"></i>
+                    <span>一对多模式下，多个账户共用一组代理，适合代理数量有限的场景</span>
+                </div>
+                <div class="proxy-assignment-preview">
+                    <div class="accounts-count">
+                        <div class="count-value">${accountsCount}</div>
+                        <div class="count-label">账户数</div>
+                    </div>
+                    <div class="assignment-diagram">
+                        <div class="assignment-lines"></div>
+                    </div>
+                    <div class="proxies-count">
+                        <div class="count-value">${proxiesCount}</div>
+                        <div class="count-label">代理数</div>
+                        ${proxiesCount === 0 ? 
+                            `<div class="count-warning">至少需要1个代理</div>` : ''}
+                    </div>
+                </div>
+                <div class="proxy-distribution">
+                    <div class="distribution-label">每个代理将服务:</div>
+                    <div class="distribution-value">
+                        ${proxiesCount > 0 ? 
+                            `约 ${accountsPerProxy} 个账户` : 
+                            '全部账户'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    proxyStrategyDetailsDiv.innerHTML = detailsHTML;
+    
+    // 更新代理警告信息
+    const proxyWarningEl = document.querySelector('.proxy-count-info .proxy-warning');
+    const proxyCountInfo = document.querySelector('.proxy-count-info');
+    
+    if (proxyCountInfo) {
+        if (strategy === 'one-to-one' && proxiesCount < accountsCount) {
+            if (!proxyWarningEl) {
+                const warningSpan = document.createElement('span');
+                warningSpan.className = 'proxy-warning';
+                warningSpan.textContent = `（一对一模式下需要至少 ${accountsCount} 个代理）`;
+                proxyCountInfo.appendChild(warningSpan);
+            } else {
+                proxyWarningEl.textContent = `（一对一模式下需要至少 ${accountsCount} 个代理）`;
+            }
+        } else if (proxyWarningEl) {
+            proxyWarningEl.remove();
+        }
     }
 }
 
@@ -786,78 +1674,57 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId) {
  */
 function saveCurrentModuleData(taskInstanceId) {
     if (!taskInstanceId || !batchTaskConfigs[taskInstanceId]) {
+        console.warn(`saveCurrentModuleData: 任务配置 for ${taskInstanceId} 未找到或 taskInstanceId 未定义`);
         return;
     }
 
     const currentConfig = batchTaskConfigs[taskInstanceId];
-    const moduleId = moduleOrder[currentModuleIndex]; 
+    const moduleId = moduleOrder[currentModuleIndex]; // 应该总是 'simple-config'
 
-    switch (moduleId) {
-        case 'basic-info':
-            const taskNameInput = document.getElementById(`task-name-${taskInstanceId}`);
-            const taskDescInput = document.getElementById(`task-description-${taskInstanceId}`);
-            const taskTagsInput = document.getElementById(`task-tags-${taskInstanceId}`);
-            if (taskNameInput) currentConfig.basicInfo.taskName = taskNameInput.value;
-            if (taskDescInput) currentConfig.basicInfo.taskDescription = taskDescInput.value;
-            if (taskTagsInput) currentConfig.basicInfo.taskTags = taskTagsInput.value;
-            break;
-        case 'script-selection':
-            const scriptPathInput = document.getElementById(`script-path-${taskInstanceId}`);
-            if (scriptPathInput) currentConfig.scriptSelection.selectedScriptPath = scriptPathInput.value;
-            break;
-        case 'account-config':
-            const accountTypeSelect = document.getElementById(`account-type-${taskInstanceId}`);
-            const accountsInputArea = document.getElementById(`accounts-input-${taskInstanceId}`);
-            if (accountTypeSelect) currentConfig.accountConfig.accountType = accountTypeSelect.value;
-            if (accountsInputArea) {
-                currentConfig.accountConfig.accounts = accountsInputArea.value.split('\n').map(l => l.trim()).filter(l => l);
-                const accountCountDisplay = document.getElementById(`account-count-${taskInstanceId}`);
-                if(accountCountDisplay) accountCountDisplay.textContent = currentConfig.accountConfig.accounts.length;
-            }
-            break;
-        case 'proxy-settings':
-            const proxyInputArea = document.getElementById(`proxy-input-${taskInstanceId}`);
-            const proxyAssignmentSelect = document.getElementById(`proxy-assignment-${taskInstanceId}`);
-            if (proxyInputArea) {
-                 currentConfig.proxySettings.proxies = proxyInputArea.value.split('\n').map(l => l.trim()).filter(l => l);
-                 const proxyCountDisplay = document.getElementById(`proxy-count-${taskInstanceId}`);
-                 if(proxyCountDisplay) proxyCountDisplay.textContent = currentConfig.proxySettings.proxies.length;
-            }
-            if (proxyAssignmentSelect) currentConfig.proxySettings.assignmentStrategy = proxyAssignmentSelect.value;
-            break;
-        case 'execution-settings':
-            const execForm = document.getElementById(`execution-settings-form-${taskInstanceId}`);
-            if (execForm) { 
-                const concurrentInput = execForm.querySelector(`#concurrent-tasks-${taskInstanceId}`);
-                const intervalInput = execForm.querySelector(`#task-interval-${taskInstanceId}`);
-                const retryInput = execForm.querySelector(`#retry-attempts-${taskInstanceId}`);
-                const delayMinInput = execForm.querySelector(`#random-delay-min-${taskInstanceId}`);
-                const delayMaxInput = execForm.querySelector(`#random-delay-max-${taskInstanceId}`);
-                const settings = currentConfig.executionSettings;
+    if (moduleId === 'simple-config') {
+        // 账户选择的保存已经通过事件监听实时更新了 currentConfig.accounts
 
-                if (concurrentInput) settings.concurrentTasks = Math.max(1, parseInt(concurrentInput.value, 10) || 1);
-                if (intervalInput) settings.taskInterval = Math.max(0, parseInt(intervalInput.value, 10) || 0);
-                if (retryInput) settings.retryAttempts = Math.max(0, parseInt(retryInput.value, 10) || 0);
-                if (delayMinInput) settings.randomDelayMin = Math.max(0, parseInt(delayMinInput.value, 10) || 0);
-                if (delayMaxInput) settings.randomDelayMax = Math.max(0, parseInt(delayMaxInput.value, 10) || 0);
-                
-                if (settings.randomDelayMin > settings.randomDelayMax) {
-                     settings.randomDelayMax = settings.randomDelayMin;
-                     if(delayMaxInput) delayMaxInput.value = settings.randomDelayMax;
-                } else if (settings.randomDelayMax < settings.randomDelayMin) { // Should not happen if min pushes max, but as a safeguard
-                    settings.randomDelayMin = settings.randomDelayMax;
-                    if(delayMinInput) delayMinInput.value = settings.randomDelayMin;
+        // 代理配置的保存
+        const proxyEnabledCheckbox = document.getElementById(`proxy-enabled-${taskInstanceId}`);
+        
+        // 检查代理启用/禁用状态
+        if (proxyEnabledCheckbox) {
+            currentConfig.proxyConfig.enabled = proxyEnabledCheckbox.checked;
+        }
+        
+        // 代理策略从单选按钮中获取
+        const strategyOneToOneRadio = document.getElementById(`strategy-one-to-one-${taskInstanceId}`);
+        const strategyOneToManyRadio = document.getElementById(`strategy-one-to-many-${taskInstanceId}`);
+        
+        if (strategyOneToOneRadio && strategyOneToOneRadio.checked) {
+            currentConfig.proxyConfig.strategy = 'one-to-one';
+        } else if (strategyOneToManyRadio && strategyOneToManyRadio.checked) {
+            currentConfig.proxyConfig.strategy = 'one-to-many';
+        }
+        
+        // 选中的代理由updateSelectedProxies函数实时更新，不需要在此处处理
+        // 但可以进行一次额外的更新以确保数据一致性
+        const proxyContainer = document.querySelector('.proxy-visual-list');
+        if (proxyContainer) {
+            const selectedProxyItems = Array.from(proxyContainer.querySelectorAll('.proxy-checkbox:checked'));
+            const selectedProxies = selectedProxyItems.map(checkbox => {
+                const proxyItem = checkbox.closest('.proxy-item');
+                if (proxyItem && proxyItem.dataset.proxy) {
+                    return decodeURIComponent(proxyItem.dataset.proxy);
                 }
+                return null;
+            }).filter(proxy => proxy !== null);
+            
+            // 仅在有变更时更新配置
+            if (JSON.stringify(selectedProxies) !== JSON.stringify(currentConfig.proxyConfig.proxies)) {
+                currentConfig.proxyConfig.proxies = selectedProxies;
+                console.log('已更新代理选择:', selectedProxies);
             }
-            break;
-        case 'monitoring-panel':
-            const summaryDisplay = document.getElementById(`config-summary-display-${taskInstanceId}`);
-            if (summaryDisplay && batchTaskConfigs[taskInstanceId]) { // ensure config exists
-                summaryDisplay.textContent = JSON.stringify(batchTaskConfigs[taskInstanceId], null, 2);
-            }
-            break;
-        default:
-            break;
+        }
+        
+        console.log(`保存的配置 for ${taskInstanceId}:`, JSON.parse(JSON.stringify(currentConfig))); // 使用深拷贝打印，避免后续修改影响日志
+    } else {
+        console.warn(`saveCurrentModuleData: 未知模块ID ${moduleId}`);
     }
 }
 
