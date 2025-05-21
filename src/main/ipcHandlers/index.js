@@ -77,6 +77,53 @@ function setupScriptHandlers(ipcMain) {
     }
   });
 
+  // 获取批量脚本 - 新增
+  ipcMain.handle('script:getBatchScripts', async () => {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      
+      // 获取批量脚本列表
+      const scriptsDir = path.join(__dirname, '../../../user_scripts/scripts');
+      const files = await fs.readdir(scriptsDir);
+      const scriptFiles = files.filter(file => file.endsWith('.js') && !file.startsWith('_'));
+      
+      // 读取每个脚本文件的元数据
+      const scripts = [];
+      for (const file of scriptFiles) {
+        const scriptPath = path.join(scriptsDir, file);
+        try {
+          // 清除缓存以确保获取最新的脚本配置
+          delete require.cache[require.resolve(scriptPath)];
+          // 动态导入脚本以获取其配置
+          const script = require(scriptPath);
+          if (script.getConfig && typeof script.getConfig === 'function') {
+            const config = script.getConfig();
+            // 确保脚本有批量执行相关配置
+            if (config.supportsBatchExecution) {
+              scripts.push({
+                id: path.basename(file, '.js'),
+                name: config.name || path.basename(file, '.js'),
+                description: config.description || '',
+                imageUrl: config.imageUrl || 'https://public.rootdata.com/images/b6/1739179963586.jpg',
+                category: config.category || '未分类',
+                status: config.status || 'active',
+                scriptPath: scriptPath
+              });
+            }
+          }
+        } catch (scriptError) {
+          console.error(`读取脚本${file}出错:`, scriptError);
+        }
+      }
+      
+      return { success: true, scripts };
+    } catch (error) {
+      console.error('获取批量脚本列表失败:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // 获取单个脚本元数据
   ipcMain.handle('get-script-metadata', async (event, scriptFileName) => {
     try {

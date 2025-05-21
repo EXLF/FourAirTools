@@ -18,73 +18,8 @@ let currentView = 'cards';
 // 当前选择的批量脚本类型信息 (从卡片传递)
 let currentBatchScriptType = null; // 这个变量将保存被点击卡片的完整 scriptData
 
-// 预定义的批量脚本卡片数据 - 保持不变
-const batchScriptTypes = [
-    {
-        id: 'multi-account-batch',
-        name: '多账户批量执行',
-        description: '同时在多个账户上执行相同脚本',
-        imageUrl: 'https://public.rootdata.com/images/b6/1739179963586.jpg',
-        category: '基础功能',
-        status: 'active'
-    },
-    {
-        id: 'scheduled-tasks',
-        name: '定时任务',
-        description: '设置定时执行的批量脚本任务',
-        imageUrl: 'https://public.rootdata.com/images/b6/1724653592563.jpg',
-        category: '高级功能',
-        status: 'active'
-    },
-    {
-        id: 'monitor-task',
-        name: '监控执行',
-        description: '设置条件触发的监控执行脚本',
-        imageUrl: 'https://public.rootdata.com/images/b6/1706063422799.jpg',
-        category: '高级功能',
-        status: 'active'
-    },
-    {
-        id: 'chain-tasks',
-        name: '链式任务',
-        description: '多个脚本按顺序依次执行',
-        imageUrl: 'https://public.rootdata.com/images/b12/1712038428629.jpg',
-        category: '高级功能',
-        status: 'coming'
-    },
-    {
-        id: 'custom-batch',
-        name: '自定义批量任务',
-        description: '创建自定义批量执行方案',
-        imageUrl: 'https://public.rootdata.com/images/b61/1743413886455.jpg',
-        category: '基础功能',
-        status: 'active'
-    },
-    {
-        id: 'parallel-batch',
-        name: '并行多任务',
-        description: '并行执行多个不同脚本任务',
-        imageUrl: 'https://public.rootdata.com/images/b56/1740061558242.jpg', 
-        category: '高级功能',
-        status: 'active'
-    },
-    {
-        id: 'wallet-group-batch',
-        name: '分组批量执行',
-        description: '按钱包分组执行不同任务',
-        imageUrl: 'https://public.rootdata.com/images/b13/1747108298474.jpg',
-        category: '高级功能',
-        status: 'active'
-    },
-    {
-        id: 'error-retry-batch',
-        name: '智能错误重试',
-        description: '出错自动重试的批量任务',
-        imageUrl: 'https://public.rootdata.com/images/b44/1724770395787.png',
-        category: '基础功能',
-        status: 'active'
-    }
-];
+// 预定义的批量脚本卡片数据(将被动态数据替换)
+let batchScriptTypes = []; 
 
 // 模块定义，用于导航和内容加载 - 简化配置，不再需要多模块导航
 const modules = [
@@ -173,7 +108,7 @@ function renderBatchScriptCardsView(contentArea) {
  * 加载并渲染批量脚本卡片
  * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
  */
-function loadAndRenderBatchScriptCards(pageContentArea) {
+async function loadAndRenderBatchScriptCards(pageContentArea) {
     const cardsContainer = pageContentArea.querySelector('#batchScriptCardsContainer');
     const typeFilterElement = pageContentArea.querySelector('#batchScriptTypeFilter');
     const statusFilterElement = pageContentArea.querySelector('#batchScriptStatusFilter');
@@ -183,14 +118,153 @@ function loadAndRenderBatchScriptCards(pageContentArea) {
         return;
     }
     
-    cardsContainer.innerHTML = ''; // 清空卡片容器
+    cardsContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> 正在加载脚本...</div>'; 
     
-    batchScriptTypes.forEach(scriptType => {
-        const card = createBatchScriptCard(scriptType);
-        cardsContainer.appendChild(card);
-    });
-    
-    populateFilters(typeFilterElement, statusFilterElement, batchScriptTypes);
+    try {
+        // 检测可用的IPC接口
+        let ipc = null;
+        const ipcOptions = [
+            window.ipcRenderer,
+            window.electron?.ipcRenderer,
+            window.api?.invoke ? { invoke: window.api.invoke } : null,
+            window.bridge?.invoke ? { invoke: window.bridge.invoke } : null,
+            window.ipc
+        ];
+        
+        for (const option of ipcOptions) {
+            if (option && typeof option.invoke === 'function') {
+                ipc = option;
+                break;
+            }
+        }
+        
+        if (!ipc) {
+            throw new Error('IPC通信未配置');
+        }
+        
+        // 从主进程获取脚本列表
+        const result = await ipc.invoke('script:getBatchScripts');
+        
+        if (!result.success) {
+            throw new Error(result.error || '获取脚本失败');
+        }
+        
+        batchScriptTypes = result.scripts || [];
+        
+        // 清空加载提示
+        cardsContainer.innerHTML = '';
+        
+        if (batchScriptTypes.length === 0) {
+            // 如果没有找到支持批量执行的脚本，使用默认脚本数据
+            batchScriptTypes = [
+                {
+                    id: 'multi-account-batch',
+                    name: '多账户批量执行',
+                    description: '同时在多个账户上执行相同脚本',
+                    imageUrl: 'https://public.rootdata.com/images/b6/1739179963586.jpg',
+                    category: '基础功能',
+                    status: 'active'
+                },
+                {
+                    id: 'scheduled-tasks',
+                    name: '定时任务',
+                    description: '设置定时执行的批量脚本任务',
+                    imageUrl: 'https://public.rootdata.com/images/b6/1724653592563.jpg',
+                    category: '高级功能',
+                    status: 'active'
+                },
+                {
+                    id: 'monitor-task',
+                    name: '监控执行',
+                    description: '设置条件触发的监控执行脚本',
+                    imageUrl: 'https://public.rootdata.com/images/b6/1706063422799.jpg',
+                    category: '高级功能',
+                    status: 'active'
+                },
+                {
+                    id: 'chain-tasks',
+                    name: '链式任务',
+                    description: '多个脚本按顺序依次执行',
+                    imageUrl: 'https://public.rootdata.com/images/b12/1712038428629.jpg',
+                    category: '高级功能',
+                    status: 'coming'
+                },
+                {
+                    id: 'custom-batch',
+                    name: '自定义批量任务',
+                    description: '创建自定义批量执行方案',
+                    imageUrl: 'https://public.rootdata.com/images/b61/1743413886455.jpg',
+                    category: '基础功能',
+                    status: 'active'
+                },
+                {
+                    id: 'parallel-batch',
+                    name: '并行多任务',
+                    description: '并行执行多个不同脚本任务',
+                    imageUrl: 'https://public.rootdata.com/images/b56/1740061558242.jpg', 
+                    category: '高级功能',
+                    status: 'active'
+                },
+                {
+                    id: 'wallet-group-batch',
+                    name: '分组批量执行',
+                    description: '按钱包分组执行不同任务',
+                    imageUrl: 'https://public.rootdata.com/images/b13/1747108298474.jpg',
+                    category: '高级功能',
+                    status: 'active'
+                },
+                {
+                    id: 'error-retry-batch',
+                    name: '智能错误重试',
+                    description: '出错自动重试的批量任务',
+                    imageUrl: 'https://public.rootdata.com/images/b44/1724770395787.png',
+                    category: '基础功能',
+                    status: 'active'
+                }
+            ];
+            console.log('未找到支持批量执行的脚本，使用预设脚本数据');
+        }
+        
+        // 渲染脚本卡片
+        batchScriptTypes.forEach(scriptType => {
+            const card = createBatchScriptCard(scriptType);
+            cardsContainer.appendChild(card);
+        });
+        
+        populateFilters(typeFilterElement, statusFilterElement, batchScriptTypes);
+        
+    } catch (error) {
+        console.error('加载脚本失败:', error);
+        cardsContainer.innerHTML = `<div class="error-message">加载脚本失败: ${error.message}</div>`;
+        
+        // 使用默认脚本数据作为后备
+        batchScriptTypes = [
+            {
+                id: 'multi-account-batch',
+                name: '多账户批量执行',
+                description: '同时在多个账户上执行相同脚本',
+                imageUrl: 'https://public.rootdata.com/images/b6/1739179963586.jpg',
+                category: '基础功能',
+                status: 'active'
+            },
+            {
+                id: 'error-retry-batch',
+                name: '智能错误重试',
+                description: '出错自动重试的批量任务',
+                imageUrl: 'https://public.rootdata.com/images/b44/1724770395787.png',
+                category: '基础功能',
+                status: 'active'
+            }
+        ];
+        
+        cardsContainer.innerHTML = '';
+        batchScriptTypes.forEach(scriptType => {
+            const card = createBatchScriptCard(scriptType);
+            cardsContainer.appendChild(card);
+        });
+        
+        populateFilters(typeFilterElement, statusFilterElement, batchScriptTypes);
+    }
 }
 
 /**
