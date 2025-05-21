@@ -1,8 +1,3 @@
-// 添加必要的imports
-const { app, ipcMain, BrowserWindow } = require('electron');
-const electron = require('electron');
-const { shell } = require('electron');
-
 // 添加清除Discord会话的处理器
 ipcMain.on('clear-discord-session', (event) => {
     try {
@@ -58,6 +53,7 @@ ipcMain.on('clear-x-session', (event) => {
 // 添加打开外部URL的处理器
 ipcMain.on('open-external-url', (event, url) => {
     try {
+        const { shell } = require('electron');
         console.log(`Opening external URL: ${url}`);
         shell.openExternal(url);
     } catch (error) {
@@ -261,10 +257,4 @@ function setupHandlers(ipcMain) {
   setupScriptHandlers(ipcMain);
   
   // ... existing code ...
-}
-
-// 导出脚本处理函数供主进程使用
-module.exports = {
-  setupScriptHandlers,
-  setupHandlers
-}; 
+} 
