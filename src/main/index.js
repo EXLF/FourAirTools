@@ -13,6 +13,8 @@ const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
 const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');
 const scriptEngine = require('./scriptEngine.js');
+// 导入脚本处理器
+const scriptHandlers = require('./ipcHandlers/index.js');
 
 let mainWindow = null;
 let tray = null; // 系统托盘
@@ -143,6 +145,60 @@ function createWindow(startMinimized = false) {
   // 设置脚本引擎的主窗口引用
   scriptEngine.setMainWindow(mainWindow);
   console.log('[Main] 脚本引擎已初始化');
+  
+  // 设置脚本相关的IPC处理器
+  if (scriptHandlers.setupScriptHandlers) {
+    scriptHandlers.setupScriptHandlers(ipcMain);
+    console.log('[Main] 脚本IPC处理器已初始化');
+  } else {
+    // 直接注册getBatchScripts处理器
+    ipcMain.handle('script:getBatchScripts', async () => {
+      try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        
+        // 获取批量脚本列表
+        const scriptsDir = path.join(__dirname, '../../user_scripts/scripts');
+        const files = await fs.readdir(scriptsDir);
+        const scriptFiles = files.filter(file => file.endsWith('.js') && !file.startsWith('_'));
+        
+        // 读取每个脚本文件的元数据
+        const scripts = [];
+        for (const file of scriptFiles) {
+          const scriptPath = path.join(scriptsDir, file);
+          try {
+            // 清除缓存以确保获取最新的脚本配置
+            delete require.cache[require.resolve(scriptPath)];
+            // 动态导入脚本以获取其配置
+            const script = require(scriptPath);
+            if (script.getConfig && typeof script.getConfig === 'function') {
+              const config = script.getConfig();
+              // 确保脚本有批量执行相关配置
+              if (config.supportsBatchExecution) {
+                scripts.push({
+                  id: path.basename(file, '.js'),
+                  name: config.name || path.basename(file, '.js'),
+                  description: config.description || '',
+                  imageUrl: config.imageUrl || 'https://public.rootdata.com/images/b6/1739179963586.jpg',
+                  category: config.category || '未分类',
+                  status: config.status || 'active',
+                  scriptPath: scriptPath
+                });
+              }
+            }
+          } catch (scriptError) {
+            console.error(`读取脚本${file}出错:`, scriptError);
+          }
+        }
+        
+        return { success: true, scripts };
+      } catch (error) {
+        console.error('获取批量脚本列表失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    console.log('[Main] 已直接注册script:getBatchScripts处理器');
+  }
 
   // --- 新增：处理设置主密码请求 --- 
   ipcMain.handle('auth:setupPassword', async (event, password) => {

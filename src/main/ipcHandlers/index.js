@@ -257,4 +257,9 @@ function setupHandlers(ipcMain) {
   setupScriptHandlers(ipcMain);
   
   // ... existing code ...
-} 
+}
+
+// 导出脚本处理函数供主进程使用
+module.exports = {
+  setupScriptHandlers
+}; 

@@ -160,12 +160,12 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
         }
         
         // 渲染脚本卡片
-        batchScriptTypes.forEach(scriptType => {
-            const card = createBatchScriptCard(scriptType);
-            cardsContainer.appendChild(card);
-        });
-        
-        populateFilters(typeFilterElement, statusFilterElement, batchScriptTypes);
+    batchScriptTypes.forEach(scriptType => {
+        const card = createBatchScriptCard(scriptType);
+        cardsContainer.appendChild(card);
+    });
+    
+    populateFilters(typeFilterElement, statusFilterElement, batchScriptTypes);
         
     } catch (error) {
         console.error('加载脚本失败:', error);
@@ -365,7 +365,7 @@ function bindModularManagerEvents(taskInstanceId) {
     if (startTaskButton) {
         startTaskButton.addEventListener('click', (event) => {
             event.preventDefault();
-            saveCurrentModuleData(taskInstanceId);
+            saveCurrentModuleData(taskInstanceId); 
             
             // 检查选择的账户是否为空
             if (batchTaskConfigs[taskInstanceId].accounts.length === 0) {
@@ -578,7 +578,7 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                 <div class="wallet-checkbox-item">
                     <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" name="selected-wallets" value="${wallet.address}" ${currentTaskConfig.accounts.includes(wallet.address) ? 'checked' : ''}>
                     <label for="wallet-${wallet.id}-${taskInstanceId}">${wallet.name || '未命名钱包'} ${wallet.group ? `(${wallet.group})` : ''} ${wallet.address}</label>
-                </div>
+                        </div>
             `).join('')
             : '<p>没有可用的钱包账户。请先在钱包管理中添加钱包。</p>';
         
@@ -632,7 +632,7 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                                 <i class="fas fa-folder"></i> ${group} (${wallets.length})
                             </label>
                         </div>
-                    </div>
+                        </div>
                     <div class="wallet-group-content">
                         ${wallets.map(wallet => `
                             <div class="wallet-item">
@@ -644,10 +644,10 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                                     <div class="wallet-name">${wallet.name || '未命名钱包'}</div>
                                     <div class="wallet-address" title="${wallet.address}">${formatAddress(wallet.address)}</div>
                                 </label>
-                            </div>
+                </div>
                         `).join('')}
                     </div>
-                </div>
+                    </div>
             `).join('')
             : '<p>没有可用的钱包账户。请先在钱包管理中添加钱包。</p>';
 
@@ -678,19 +678,19 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                                     <input type="checkbox" id="proxy-${index}-${taskInstanceId}" class="proxy-checkbox" 
                                         ${isSelected ? 'checked' : ''}>
                                     <label for="proxy-${index}-${taskInstanceId}"></label>
-                                </div>
+                </div>
                                 <div class="proxy-card-content">
                                     <div class="proxy-info-row">
                                         <span class="proxy-protocol">${proxy.protocol || 'http'}</span>
                                         <span class="proxy-host">${proxy.host || (proxy.url || '').split('://')[1]?.split(':')[0] || 'N/A'}</span>
                                         <span class="proxy-port">${proxy.port || 'N/A'}</span>
                                         ${location ? `<span class="proxy-location"><i class="fas fa-globe-asia"></i> ${location}</span>` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                    </div>
+                    </div>
                 </div>
+            `;
+                    }).join('')}
+                    </div>
                 <div class="proxy-selection-summary">
                     <span>已选择 <span class="selected-proxy-count">${currentTaskConfig.proxyConfig.proxies.length}</span> / ${availableProxies.length} 个代理</span>
                     <div class="proxy-actions">
@@ -713,7 +713,7 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                 <div class="proxy-strategy-description">
                     <i class="fas fa-info-circle"></i>
                     <span>一对一模式下，每个账户将分配一个唯一的代理，代理数量需≥账户数量</span>
-                </div>
+                    </div>
                 <div class="proxy-assignment-preview">
                     <div class="accounts-count">
                         <div class="count-value">${currentTaskConfig.accounts.length}</div>
@@ -729,30 +729,30 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                             `<div class="count-warning">代理不足</div>` : ''}
                     </div>
                 </div>
-            </div>
-        `;
+                </div>
+            `;
         
         const oneToManyUI = `
             <div class="proxy-one-to-many">
                 <div class="proxy-strategy-description">
                     <i class="fas fa-info-circle"></i>
                     <span>一对多模式下，多个账户共用一组代理，适合代理数量有限的场景</span>
-                </div>
+                        </div>
                 <div class="proxy-assignment-preview">
                     <div class="accounts-count">
                         <div class="count-value">${currentTaskConfig.accounts.length}</div>
                         <div class="count-label">账户数</div>
-                    </div>
+                        </div>
                     <div class="assignment-diagram">
                         <div class="assignment-lines"></div>
-                    </div>
+                        </div>
                     <div class="proxies-count">
                         <div class="count-value">${currentTaskConfig.proxyConfig.proxies.length}</div>
                         <div class="count-label">代理数</div>
                         ${currentTaskConfig.proxyConfig.proxies.length === 0 ? 
                             `<div class="count-warning">至少需要1个代理</div>` : ''}
-                    </div>
-                </div>
+                        </div>
+                        </div>
                 <div class="proxy-distribution">
                     <div class="distribution-label">每个代理将服务:</div>
                     <div class="distribution-value">
@@ -761,10 +761,10 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                             '全部账户'}
                     </div>
                 </div>
-            </div>
-        `;
+                </div>
+            `;
 
-        htmlContent = `
+            htmlContent = `
             <div id="module-simple-config" class="module-content-panel active-module">
                 <div class="config-section wallet-config-section">
                     <div class="section-header">
@@ -773,12 +773,12 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                             <div class="wallet-search">
                                 <input type="text" id="wallet-search-${taskInstanceId}" placeholder="搜索钱包...">
                                 <i class="fas fa-search"></i>
-                            </div>
+                    </div>
                             <div class="wallet-selection-controls">
                                 <button id="select-all-wallets-${taskInstanceId}" class="btn btn-sm btn-outline">全选</button>
                                 <button id="deselect-all-wallets-${taskInstanceId}" class="btn btn-sm btn-outline">取消全选</button>
-                            </div>
-                        </div>
+                    </div>
+                    </div>
                     </div>
                     <div class="wallet-selection-container">
                         <div id="wallets-list-${taskInstanceId}" class="wallets-list">
@@ -858,8 +858,8 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                 </div>
                 ${!hasIpcRenderer ? 
                     '<div class="warning-banner"><i class="fas fa-exclamation-triangle"></i> 注意：当前使用的是模拟数据，因为IPC通信未配置。真实数据不可用。</div>' : ''}
-            </div>
-        `;
+                </div>
+            `;
     } else {
         htmlContent = '<p>未知配置模块。</p>';
     }
