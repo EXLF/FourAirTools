@@ -484,9 +484,6 @@ function bindModularManagerEvents(taskInstanceId) {
                 }
             }
             
-            // 重置日志渲染器初始化标记
-            window.__batchLogRenderInitialized = false;
-            
             // 移除所有script-log监听器
             if (window.electron && window.electron.ipcRenderer) {
                 window.electron.ipcRenderer.removeAllListeners('script-log');
@@ -572,13 +569,10 @@ function bindModularManagerEvents(taskInstanceId) {
                     // 清空之前的日志
                     TaskLogger.clearLogContainer(logContainer);
                     
-                    // 渲染日志到容器 - 只在首次点击时初始化
-                    if (!window.__batchLogRenderInitialized) {
-                        const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
-                        window.__currentLogCleanup = cleanupLogRender;
-                        window.__batchLogRenderInitialized = true;
-                        console.log('[批量脚本] 日志渲染器已初始化');
-                    }
+                    // 每次执行都重新初始化日志渲染器，确保日志能正常显示
+                    const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
+                    window.__currentLogCleanup = cleanupLogRender;
+                    console.log('[批量脚本] 日志渲染器已初始化');
                     
                     TaskLogger.logInfo('🚀 批量脚本执行系统已初始化');
                     TaskLogger.logInfo(`📋 任务名称: ${currentBatchScriptType.name}`);
