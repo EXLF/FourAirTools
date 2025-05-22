@@ -10,10 +10,22 @@ const util = require('util');
 const cryptoService = require('./core/cryptoService.js');
 const db = require('./db/index.js');
 
+// 设置正确的输出编码（Windows平台）
+if (process.platform === 'win32') {
+  const { execSync } = require('child_process');
+  try {
+    execSync('chcp 65001', { stdio: 'ignore' }); // 设置为UTF-8编码
+  } catch (e) {
+    // 忽略错误
+  }
+}
+
 // 日志记录
 function log(level, message) {
   const timestamp = new Date().toISOString();
-  console[level](`[${timestamp}][ScriptEngine][${level.toUpperCase()}] ${message}`);
+  // 确保消息是UTF-8编码的字符串
+  const utf8Message = Buffer.from(message, 'utf8').toString('utf8');
+  console[level](`[${timestamp}][ScriptEngine][${level.toUpperCase()}] ${utf8Message}`);
 }
 
 // 保存主窗口引用
@@ -35,11 +47,36 @@ class ScriptEngine {
     log('info', '主窗口引用已设置');
   }
   
-  // 发送日志到渲染进程
+  /**
+   * 向渲染进程发送日志信息
+   * @param {string} level - 日志级别
+   * @param {string} message - 日志消息
+   */
   sendLogToRenderer(level, message) {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('script:log', { level, message });
-      log(level === 'error' ? 'error' : 'info', message);
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    
+    try {
+      // 确保message是字符串类型，防止序列化错误
+      const safeMessage = typeof message === 'string' ? 
+        message : 
+        (typeof message === 'object' ? 
+          JSON.stringify(message, (key, value) => {
+            // 处理可能导致循环引用的属性
+            if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
+              return '[循环引用]';
+            }
+            return value;
+          }) : 
+          String(message));
+      
+      // 日志信息需要安全序列化后发送
+      mainWindow.webContents.send('script-log', { 
+        level, 
+        message: safeMessage,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('向渲染进程发送日志失败:', error);
     }
   }
   
@@ -258,6 +295,17 @@ class ScriptEngine {
                 privateKey: decryptedPrivateKey // 添加解密后的私钥
               });
             }
+            
+            // 在这里添加我们的显式日志，循环结束但if块尚未结束的位置
+            this.sendLogToRenderer('info', `将为脚本 ${scriptId} 执行的钱包账户列表: ${JSON.stringify(processedWallets.map(w => {
+              // 创建安全版本，隐藏私钥
+              const safeWallet = { ...w };
+              if (safeWallet.privateKey) {
+                safeWallet.privateKey = safeWallet.privateKey.substring(0, 8) + '...[隐藏]';
+              }
+              return safeWallet;
+            }))}`);
+
           } else {
             this.sendLogToRenderer('warning', `未能从数据库为ID列表 [${walletIds.join(', ')}] 获取到任何钱包信息。`);
           }
@@ -272,10 +320,20 @@ class ScriptEngine {
 
       // --- 新增：获取完整的代理信息 ---
       let fullProxyInfo = null;
-      if (proxyConfig) { // proxyConfig 是代理ID (字符串)
-        try {
-          const proxyDetails = await db.getProxyById(db.db, parseInt(proxyConfig, 10)); // 确保ID是数字
-          if (proxyDetails) {
+      if (proxyConfig) {
+        // 检查是否是批量代理配置对象
+        if (typeof proxyConfig === 'object' && proxyConfig.strategy && proxyConfig.proxies) {
+          // 批量代理配置
+          fullProxyInfo = {
+            strategy: proxyConfig.strategy,
+            proxies: proxyConfig.proxies
+          };
+          this.sendLogToRenderer('info', `脚本 ${scriptId} 使用批量代理配置: ${proxyConfig.strategy} 策略，${proxyConfig.proxies.length} 个代理`);
+        } else if (typeof proxyConfig === 'string' || typeof proxyConfig === 'number') {
+          // 单个代理ID
+          try {
+            const proxyDetails = await db.getProxyById(db.db, parseInt(proxyConfig, 10)); // 确保ID是数字
+            if (proxyDetails) {
             const protocol = proxyDetails.type ? proxyDetails.type.toLowerCase() : 'http';
             const host = proxyDetails.host;
             const port = parseInt(proxyDetails.port, 10);
@@ -327,12 +385,13 @@ class ScriptEngine {
             } else if (proxyDetails.username) {
               this.sendLogToRenderer('warning', `代理 ${proxyDetails.host}:${proxyDetails.port} 有用户名但密码为空。将不使用认证信息。`);
             }
-            this.sendLogToRenderer('info', `脚本 ${scriptId} 将使用代理配置: ${JSON.stringify(fullProxyInfo)}`);
-          } else {
-            this.sendLogToRenderer('warning', `未能从数据库找到 ID 为 ${proxyConfig} 的代理详情。脚本将不使用代理。`);
+              this.sendLogToRenderer('info', `脚本 ${scriptId} 将使用代理配置: ${JSON.stringify(fullProxyInfo)}`);
+            } else {
+              this.sendLogToRenderer('warning', `未能从数据库找到 ID 为 ${proxyConfig} 的代理详情。脚本将不使用代理。`);
+            }
+          } catch (dbError) {
+            this.sendLogToRenderer('error', `查询代理 ID ${proxyConfig} 详情时出错: ${dbError.message}。脚本将不使用代理。`);
           }
-        } catch (dbError) {
-          this.sendLogToRenderer('error', `查询代理 ID ${proxyConfig} 详情时出错: ${dbError.message}。脚本将不使用代理。`);
         }
       }
       // --- 结束新增 ---
@@ -431,14 +490,26 @@ class ScriptEngine {
         });
         
         const scriptContent = fs.readFileSync(script.filePath, { encoding: 'utf8' });
+        
+        // 调试：打印脚本内容的前100个字符
+        log('info', `脚本 ${scriptId} 内容预览: ${scriptContent.substring(0, 100)}...`);
+        
         const wrappedScript = `
           (function(module, exports, require, __dirname, __filename, context) {
             ${scriptContent}
+            return module.exports;
           })(module, exports, require, __dirname, __filename, context);
-          module.exports;
         `;
         
         const scriptModule = vm2Instance.run(wrappedScript, script.filePath);
+        
+        // 调试：检查导出的内容
+        log('info', `脚本 ${scriptId} 导出的内容: ${Object.keys(scriptModule || {}).join(', ')}`);
+        if (scriptModule && typeof scriptModule.main === 'function') {
+            log('info', `脚本 ${scriptId} 找到 main 函数`);
+        } else {
+            log('error', `脚本 ${scriptId} 没有找到 main 函数，导出的内容类型: ${typeof scriptModule}`);
+        }
         
         this.runningScripts.set(executionId, {
           id: scriptId,
@@ -460,11 +531,42 @@ class ScriptEngine {
                 scriptInfo.status = 'completed';
                 this.runningScripts.set(executionId, scriptInfo);
               }
+              
+              // 安全处理结果，避免序列化错误
+              let safeResult;
+              try {
+                // 尝试序列化结果，移除可能导致循环引用的属性
+                safeResult = JSON.parse(JSON.stringify(result, (key, value) => {
+                  // 忽略可能导致循环引用的属性
+                  if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
+                    return '[循环引用]';
+                  }
+                  // 处理可能导致序列化问题的大数字
+                  if (typeof value === 'bigint') {
+                    return value.toString() + 'n';
+                  }
+                  return value;
+                }));
+              } catch (serializeError) {
+                console.error('序列化脚本结果失败:', serializeError);
+                // 如果序列化失败，返回简化的结果
+                safeResult = { 
+                  success: true, 
+                  message: '脚本执行完成，但结果无法完全序列化', 
+                  partial: String(result).substring(0, 500) + '...'
+                };
+              }
+              
               if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('script-completed', { 
-                  executionId, 
-                  result 
-                });
+                try {
+                  mainWindow.webContents.send('script-completed', { 
+                    executionId, 
+                    result: safeResult 
+                  });
+                } catch (sendError) {
+                  console.error('发送脚本完成事件失败:', sendError);
+                  this.sendLogToRenderer('warning', '脚本执行完成，但结果传递失败');
+                }
               }
             })
             .catch(error => {
@@ -489,10 +591,14 @@ class ScriptEngine {
         }
       } catch (vmError) {
         log('error', `脚本执行环境创建失败: ${vmError.message}`);
+        // 发送错误日志到渲染器
+        this.sendLogToRenderer('error', `脚本执行环境创建失败: ${vmError.message}`);
         throw new Error(`脚本执行环境创建失败: ${vmError.message}`);
       }
     } catch (error) {
       log('error', `执行脚本失败: ${error.message}`);
+      // 发送错误日志到渲染器
+      this.sendLogToRenderer('error', `执行脚本失败: ${error.message}`);
       throw error;
     }
   }

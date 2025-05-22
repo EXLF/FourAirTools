@@ -6,10 +6,8 @@
 import { showModal } from '../../components/modal.js';
 import { setupFilteringAndSearch } from '../../components/tableHelper.js';
 import { translateLocation } from '../../utils/locationTranslator.js';
-// import { BatchTaskManager } from './batchTaskManager.js'; // 暂时注释，新的管理器将不同
-// import { renderTaskDetail } from './taskDetail.js'; // 暂时注释
-// import { createBatchTask } from './createTask.js'; // 暂时注释
-// import { TaskLogger } from './logger.js'; // 暂时注释
+import { BatchTaskManager } from './batchTaskManager.js';
+import { TaskLogger } from './logger.js';
 
 // 页面引用
 let contentAreaRef = null;
@@ -335,6 +333,16 @@ function navigateToModularTaskManager(taskInstanceId) {
         <main class="module-content-display" id="moduleContentDisplay">
             <!-- 简化的配置内容将在此处动态加载 -->
         </main>
+        <div class="task-logs-panel" id="taskLogsPanel" style="display: none;">
+            <div class="logs-header">
+                <h3><i class="fas fa-terminal"></i> 脚本执行日志</h3>
+                <div class="logs-actions">
+                    <button id="clear-logs-btn" class="btn btn-sm" title="清空日志"><i class="fas fa-eraser"></i></button>
+                    <button id="collapse-logs-btn" class="btn btn-sm" title="折叠/展开"><i class="fas fa-chevron-up"></i></button>
+                </div>
+            </div>
+            <div id="taskLogContainer" class="logs-content"></div>
+        </div>
         <div class="simple-config-footer-actions">
              <button id="start-execution-btn" class="btn btn-success"><i class="fas fa-play"></i> 开始执行</button>
         </div>
@@ -373,6 +381,69 @@ function navigateToModularTaskManager(taskInstanceId) {
     bindModularManagerEvents(taskInstanceId); // 事件绑定也需要调整
     loadModuleContent(moduleOrder[currentModuleIndex], taskInstanceId); 
     // updateModuleNavigationButtons 不再需要，因为没有多模块导航了
+    
+    // 添加日志面板样式
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .task-logs-panel {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f1f1f1;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .logs-header h3 {
+            margin: 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logs-header h3 i {
+            margin-right: 8px;
+        }
+        
+        .logs-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .logs-content {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            background: #222;
+            color: #eee;
+        }
+        
+        .log-entry {
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            word-break: break-word;
+        }
+        
+        .log-time {
+            color: #888;
+            margin-right: 8px;
+        }
+        
+        .log-type-info .log-message { color: #eee; }
+        .log-type-success .log-message { color: #4caf50; }
+        .log-type-warning .log-message { color: #ff9800; }
+        .log-type-error .log-message { color: #f44336; }
+    `;
+    document.head.appendChild(styleElement);
 }
 
 /**
@@ -390,16 +461,47 @@ function bindModularManagerEvents(taskInstanceId) {
     if (backToCardsButton) {
         backToCardsButton.addEventListener('click', (event) => {
             event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
+            saveCurrentModuleData(taskInstanceId);
+            
+            // 清理日志渲染器
+            if (window.__currentLogCleanup) {
+                try {
+                    window.__currentLogCleanup();
+                    window.__currentLogCleanup = null;
+                } catch (e) {
+                    console.warn('清理日志渲染器失败:', e);
+                }
+            }
+            
+            // 清理日志监听器
+            if (window.__currentLogListenerRemover) {
+                try {
+                    window.__currentLogListenerRemover();
+                    window.__currentLogListenerRemover = null;
+                    console.log('[批量脚本] 返回卡片页面时清理了日志监听器');
+                } catch (e) {
+                    console.warn('清理日志监听器失败:', e);
+                }
+            }
+            
+            // 重置日志渲染器初始化标记
+            window.__batchLogRenderInitialized = false;
+            
+            // 移除所有script-log监听器
+            if (window.electron && window.electron.ipcRenderer) {
+                window.electron.ipcRenderer.removeAllListeners('script-log');
+                window.electron.ipcRenderer.removeAllListeners('script-completed');
+            }
+            
             renderBatchScriptCardsView(contentAreaRef); // 确保传递 contentAreaRef
         });
     }
 
     const startTaskButton = managerPage.querySelector('#start-execution-btn');
     if (startTaskButton) {
-        startTaskButton.addEventListener('click', (event) => {
+        startTaskButton.addEventListener('click', async (event) => {
             event.preventDefault();
-            saveCurrentModuleData(taskInstanceId); 
+            saveCurrentModuleData(taskInstanceId);
             
             // 检查选择的账户是否为空
             if (batchTaskConfigs[taskInstanceId].accounts.length === 0) {
@@ -421,56 +523,551 @@ function bindModularManagerEvents(taskInstanceId) {
                 return;
             }
             
-            console.log(`尝试为 ${taskInstanceId} 启动任务，配置如下:`, batchTaskConfigs[taskInstanceId]);
-            
-            // 使用相同的IPC检测逻辑，避免重复代码
-            let ipc = null;
-            // 尝试检测IPC接口的不同可能位置和命名
-            const ipcOptions = [
-                window.ipcRenderer,
-                window.electron?.ipcRenderer,
-                window.api?.invoke ? { invoke: window.api.invoke } : null,
-                window.bridge?.invoke ? { invoke: window.bridge.invoke } : null,
-                window.ipc
-            ];
-            
-            for (const option of ipcOptions) {
-                if (option && typeof option.invoke === 'function') {
-                    ipc = option;
-                    break;
+            // 显示日志面板
+            const logsPanel = document.getElementById('taskLogsPanel');
+            if (logsPanel) {
+                logsPanel.style.display = 'block';
+                
+                // 绑定日志面板控制按钮事件
+                const clearLogsBtn = document.getElementById('clear-logs-btn');
+                const collapseLogsBtn = document.getElementById('collapse-logs-btn');
+                const logContainer = document.getElementById('taskLogContainer');
+                
+                if (clearLogsBtn) {
+                    clearLogsBtn.onclick = () => {
+                        if (logContainer) {
+                            TaskLogger.clearLogContainer(logContainer);
+                            TaskLogger.logInfo('日志已清空');
+                        }
+                    };
+                }
+                
+                if (collapseLogsBtn) {
+                    collapseLogsBtn.onclick = () => {
+                        const logsContent = logsPanel.querySelector('.logs-content');
+                        const icon = collapseLogsBtn.querySelector('i');
+                        if (logsContent.style.display === 'none') {
+                            logsContent.style.display = 'block';
+                            icon.className = 'fas fa-chevron-up';
+                        } else {
+                            logsContent.style.display = 'none'; 
+                            icon.className = 'fas fa-chevron-down';
+                        }
+                    };
+                }
+                
+                // 初始化日志渲染器 - 在执行前就初始化
+                if (logContainer) {
+                    // 先清理之前的日志渲染器
+                    if (window.__currentLogCleanup) {
+                        try {
+                            window.__currentLogCleanup();
+                            window.__currentLogCleanup = null;
+                            console.log('[批量脚本] 已清理旧的日志渲染器');
+                        } catch (e) {
+                            console.warn('[批量脚本] 清理旧日志渲染器失败:', e);
+                        }
+                    }
+                    
+                    // 清空之前的日志
+                    TaskLogger.clearLogContainer(logContainer);
+                    
+                    // 渲染日志到容器 - 只在首次点击时初始化
+                    if (!window.__batchLogRenderInitialized) {
+                        const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
+                        window.__currentLogCleanup = cleanupLogRender;
+                        window.__batchLogRenderInitialized = true;
+                        console.log('[批量脚本] 日志渲染器已初始化');
+                    }
+                    
+                    TaskLogger.logInfo('🚀 批量脚本执行系统已初始化');
+                    TaskLogger.logInfo(`📋 任务名称: ${currentBatchScriptType.name}`);
+                    TaskLogger.logInfo(`👥 选择的钱包数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
+                    
+                    if (batchTaskConfigs[taskInstanceId].proxyConfig.enabled) {
+                        TaskLogger.logInfo(`🌐 代理配置: ${batchTaskConfigs[taskInstanceId].proxyConfig.strategy} 策略，共 ${batchTaskConfigs[taskInstanceId].proxyConfig.proxies.length} 个代理`);
+                    }
+                    
+                    // 添加测试按钮（用于调试）- 只添加一次
+                    if (!document.getElementById('test-log-btn')) {
+                        const testLogBtn = document.createElement('button');
+                        testLogBtn.id = 'test-log-btn';
+                        testLogBtn.innerHTML = '<i class="fas fa-bug"></i> 测试日志';
+                        testLogBtn.className = 'btn btn-sm';
+                        testLogBtn.style.marginLeft = '5px';
+                        testLogBtn.onclick = () => {
+                            TaskLogger.logInfo('📝 这是一条INFO测试日志');
+                            TaskLogger.logSuccess('✅ 这是一条SUCCESS测试日志');
+                            TaskLogger.logWarning('⚠️ 这是一条WARNING测试日志');
+                            TaskLogger.logError('❌ 这是一条ERROR测试日志');
+                            console.log('[测试] 日志已发送到TaskLogger');
+                        };
+                        
+                        const logsActions = logsPanel.querySelector('.logs-actions');
+                        if (logsActions) {
+                            logsActions.appendChild(testLogBtn);
+                        }
+                    }
                 }
             }
             
-            if (!ipc) {
-                alert('无法执行脚本：IPC通信未配置。这可能是开发环境或预览模式引起的。请联系开发者配置preload.js文件。');
-                return;
-            }
+            // 注释掉这部分，避免重复初始化日志渲染器
+            // const logContainer = document.getElementById('taskLogContainer');
+            // if (logContainer) {
+            //     TaskLogger.renderLogsToContainer(logContainer);
+            //     TaskLogger.logInfo(`开始执行批量任务: ${currentBatchScriptType.name}`);
+            //     TaskLogger.logInfo(`选择了 ${batchTaskConfigs[taskInstanceId].accounts.length} 个钱包账户`);
+            // }
             
-            // 在这里，调用实际的脚本执行逻辑
+            // 创建任务实例并保存到任务管理器
+            const batchTaskManager = new BatchTaskManager();
+            const taskData = {
+                id: taskInstanceId,
+                name: `${currentBatchScriptType.name} 批量任务`,
+                scriptId: currentBatchScriptType.id,
+                scriptName: currentBatchScriptType.name,
+                accountIds: batchTaskConfigs[taskInstanceId].accounts,
+                proxyConfig: batchTaskConfigs[taskInstanceId].proxyConfig,
+                status: 'running',
+                startTime: Date.now()
+            };
+            
             try {
-                // 使用预加载暴露的 scriptAPI 调用主进程的 run-script 通道
-                if (window.scriptAPI && typeof window.scriptAPI.executeScript === 'function') {
-                    window.scriptAPI.executeScript(
-                        currentBatchScriptType.id,
-                        batchTaskConfigs[taskInstanceId].accounts,
-                        {}, // 脚本额外配置（当前为空）
-                        batchTaskConfigs[taskInstanceId].proxyConfig // 代理配置对象
-                    ).then(result => {
-                        console.log('脚本执行结果:', result);
-                        alert(`脚本已启动执行\n类型: ${currentBatchScriptType.name}\n账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
-                    }).catch(err => {
-                        console.error('脚本执行失败:', err);
-                        alert(`脚本执行失败: ${err.error || err.message || '未知错误'}`);
-                    });
+                await batchTaskManager.addTask(taskData);
+                TaskLogger.logInfo(`任务 ${taskInstanceId} 已创建并保存到任务管理器`);
+            } catch (err) {
+                console.warn('添加到批量任务管理器失败:', err);
+                TaskLogger.logWarning('无法保存任务状态，但脚本执行不受影响');
+            }
+            
+            // 使用预加载暴露的 scriptAPI 调用主进程的 run-script 通道
+            if (window.scriptAPI && typeof window.scriptAPI.executeScript === 'function') {
+                // 修改按钮状态
+                startTaskButton.disabled = true;
+                startTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
+                
+                let actualProxyConfigToPass = null;
+                const batchProxySettings = batchTaskConfigs[taskInstanceId].proxyConfig;
+
+                if (batchProxySettings && batchProxySettings.enabled) {
+                    if (batchProxySettings.proxies && batchProxySettings.proxies.length > 0) {
+                        TaskLogger.logInfo(`正在处理代理配置，策略: ${batchProxySettings.strategy}`);
+                        
+                        // 根据策略传递不同的代理配置
+                        if (batchProxySettings.strategy === 'one-to-one') {
+                            // 一对一策略：传递整个代理数组
+                            actualProxyConfigToPass = {
+                                strategy: 'one-to-one',
+                                proxies: batchProxySettings.proxies
+                            };
+                            TaskLogger.logInfo(`🔗 一对一代理模式：已配置 ${batchProxySettings.proxies.length} 个代理`);
+                        } else {
+                            // 一对多策略：传递代理池
+                            actualProxyConfigToPass = {
+                                strategy: 'one-to-many',
+                                proxies: batchProxySettings.proxies
+                            };
+                            TaskLogger.logInfo(`🔀 一对多代理模式：已配置 ${batchProxySettings.proxies.length} 个代理池`);
+                        }
+                        
+                        // 显示部分代理信息（隐私保护）
+                        const firstProxy = batchProxySettings.proxies[0];
+                        if (typeof firstProxy === 'string' && firstProxy.includes('://')) {
+                            try {
+                                const url = new URL(firstProxy);
+                                TaskLogger.logInfo(`🌐 代理示例: ${url.protocol}//${url.hostname}:${url.port || '****'}`);
+                            } catch (e) {
+                                TaskLogger.logInfo(`🌐 代理格式: ${firstProxy.substring(0, 20)}...`);
+                            }
+                        }
+                    } else {
+                        TaskLogger.logWarning(`⚠️ 代理已启用，但代理列表为空。将不使用代理`);
+                    }
                 } else {
-                    console.error('scriptAPI.executeScript 未定义');
-                    alert('脚本执行失败：脚本接口未定义');
+                    TaskLogger.logInfo(`🚫 未启用代理功能`);
                 }
-            } catch (error) {
-                console.error('调用脚本执行时发生错误:', error);
-                alert(`启动执行时出错: ${error.message || '未知错误'}`);
+                
+                // 创建脚本配置对象
+                const scriptConfig = {
+                    batchMode: true,
+                    timestamp: Date.now(),
+                    taskId: taskInstanceId
+                };
+                
+                // 注册日志监听函数
+                const logEventHandler = (data) => {
+                    // 注意：preload.js中的on函数只传递data，不传递event
+                    // 添加详细的调试信息
+                    console.log('[批量脚本日志] 收到日志事件:', data);
+                    
+                    if (!data) {
+                        console.warn('[批量脚本日志] 收到空的日志数据');
+                        return;
+                    }
+                    
+                    // 更全面的日志处理
+                    try {
+                        const message = typeof data.message === 'string' ? data.message : 
+                                      (typeof data === 'string' ? data : 
+                                       (data.message ? String(data.message) : JSON.stringify(data)));
+                        
+                        const level = data.level?.toLowerCase() || 'info';
+                        
+                        // 处理特殊格式的日志
+                        let shouldDisplayOriginal = true;
+                        
+                        // 尝试提取钱包信息
+                        if (extractWalletDetails(message)) {
+                            shouldDisplayOriginal = false; // 钱包信息已经格式化显示，不需要再显示原始消息
+                        }
+                        // 处理代理信息
+                        else if (message.includes('代理信息') || message.includes('proxy')) {
+                            const proxyInfo = message.includes('代理信息') ? 
+                                message.split('代理信息')[1] : 
+                                (message.includes('proxy') ? message.split('proxy')[1] : '');
+                            
+                            if (proxyInfo) {
+                                TaskLogger.logInfo(`🌐 代理配置${proxyInfo.trim()}`);
+                                shouldDisplayOriginal = false;
+                            }
+                        }
+                        // 特殊消息处理
+                        else if (message.includes('初始化完成') || message.includes('鍒濆鍖栧畬鎴?')) {
+                            TaskLogger.logInfo('🚀 脚本环境初始化完成');
+                            shouldDisplayOriginal = false;
+                        }
+                        else if (message.includes('执行完成') || message.includes('鑴氭湰鎵ц瀹屾垚')) {
+                            TaskLogger.logSuccess('✅ 脚本执行成功完成!');
+                            shouldDisplayOriginal = false;
+                        }
+                        else if (message.includes('钱包ID列表')) {
+                            const walletIds = message.split('[')[1]?.split(']')[0];
+                            if (walletIds) {
+                                TaskLogger.logInfo(`📋 执行钱包列表: [${walletIds}]`);
+                                shouldDisplayOriginal = false;
+                            }
+                        }
+                        
+                        // 如果不是特殊消息，显示原始日志（带前缀）
+                        if (shouldDisplayOriginal) {
+                            // 检测并修复中文乱码
+                            let displayMessage = message;
+                            if (/鑴氭湰|閰嶇疆|姝ｅ湪|鎵ц|鑾峰彇|璇︾粏|淇℃伅|鍒濆鍖?|瀹屾垚/.test(message)) {
+                                displayMessage = fixChineseEncoding(message);
+                            }
+                            
+                            logByLevel(level, `[脚本引擎] ${displayMessage}`);
+                        }
+                    } catch (error) {
+                        console.error('处理日志时出错:', error);
+                        // 出错时保底显示
+                        if (data && typeof data.message === 'string') {
+                            TaskLogger.logInfo(`[脚本引擎] ${data.message}`);
+                        } else if (typeof data === 'string') {
+                            TaskLogger.logInfo(`[脚本引擎] ${data}`);
+                        } else {
+                            TaskLogger.logInfo('接收到无法处理的日志数据');
+                        }
+                    }
+                };
+                
+                // 根据级别记录日志的辅助函数
+                function logByLevel(level, message) {
+                    switch(level) {
+                        case 'success': TaskLogger.logSuccess(message); break;
+                        case 'warning': TaskLogger.logWarning(message); break;
+                        case 'error': TaskLogger.logError(message); break;
+                        default: TaskLogger.logInfo(message);
+                    }
+                }
+                
+                // 提取并显示钱包详情的辅助函数
+                function extractWalletDetails(message) {
+                    try {
+                        // 查找可能的JSON数组或对象
+                        const jsonMatches = message.match(/(\[[\s\S]*?\])|(\{[\s\S]*?\})/);
+                        if (jsonMatches && jsonMatches[0]) {
+                            const jsonStr = jsonMatches[0];
+                            
+                            // 判断是否可能是钱包数据
+                            if (jsonStr.includes('"id"') || jsonStr.includes('"address"') || 
+                                jsonStr.includes('privateKey') || jsonStr.includes('id:')) {
+                                
+                                // 尝试解析为JSON
+                                let walletData;
+                                try {
+                                    // 标准JSON
+                                    walletData = JSON.parse(jsonStr);
+                                } catch (e) {
+                                    try {
+                                        // JavaScript对象转JSON (去掉单引号、添加键名引号)
+                                        const fixedJson = jsonStr
+                                            .replace(/([{,]\s*)([a-zA-Z0-9_]+):/g, '$1"$2":')  // 添加键名引号
+                                            .replace(/'([^']*)'/g, '"$1"');                    // 单引号替换为双引号
+                                        walletData = JSON.parse(fixedJson);
+                                    } catch (e2) {
+                                        return false; // 解析失败
+                                    }
+                                }
+                                
+                                if (Array.isArray(walletData) && walletData.length > 0) {
+                                    TaskLogger.logInfo('💼 执行钱包详情:');
+                                    walletData.forEach((wallet, index) => {
+                                        // 隐藏私钥
+                                        const safeWallet = { ...wallet };
+                                        if (safeWallet.privateKey) {
+                                            safeWallet.privateKey = safeWallet.privateKey.substring(0, 10) + '...[已隐藏]';
+                                        }
+                                        TaskLogger.logInfo(`  📝 钱包 ${index+1}: ID=${safeWallet.id || '未知'}, 地址=${safeWallet.address || '未知'}, 名称=${safeWallet.name || '未命名'}`);
+                                    });
+                                    return true; // 表示成功提取并显示了钱包信息
+                                } else if (walletData && typeof walletData === 'object') {
+                                    // 单个钱包对象
+                                    TaskLogger.logInfo('💼 执行钱包详情:');
+                                    const safeWallet = { ...walletData };
+                                    if (safeWallet.privateKey) {
+                                        safeWallet.privateKey = safeWallet.privateKey.substring(0, 10) + '...[已隐藏]';
+                                    }
+                                    TaskLogger.logInfo(`  📝 钱包: ID=${safeWallet.id || '未知'}, 地址=${safeWallet.address || '未知'}, 名称=${safeWallet.name || '未命名'}`);
+                                    return true;
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.log('尝试提取钱包信息时出错:', err);
+                    }
+                    return false; // 提取失败
+                }
+                
+                // 修复中文乱码的辅助函数
+                function fixChineseEncoding(message) {
+                    // 常见的中文乱码替换
+                    const replacements = {
+                        '鑴氭湰': '脚本',
+                        '鎵ц': '执行',
+                        '閰嶇疆': '配置',
+                        '鍒濆鍖?': '初始化',
+                        '鍒濆鍖栧畬鎴?': '初始化完成',
+                        '姝ｅ湪': '正在',
+                        '瀹屾垚': '完成',
+                        '閽卞寘': '钱包',
+                        '鑾峰彇': '获取',
+                        '璇︾粏': '详细',
+                        '淇℃伅': '信息',
+                        '鍔犺浇': '加载',
+                        '鎺ユ敹': '接收',
+                        '鍒楄〃': '列表',
+                        '璋冪敤': '调用',
+                        '璧勬簮': '资源',
+                        '鎴愬姛': '成功',
+                        '鏁版嵁': '数据',
+                        '椤圭洰': '项目',
+                        '鏈哄櫒浜?': '机器人',
+                        '鑱婂ぉ': '聊天',
+                        '鐧诲綍': '登录',
+                        '璐︽埛': '账户',
+                        '浠ｇ悊': '代理',
+                        '鎵撳嵃': '打印',
+                        '鍏佽': '允许',
+                        '妯″潡': '模块',
+                        '杩斿洖': '返回',
+                        '鍝嶅簲': '响应',
+                        '鏉℃暟': '条数',
+                        '澶辫触': '失败',
+                        '鍙戦€?': '发送',
+                        '宸茶В瀵?': '已解密'
+                    };
+                    
+                    let fixedMessage = message;
+                    Object.keys(replacements).forEach(key => {
+                        fixedMessage = fixedMessage.replace(new RegExp(key, 'g'), replacements[key]);
+                    });
+                    
+                    // 如果仍然存在乱码，添加提示
+                    if (/[\u4e00-\u9fa5]/.test(fixedMessage) && /[\ufffd]|[脛銆侀攱]/.test(fixedMessage)) {
+                        fixedMessage += ' [部分内容可能存在编码问题]';
+                    }
+                    
+                    return fixedMessage;
+                }
+                
+                // 添加日志事件监听
+                let logListenerRemover = null;
+                
+                // 确保移除之前可能存在的日志监听器
+                if (window.__currentLogListenerRemover) {
+                    try {
+                        window.__currentLogListenerRemover();
+                        window.__currentLogListenerRemover = null;
+                        console.log('[批量脚本] 已清理旧的日志监听器');
+                    } catch (e) {
+                        console.warn('[批量脚本] 清理旧日志监听器失败:', e);
+                    }
+                }
+                
+                if (window.electron && window.electron.ipcRenderer) {
+                    // 先移除可能存在的旧监听器
+                    window.electron.ipcRenderer.removeAllListeners('script-log');
+                    
+                    window.electron.ipcRenderer.on('script-log', logEventHandler);
+                    TaskLogger.logInfo(`✅ 已注册脚本日志监听器`);
+                    
+                    // 测试日志系统是否正常工作
+                    setTimeout(() => {
+                        TaskLogger.logInfo('📡 日志系统测试: 如果您看到这条消息，说明日志系统正常工作');
+                    }, 500);
+                    
+                    logListenerRemover = () => {
+                        window.electron.ipcRenderer.removeListener('script-log', logEventHandler);
+                        console.log('[批量脚本] 日志监听器已移除');
+                    };
+                    
+                    // 保存到全局变量，以便下次执行时清理
+                    window.__currentLogListenerRemover = logListenerRemover;
+                } else {
+                    TaskLogger.logWarning('⚠️ 未找到 electron.ipcRenderer，日志功能可能受限');
+                    console.error('window.electron:', window.electron);
+                }
+                
+                // 执行脚本
+                TaskLogger.logInfo(`正在调用脚本引擎执行批量任务...`);
+                
+                try {
+                    const result = await window.scriptAPI.executeScript(
+                        currentBatchScriptType.id, // scriptId
+                        batchTaskConfigs[taskInstanceId].accounts, // selectedWallets
+                        scriptConfig, // 配置对象
+                        actualProxyConfigToPass // 代理配置
+                    );
+                    
+                    console.log('脚本执行结果:', result);
+                    
+                    // 检查执行结果
+                    if (result && result.success) {
+                        TaskLogger.logSuccess(`批量脚本已成功启动`);
+                        TaskLogger.logInfo(`任务ID: ${taskInstanceId || result.executionId || '未知'}`);
+                        TaskLogger.logInfo(`账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
+                        
+                        // 恢复按钮状态为"重新执行"
+                        startTaskButton.disabled = false;
+                        startTaskButton.innerHTML = '<i class="fas fa-redo"></i> 重新执行';
+                    } else {
+                        // 脚本执行返回失败
+                        const errorMsg = result?.error || result?.message || '脚本执行失败';
+                        TaskLogger.logError(`❌ 脚本执行失败: ${errorMsg}`);
+                        
+                        // 恢复按钮状态为"重试执行"
+                        startTaskButton.disabled = false;
+                        startTaskButton.innerHTML = '<i class="fas fa-play"></i> 重试执行';
+                    }
+                    
+                    // 更新任务状态
+                    try {
+                        await batchTaskManager.updateTask(taskInstanceId, {
+                            status: result && result.success ? 'running' : 'failed',
+                            executionId: result?.executionId || '',
+                            progress: 0,
+                            error: result && !result.success ? (result.error || result.message) : null
+                        });
+                    } catch (err) {
+                        console.warn('更新任务状态失败:', err);
+                    }
+                } catch (err) {
+                    console.error('脚本执行失败:', err);
+                    
+                    // 处理错误消息，支持中文乱码修复
+                    let errorMessage = err.error || err.message || '未知错误';
+                    if (/鑴氭湰|娌℃湁main|鍑芥暟/.test(errorMessage)) {
+                        errorMessage = fixChineseEncoding(errorMessage);
+                    }
+                    
+                    TaskLogger.logError(`❌ 脚本执行失败: ${errorMessage}`);
+                    
+                    // 如果是"脚本没有main函数"的错误，给出更详细的提示
+                    if (errorMessage.includes('没有main函数') || errorMessage.includes('main')) {
+                        TaskLogger.logError(`❓ 请确保脚本文件正确导出了 main 函数`);
+                        TaskLogger.logError(`💡 示例: exports.main = async function(context) { ... }`);
+                    }
+                    
+                    // 恢复按钮状态
+                    startTaskButton.disabled = false;
+                    startTaskButton.innerHTML = '<i class="fas fa-play"></i> 重试执行';
+                    
+                    // 更新任务状态
+                    try {
+                        await batchTaskManager.updateTask(taskInstanceId, {
+                            status: 'failed',
+                            error: errorMessage
+                        });
+                    } catch (updateErr) {
+                        console.warn('更新任务状态失败:', updateErr);
+                    }
+                                } finally {
+                    // 注意：日志监听器现在不会在这里自动移除
+                    // 而是在下次执行前或页面切换时清理
+                    // 这样可以确保重新执行时日志仍能正常显示
+                    console.log('[批量脚本] 脚本执行完成，日志监听器保持活动状态');
+                }
+            } else {
+                console.error('scriptAPI.executeScript 未定义');
+                TaskLogger.logError(`无法执行脚本：脚本接口未定义`);
+                alert('脚本执行失败：脚本接口未定义');
             }
         });
+    }
+
+    // 添加脚本完成事件监听器，用于更新任务状态
+    if (window.electron && window.electron.ipcRenderer) {
+        const scriptCompletedHandler = (data) => {
+            // 注意：preload.js中的on函数只传递data，不传递event
+            if (data && data.executionId) {
+                // 查找对应的任务ID
+                let matchedTaskId = null;
+                
+                Object.keys(batchTaskConfigs).forEach(taskId => {
+                    if (batchTaskConfigs[taskId].executionId === data.executionId) {
+                        matchedTaskId = taskId;
+                    }
+                });
+                
+                // 如果找到匹配的任务，更新其状态
+                if (matchedTaskId && matchedTaskId === taskInstanceId) {
+                    const batchTaskManager = new BatchTaskManager();
+                    try {
+                        batchTaskManager.updateTask(matchedTaskId, {
+                            status: data.error ? 'failed' : 'completed',
+                            endTime: Date.now(),
+                            result: data.result || null,
+                            error: data.error || null
+                        }).then(() => {
+                            TaskLogger.logSuccess(`任务 ${matchedTaskId} 已完成`);
+                        }).catch(err => {
+                            console.warn('更新任务完成状态失败:', err);
+                        });
+                    } catch (err) {
+                        console.warn('处理脚本完成事件失败:', err);
+                    }
+                }
+            }
+        };
+        
+        // 注册脚本完成事件监听器
+        window.electron.ipcRenderer.on('script-completed', scriptCompletedHandler);
+        
+        // 当返回卡片页面时移除监听器
+        const backToCardsButton = managerPage.querySelector('#back-to-cards-btn');
+        if (backToCardsButton) {
+            const originalClickHandler = backToCardsButton.onclick;
+            backToCardsButton.onclick = (event) => {
+                // 移除脚本完成事件监听器
+                window.electron.ipcRenderer.removeListener('script-completed', scriptCompletedHandler);
+                
+                // 调用原始点击处理函数
+                if (typeof originalClickHandler === 'function') {
+                    originalClickHandler.call(backToCardsButton, event);
+                }
+            };
+        }
     }
 }
 
@@ -484,6 +1081,27 @@ function formatAddress(address) {
         return address;
     }
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+}
+
+/**
+ * 格式化代理为字符串
+ * @param {Object|string} proxy - 代理对象或字符串
+ * @returns {string} 格式化后的代理字符串
+ */
+function formatProxy(proxy) {
+    if (proxy.protocol && proxy.host && proxy.port) {
+        if (proxy.username && proxy.password) {
+            return `${proxy.protocol}://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`;
+        }
+        return `${proxy.protocol}://${proxy.host}:${proxy.port}`;
+    } else if (proxy.url) {
+        return proxy.url;
+    } else if (proxy.proxy_url) {
+        return proxy.proxy_url;
+    } else if (typeof proxy === 'string') {
+        return proxy;
+    }
+    return JSON.stringify(proxy);
 }
 
 /**
@@ -614,7 +1232,7 @@ async function loadModuleContent(moduleId, taskInstanceId) {
         const walletOptionsHtml = availableWallets.length > 0 
             ? availableWallets.map(wallet => `
                 <div class="wallet-checkbox-item">
-                    <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" name="selected-wallets" value="${wallet.address}" ${currentTaskConfig.accounts.includes(wallet.address) ? 'checked' : ''}>
+                    <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" name="selected-wallets" value="${wallet.id}" ${currentTaskConfig.accounts.includes(wallet.id) ? 'checked' : ''}>
                     <label for="wallet-${wallet.id}-${taskInstanceId}">${wallet.name || '未命名钱包'} ${wallet.group ? `(${wallet.group})` : ''} ${wallet.address}</label>
                         </div>
             `).join('')
@@ -675,9 +1293,9 @@ async function loadModuleContent(moduleId, taskInstanceId) {
                         ${wallets.map(wallet => `
                             <div class="wallet-item">
                                 <input type="checkbox" id="wallet-${wallet.id}-${taskInstanceId}" 
-                                    name="selected-wallets" value="${wallet.address}" 
+                                    name="selected-wallets" value="${wallet.id}" 
                                     data-group="${group}"
-                                    ${currentTaskConfig.accounts.includes(wallet.address) ? 'checked' : ''}>
+                                    ${currentTaskConfig.accounts.includes(wallet.id) ? 'checked' : ''}>
                                 <label for="wallet-${wallet.id}-${taskInstanceId}" class="wallet-label">
                                     <div class="wallet-name">${wallet.name || '未命名钱包'}</div>
                                     <div class="wallet-address" title="${wallet.address}">${formatAddress(wallet.address)}</div>
@@ -1000,7 +1618,7 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxie
                 if (event.target.name === 'selected-wallets') {
                     // 单个钱包的选择状态改变
                     const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
-                                                .map(cb => cb.value);
+                                                .map(cb => parseInt(cb.value, 10)); // Ensure IDs are numbers
                     currentTaskConfig.accounts = selectedWallets;
                     selectedAccountsCountSpan.textContent = selectedWallets.length;
                     
@@ -1040,7 +1658,7 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxie
                     
                     // 更新选中的钱包数据
                     const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
-                                                .map(cb => cb.value);
+                                                .map(cb => parseInt(cb.value, 10)); // Ensure IDs are numbers
                     currentTaskConfig.accounts = selectedWallets;
                     selectedAccountsCountSpan.textContent = selectedWallets.length;
                     
@@ -1126,7 +1744,7 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxie
                 
                 // 更新选中的钱包数据
                 const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
-                                            .map(cb => cb.value);
+                                            .map(cb => parseInt(cb.value, 10)); // Ensure IDs are numbers
                 currentTaskConfig.accounts = selectedWallets;
                 selectedAccountsCountSpan.textContent = selectedWallets.length;
                 
@@ -1151,7 +1769,7 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxie
                 
                 // 更新选中的钱包数据
                 const selectedWallets = Array.from(walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked'))
-                                            .map(cb => cb.value);
+                                            .map(cb => parseInt(cb.value, 10)); // Ensure IDs are numbers
                 currentTaskConfig.accounts = selectedWallets;
                 selectedAccountsCountSpan.textContent = selectedWallets.length;
                 

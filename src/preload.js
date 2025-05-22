@@ -88,6 +88,7 @@ const validReceiveChannels = [
     'proxy:testResult',
     // *** 新增：脚本日志通道 ***
     'script:log',
+    'script-log', // 修改为实际使用的通道名
     // *** 新增：脚本执行进度和结果通道 ***
     'script-progress',
     'script-completed',
@@ -280,9 +281,17 @@ contextBridge.exposeInMainWorld('scriptAPI', {
     // 添加onLog事件监听函数
     onLog: (callback) => {
         const subscription = (event, data) => callback(data);
-        ipcRenderer.on('script:log', subscription);
+        ipcRenderer.on('script-log', subscription);
         return () => {
-            ipcRenderer.removeListener('script:log', subscription);
+            ipcRenderer.removeListener('script-log', subscription);
+        };
+    },
+    // 添加脚本完成事件监听
+    onScriptCompleted: (callback) => {
+        const subscription = (event, data) => callback(data);
+        ipcRenderer.on('script-completed', subscription);
+        return () => {
+            ipcRenderer.removeListener('script-completed', subscription);
         };
     }
 });

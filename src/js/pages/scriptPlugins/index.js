@@ -63,22 +63,25 @@ const ScriptManager = {
 
   /**
    * 运行脚本
-   * @param {string} scriptFileName - 脚本文件名
-   * @param {Object} params - 脚本参数
-   * @param {Array<string>} walletIds - 要使用的钱包ID列表
+   * @param {string} scriptId - 脚本ID
+   * @param {Array<string>} selectedWallets - 要使用的钱包ID列表
+   * @param {Object} config - 脚本配置
+   * @param {Object|null} proxyConfig - 代理配置
    * @returns {Promise<Object>} 执行结果
    */
-  async runScript(scriptFileName, params = {}, walletIds = []) {
+  async runScript(scriptId, selectedWallets = [], config = {}, proxyConfig = null) {
     try {
-      const response = await window.electron.ipcRenderer.invoke('run-script', {
-        scriptFileName,
-        params,
-        walletIds
-      });
+      const response = await window.electron.ipcRenderer.invoke(
+        'run-script',
+        scriptId,
+        selectedWallets,
+        config,
+        proxyConfig
+      );
       
       return response;
     } catch (error) {
-      console.error(`运行脚本 ${scriptFileName} 失败:`, error);
+      console.error(`运行脚本失败:`, error);
       return { success: false, error: error.message };
     }
   },
