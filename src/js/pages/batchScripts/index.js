@@ -116,17 +116,6 @@ export function initBatchScriptsPage(contentArea) {
  */
 function renderBatchScriptCardsView(contentArea) {
     currentView = 'cards';
-    // 从模板加载卡片页面的HTML结构
-    const cardsPageTemplate = document.getElementById('batchScriptCardsPage'); // 这是整个卡片页的容器
-    if (!cardsPageTemplate) {
-        console.error('未找到批量脚本卡片页容器！');
-        contentArea.innerHTML = '<p>错误：无法加载批量脚本页面。</p>';
-        return;
-    }
-    // 将模板内容（不包括模板标签自身）插入到 contentArea
-    // 注意：这里需要确保 batchScriptCardsPage ID 的元素确实是卡片页面的HTML结构，而不是模板标签
-    // 如果 batchScriptCardsPage 本身就是内容区域，则不需要innerHTML赋值
-    // 但通常主内容区域是动态的，所以我们会清空并填充
     
     // 安全起见，直接使用模板定义的 HTML 结构，避免依赖主 index.html 已有结构
     const cardViewHtml = `
@@ -459,20 +448,24 @@ function bindModularManagerEvents(taskInstanceId) {
             
             // 在这里，调用实际的脚本执行逻辑
             try {
-                // @ts-ignore
-                ipc.invoke('script:execute', {
-                    scriptType: currentBatchScriptType.id,
-                    scriptName: currentBatchScriptType.name,
-                    taskId: taskInstanceId,
-                    accounts: batchTaskConfigs[taskInstanceId].accounts,
-                    proxyConfig: batchTaskConfigs[taskInstanceId].proxyConfig
-                }).then(result => {
-                    console.log('脚本执行结果:', result);
-                    alert(`脚本已启动执行\n类型: ${currentBatchScriptType.name}\n账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
-                }).catch(err => {
-                    console.error('脚本执行失败:', err);
-                    alert(`脚本执行失败: ${err.message || '未知错误'}`);
-                });
+                // 使用预加载暴露的 scriptAPI 调用主进程的 run-script 通道
+                if (window.scriptAPI && typeof window.scriptAPI.executeScript === 'function') {
+                    window.scriptAPI.executeScript(
+                        currentBatchScriptType.id,
+                        batchTaskConfigs[taskInstanceId].accounts,
+                        {}, // 脚本额外配置（当前为空）
+                        batchTaskConfigs[taskInstanceId].proxyConfig // 代理配置对象
+                    ).then(result => {
+                        console.log('脚本执行结果:', result);
+                        alert(`脚本已启动执行\n类型: ${currentBatchScriptType.name}\n账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
+                    }).catch(err => {
+                        console.error('脚本执行失败:', err);
+                        alert(`脚本执行失败: ${err.error || err.message || '未知错误'}`);
+                    });
+                } else {
+                    console.error('scriptAPI.executeScript 未定义');
+                    alert('脚本执行失败：脚本接口未定义');
+                }
             } catch (error) {
                 console.error('调用脚本执行时发生错误:', error);
                 alert(`启动执行时出错: ${error.message || '未知错误'}`);
@@ -1752,17 +1745,3 @@ function saveCurrentModuleData(taskInstanceId) {
         console.warn(`saveCurrentModuleData: 未知模块ID ${moduleId}`);
     }
 }
-
-// 移除旧的函数，因为它们的功能将被模块化系统取代或重构
-/*
-async function loadTaskList() { ... }
-function renderTaskList(tasks, container) { ... }
-function selectTask(taskId) { ... }
-function filterTaskList() { ... }
-async function updateStatistics() { ... }
-function getStatusClass(status) { ... }
-function getStatusText(status) { ... }
-*/
-
-// 注意：在文件第118行已经导出了initBatchScriptsPage，这里不需要重复导出
-// export { initBatchScriptsPage }; 
