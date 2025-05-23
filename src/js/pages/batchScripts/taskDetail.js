@@ -240,8 +240,8 @@ function bindTaskActionButtons(container, taskId, batchTaskManager) {
     const editButton = container.querySelector('#editBatchTaskBtn');
     if (editButton) {
         editButton.addEventListener('click', () => {
-            // TODO: 实现编辑任务功能
-            TaskLogger.logInfo('编辑任务功能正在开发中...');
+            // 实现编辑任务功能
+            showEditTaskDialog(taskId, batchTaskManager);
         });
     }
     
@@ -249,8 +249,8 @@ function bindTaskActionButtons(container, taskId, batchTaskManager) {
     const duplicateButton = container.querySelector('#duplicateBatchTaskBtn');
     if (duplicateButton) {
         duplicateButton.addEventListener('click', () => {
-            // TODO: 实现复制任务功能
-            TaskLogger.logInfo('复制任务功能正在开发中...');
+            // 实现复制任务功能
+            duplicateTask(taskId, batchTaskManager);
         });
     }
     
@@ -258,8 +258,8 @@ function bindTaskActionButtons(container, taskId, batchTaskManager) {
     const exportButton = container.querySelector('#exportBatchTaskBtn');
     if (exportButton) {
         exportButton.addEventListener('click', () => {
-            // TODO: 实现导出结果功能
-            TaskLogger.logInfo('导出结果功能正在开发中...');
+            // 实现导出结果功能
+            exportTaskResults(taskId, batchTaskManager);
         });
     }
 }
@@ -595,4 +595,498 @@ function getAccountStatusText(status) {
         case 'failed': return '失败';
         default: return status;
     }
+}
+
+/**
+ * 显示编辑任务对话框
+ * @param {string} taskId - 任务ID
+ * @param {Object} batchTaskManager - 批量任务管理器实例
+ */
+async function showEditTaskDialog(taskId, batchTaskManager) {
+    try {
+        // 获取任务数据
+        const taskData = await batchTaskManager.getTaskData(taskId);
+        if (!taskData) {
+            TaskLogger.logError('无法获取任务数据');
+            return;
+        }
+        
+        // 创建编辑对话框
+        const dialogHTML = `
+            <div class="modal-box edit-task-dialog" style="width: 600px;">
+                <h3 class="modal-title">编辑任务</h3>
+                <div class="modal-content">
+                    <form id="editTaskForm">
+                        <div class="form-group">
+                            <label>任务名称</label>
+                            <input type="text" id="editTaskName" class="form-input" 
+                                value="${taskData.name || ''}" placeholder="输入任务名称">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>描述</label>
+                            <textarea id="editTaskDescription" class="form-input" rows="3" 
+                                placeholder="输入任务描述">${taskData.description || ''}</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>脚本配置</label>
+                            <textarea id="editTaskConfig" class="form-input" rows="5" 
+                                placeholder="输入脚本配置（JSON格式）">${JSON.stringify(taskData.scriptConfig || {}, null, 2)}</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>执行间隔（毫秒）</label>
+                            <input type="number" id="editTaskInterval" class="form-input" 
+                                value="${taskData.interval || 1000}" min="100" step="100">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>账户选择</label>
+                            <div id="editAccountSelection" class="account-selection-list">
+                                <!-- 动态生成账户列表 -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('${modalId}')">取消</button>
+                    <button class="btn btn-primary" id="saveTaskBtn">保存</button>
+                </div>
+            </div>
+        `;
+        
+        const modalId = showModal(dialogHTML);
+        const modal = document.getElementById(modalId);
+        
+        // 加载账户列表
+        await loadAccountSelectionList(modal, taskData.accountIds);
+        
+        // 绑定保存按钮
+        const saveBtn = modal.querySelector('#saveTaskBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await saveEditedTask(taskId, batchTaskManager, modal, modalId);
+            });
+        }
+        
+    } catch (error) {
+        console.error('显示编辑对话框失败:', error);
+        TaskLogger.logError(`显示编辑对话框失败: ${error.message}`);
+    }
+}
+
+/**
+ * 加载账户选择列表
+ * @param {HTMLElement} modal - 模态框元素
+ * @param {Array} selectedAccountIds - 已选中的账户ID
+ */
+async function loadAccountSelectionList(modal, selectedAccountIds = []) {
+    const container = modal.querySelector('#editAccountSelection');
+    if (!container) return;
+    
+    try {
+        // 获取所有账户（这里需要根据实际情况调整）
+        const accounts = await window.electronAPI.social.getAccounts();
+        
+        let html = '<div class="account-checkbox-list">';
+        
+        accounts.forEach(account => {
+            const isChecked = selectedAccountIds.includes(account.id) ? 'checked' : '';
+            html += `
+                <label class="checkbox-item">
+                    <input type="checkbox" value="${account.id}" ${isChecked}>
+                    <span>${account.name || account.platform || account.id}</span>
+                </label>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('加载账户列表失败:', error);
+        container.innerHTML = '<p class="error-message">加载账户列表失败</p>';
+    }
+}
+
+/**
+ * 保存编辑的任务
+ * @param {string} taskId - 任务ID
+ * @param {Object} batchTaskManager - 批量任务管理器
+ * @param {HTMLElement} modal - 模态框元素
+ * @param {string} modalId - 模态框ID
+ */
+async function saveEditedTask(taskId, batchTaskManager, modal, modalId) {
+    try {
+        // 获取表单数据
+        const name = modal.querySelector('#editTaskName').value.trim();
+        const description = modal.querySelector('#editTaskDescription').value.trim();
+        const configText = modal.querySelector('#editTaskConfig').value.trim();
+        const interval = parseInt(modal.querySelector('#editTaskInterval').value);
+        
+        // 获取选中的账户
+        const selectedAccounts = [];
+        modal.querySelectorAll('#editAccountSelection input[type="checkbox"]:checked').forEach(checkbox => {
+            selectedAccounts.push(checkbox.value);
+        });
+        
+        // 验证数据
+        if (!name) {
+            TaskLogger.logError('任务名称不能为空');
+            return;
+        }
+        
+        let scriptConfig = {};
+        if (configText) {
+            try {
+                scriptConfig = JSON.parse(configText);
+            } catch (e) {
+                TaskLogger.logError('脚本配置格式错误，请输入有效的JSON');
+                return;
+            }
+        }
+        
+        // 更新任务数据
+        const updateData = {
+            name,
+            description,
+            scriptConfig,
+            interval,
+            accountIds: selectedAccounts
+        };
+        
+        await batchTaskManager.updateTask(taskId, updateData);
+        
+        TaskLogger.logSuccess('任务更新成功');
+        closeModal(modalId);
+        
+        // 刷新任务详情
+        const currentTask = await batchTaskManager.getTaskData(taskId);
+        if (currentTask && currentDetailContainer) {
+            fillTaskData(currentTask, currentDetailContainer);
+            renderAccountStatusList(currentTask, currentDetailContainer);
+        }
+        
+    } catch (error) {
+        console.error('保存任务失败:', error);
+        TaskLogger.logError(`保存任务失败: ${error.message}`);
+    }
+}
+
+/**
+ * 复制任务
+ * @param {string} taskId - 任务ID
+ * @param {Object} batchTaskManager - 批量任务管理器
+ */
+async function duplicateTask(taskId, batchTaskManager) {
+    try {
+        // 获取原任务数据
+        const originalTask = await batchTaskManager.getTaskData(taskId);
+        if (!originalTask) {
+            TaskLogger.logError('无法获取任务数据');
+            return;
+        }
+        
+        // 创建新任务数据
+        const newTaskData = {
+            ...originalTask,
+            id: undefined, // 移除ID，让系统生成新ID
+            name: `${originalTask.name} (副本)`,
+            status: 'idle',
+            progress: 0,
+            accountStatus: {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // 创建新任务
+        const newTaskId = await batchTaskManager.createTask(newTaskData);
+        
+        if (newTaskId) {
+            TaskLogger.logSuccess('任务复制成功');
+            
+            // 刷新任务列表
+            const refreshBtn = document.querySelector('#refresh-batch-list-btn');
+            if (refreshBtn) {
+                refreshBtn.click();
+            }
+            
+            // 可选：自动选中新任务
+            setTimeout(() => {
+                const newTaskItem = document.querySelector(`.batch-task-item[data-task-id="${newTaskId}"]`);
+                if (newTaskItem) {
+                    newTaskItem.click();
+                }
+            }, 500);
+        }
+        
+    } catch (error) {
+        console.error('复制任务失败:', error);
+        TaskLogger.logError(`复制任务失败: ${error.message}`);
+    }
+}
+
+/**
+ * 导出任务结果
+ * @param {string} taskId - 任务ID
+ * @param {Object} batchTaskManager - 批量任务管理器
+ */
+async function exportTaskResults(taskId, batchTaskManager) {
+    try {
+        // 获取任务数据
+        const taskData = await batchTaskManager.getTaskData(taskId);
+        if (!taskData) {
+            TaskLogger.logError('无法获取任务数据');
+            return;
+        }
+        
+        // 准备导出数据
+        const exportData = {
+            taskInfo: {
+                id: taskData.id,
+                name: taskData.name,
+                description: taskData.description,
+                scriptId: taskData.scriptId,
+                scriptName: taskData.scriptName,
+                status: taskData.status,
+                progress: taskData.progress,
+                createdAt: taskData.createdAt,
+                updatedAt: taskData.updatedAt
+            },
+            summary: {
+                totalAccounts: taskData.accountIds?.length || 0,
+                successCount: 0,
+                failedCount: 0,
+                pendingCount: 0
+            },
+            accountResults: []
+        };
+        
+        // 收集账户结果
+        if (taskData.accountIds && taskData.accountStatus) {
+            taskData.accountIds.forEach(accountId => {
+                const status = taskData.accountStatus[accountId] || { status: 'pending' };
+                
+                // 更新统计
+                if (status.status === 'success') exportData.summary.successCount++;
+                else if (status.status === 'failed') exportData.summary.failedCount++;
+                else exportData.summary.pendingCount++;
+                
+                exportData.accountResults.push({
+                    accountId,
+                    status: status.status,
+                    result: status.result,
+                    error: status.error,
+                    startTime: status.startTime,
+                    endTime: status.endTime,
+                    duration: status.endTime && status.startTime 
+                        ? new Date(status.endTime) - new Date(status.startTime) 
+                        : null
+                });
+            });
+        }
+        
+        // 生成文件名
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `task-results-${taskData.name.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
+        
+        // 显示导出选项对话框
+        showExportOptionsDialog(exportData, filename);
+        
+    } catch (error) {
+        console.error('导出任务结果失败:', error);
+        TaskLogger.logError(`导出任务结果失败: ${error.message}`);
+    }
+}
+
+/**
+ * 显示导出选项对话框
+ * @param {Object} exportData - 导出数据
+ * @param {string} filename - 文件名
+ */
+function showExportOptionsDialog(exportData, filename) {
+    const dialogHTML = `
+        <div class="modal-box export-options-dialog">
+            <h3 class="modal-title">导出任务结果</h3>
+            <div class="modal-content">
+                <div class="export-summary">
+                    <h4>任务摘要</h4>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">总账户数:</span>
+                            <span class="stat-value">${exportData.summary.totalAccounts}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">成功:</span>
+                            <span class="stat-value success">${exportData.summary.successCount}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">失败:</span>
+                            <span class="stat-value failed">${exportData.summary.failedCount}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">待处理:</span>
+                            <span class="stat-value pending">${exportData.summary.pendingCount}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="export-options">
+                    <h4>导出格式</h4>
+                    <div class="format-options">
+                        <label class="radio-item">
+                            <input type="radio" name="exportFormat" value="json" checked>
+                            <span>JSON格式</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="exportFormat" value="csv">
+                            <span>CSV格式</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="exportFormat" value="txt">
+                            <span>文本格式</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('${modalId}')">取消</button>
+                <button class="btn btn-primary" id="confirmExportBtn">导出</button>
+            </div>
+        </div>
+    `;
+    
+    const modalId = showModal(dialogHTML);
+    const modal = document.getElementById(modalId);
+    
+    // 绑定导出按钮
+    const confirmBtn = modal.querySelector('#confirmExportBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            const format = modal.querySelector('input[name="exportFormat"]:checked').value;
+            await performExport(exportData, filename, format);
+            closeModal(modalId);
+        });
+    }
+}
+
+/**
+ * 执行导出
+ * @param {Object} exportData - 导出数据
+ * @param {string} filename - 文件名
+ * @param {string} format - 导出格式
+ */
+async function performExport(exportData, filename, format) {
+    try {
+        let content = '';
+        let fileExtension = format;
+        
+        switch (format) {
+            case 'json':
+                content = JSON.stringify(exportData, null, 2);
+                break;
+                
+            case 'csv':
+                content = convertToCSV(exportData);
+                break;
+                
+            case 'txt':
+                content = convertToText(exportData);
+                break;
+        }
+        
+        // 创建下载
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.${fileExtension}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        TaskLogger.logSuccess('导出成功');
+        
+    } catch (error) {
+        console.error('执行导出失败:', error);
+        TaskLogger.logError(`执行导出失败: ${error.message}`);
+    }
+}
+
+/**
+ * 转换为CSV格式
+ * @param {Object} exportData - 导出数据
+ * @returns {string} CSV内容
+ */
+function convertToCSV(exportData) {
+    const headers = ['账户ID', '状态', '开始时间', '结束时间', '耗时(ms)', '结果/错误'];
+    const rows = [headers.join(',')];
+    
+    exportData.accountResults.forEach(result => {
+        const row = [
+            result.accountId,
+            result.status,
+            result.startTime || '',
+            result.endTime || '',
+            result.duration || '',
+            result.error || result.result || ''
+        ];
+        rows.push(row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','));
+    });
+    
+    return rows.join('\n');
+}
+
+/**
+ * 转换为文本格式
+ * @param {Object} exportData - 导出数据
+ * @returns {string} 文本内容
+ */
+function convertToText(exportData) {
+    let text = '任务执行结果报告\n';
+    text += '='.repeat(50) + '\n\n';
+    
+    // 任务信息
+    text += '任务信息:\n';
+    text += `-任务名称: ${exportData.taskInfo.name}\n`;
+    text += `-任务ID: ${exportData.taskInfo.id}\n`;
+    text += `-脚本: ${exportData.taskInfo.scriptName}\n`;
+    text += `-状态: ${exportData.taskInfo.status}\n`;
+    text += `-创建时间: ${new Date(exportData.taskInfo.createdAt).toLocaleString()}\n`;
+    text += '\n';
+    
+    // 执行统计
+    text += '执行统计:\n';
+    text += `-总账户数: ${exportData.summary.totalAccounts}\n`;
+    text += `-成功: ${exportData.summary.successCount}\n`;
+    text += `-失败: ${exportData.summary.failedCount}\n`;
+    text += `-待处理: ${exportData.summary.pendingCount}\n`;
+    text += '\n';
+    
+    // 详细结果
+    text += '详细结果:\n';
+    text += '-'.repeat(50) + '\n';
+    
+    exportData.accountResults.forEach((result, index) => {
+        text += `\n[${index + 1}] ${result.accountId}\n`;
+        text += `  状态: ${result.status}\n`;
+        if (result.startTime) {
+            text += `  开始时间: ${new Date(result.startTime).toLocaleString()}\n`;
+        }
+        if (result.endTime) {
+            text += `  结束时间: ${new Date(result.endTime).toLocaleString()}\n`;
+        }
+        if (result.duration) {
+            text += `  耗时: ${(result.duration / 1000).toFixed(2)}秒\n`;
+        }
+        if (result.error) {
+            text += `  错误: ${result.error}\n`;
+        } else if (result.result) {
+            text += `  结果: ${result.result}\n`;
+        }
+    });
+    
+    return text;
 } 

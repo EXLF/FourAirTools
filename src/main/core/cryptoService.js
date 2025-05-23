@@ -1,3 +1,10 @@
+/**
+ * @fileoverview 加密服务模块
+ * @module cryptoService
+ * @description 提供应用程序的核心加密功能，包括密钥派生、数据加密/解密、配置管理等。
+ * 使用AES-256-GCM算法进行对称加密，PBKDF2进行密钥派生。
+ */
+
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
@@ -18,7 +25,11 @@ const VERIFICATION_STRING = 'FourAirPasswordCheck'; // 用于验证密码是否�
 let sessionKey = null; // 解锁后存储在内存中的会话密钥
 let loadedConfig = null; // 缓存加载的配置
 
-/** 获取配置文件的完整路径 */
+/**
+ * 获取配置文件的完整路径
+ * @returns {string} 配置文件的完整路径
+ * @throws {Error} 如果无法获取用户数据目录
+ */
 function getConfigFilePath() {
     if (!app) {
         console.error('[CryptoService] Electron app module is not available. Cannot get user data path.');

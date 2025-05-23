@@ -1,3 +1,22 @@
+/**
+ * @fileoverview 模态框组件
+ * @module components/modal
+ * @description 提供可配置的模态框功能，支持普通模态和持久化模态（不可关闭）两种模式。
+ * 用于显示重要信息、确认对话框、表单输入等场景。
+ */
+
+/**
+ * @typedef {Object} ModalOptions
+ * @property {string} title - 模态框标题
+ * @property {string} content - 模态框HTML内容
+ * @property {string} [size='medium'] - 模态框大小：'small' | 'medium' | 'large'
+ * @property {boolean} [persistent=false] - 是否为持久化模态框（不可通过常规方式关闭）
+ * @property {Function} [onShow] - 模态框显示后的回调函数
+ * @property {Function} [onClose] - 模态框关闭后的回调函数
+ * @property {boolean} [closeOnEsc=true] - 是否允许ESC键关闭（仅在非持久化模式下有效）
+ * @property {boolean} [closeOnOverlay=true] - 是否允许点击遮罩层关闭（仅在非持久化模式下有效）
+ */
+
 let currentOpenModal = null; // 跟踪当前打开的模态框元素
 let modalCounter = 0; // 用于生成唯一的模态框ID
 

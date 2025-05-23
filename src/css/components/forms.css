@@ -125,4 +125,42 @@
 }
 .search-box .table-search-input {
     padding-left: 30px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: #a29bfe;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.input-group .form-control {
+    flex: 1;
+}
+
+.input-suffix {
+    font-size: 14px;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.hint {
+    display: block;
+    font-size: 12px;
+    color: #868e96;
+    margin-top: 4px;
 } 

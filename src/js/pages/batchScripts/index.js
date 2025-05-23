@@ -295,10 +295,80 @@ function bindModularManagerEvents(taskInstanceId) {
     // 停止执行按钮
     const stopTaskButton = managerPage.querySelector('#stop-btn');
     if (stopTaskButton) {
-        stopTaskButton.addEventListener('click', (event) => {
+        stopTaskButton.addEventListener('click', async (event) => {
             event.preventDefault();
-            // TODO: 实现停止功能
-            console.log('停止执行功能待实现');
+            
+            // 确认停止
+            if (!confirm('确定要停止当前正在执行的任务吗？')) {
+                return;
+            }
+            
+            try {
+                // 禁用按钮防止重复点击
+                stopTaskButton.disabled = true;
+                stopTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 停止中...';
+                
+                // 停止执行计时器
+                if (window.__executionTimer) {
+                    clearInterval(window.__executionTimer);
+                    window.__executionTimer = null;
+                }
+                
+                // 获取当前执行的任务ID
+                const currentExecutionId = window.__currentExecutionId;
+                if (currentExecutionId && window.scriptAPI && window.scriptAPI.stopScript) {
+                    TaskLogger.logWarning('正在停止脚本执行...');
+                    
+                    const result = await window.scriptAPI.stopScript(currentExecutionId);
+                    if (result.success) {
+                        TaskLogger.logWarning('✋ 脚本执行已被用户停止');
+                        
+                        // 更新状态
+                        const statusText = document.getElementById('statusText');
+                        if (statusText) {
+                            statusText.textContent = '已停止';
+                            statusText.style.color = '#e74c3c';
+                        }
+                        
+                        // 清理监听器
+                        if (window.__currentLogUnsubscribers) {
+                            window.__currentLogUnsubscribers.forEach(unsubscribe => {
+                                if (typeof unsubscribe === 'function') {
+                                    unsubscribe();
+                                }
+                            });
+                            window.__currentLogUnsubscribers = null;
+                        }
+                        
+                        // 隐藏停止按钮
+                        stopTaskButton.style.display = 'none';
+                        
+                        // 重置开始按钮
+                        const startButton = managerPage.querySelector('.start-task-button');
+                        if (startButton) {
+                            startButton.disabled = false;
+                            startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
+                        }
+                    } else {
+                        TaskLogger.logError(`停止脚本失败: ${result.error || '未知错误'}`);
+                        // 恢复按钮状态
+                        stopTaskButton.disabled = false;
+                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+                    }
+                } else {
+                    TaskLogger.logError('无法停止脚本：执行ID不存在或停止接口不可用');
+                    // 恢复按钮状态
+                    stopTaskButton.disabled = false;
+                    stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+                }
+            } catch (error) {
+                console.error('停止脚本执行失败:', error);
+                TaskLogger.logError(`停止脚本失败: ${error.message}`);
+                
+                // 恢复按钮状态
+                stopTaskButton.disabled = false;
+                stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+            }
         });
     }
 }
@@ -415,12 +485,24 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         
         try {
             console.log('[批量脚本] 开始执行脚本...');
-            await window.scriptAPI.executeScript(
+            const result = await window.scriptAPI.executeScript(
                 pageState.currentBatchScriptType.id,
                 taskConfig.accounts,
                 scriptConfig,
                 actualProxyConfigToPass
             );
+            
+            // 保存执行ID，用于停止功能
+            if (result && result.success && result.data && result.data.executionId) {
+                window.__currentExecutionId = result.data.executionId;
+                console.log('[批量脚本] 执行ID已保存:', window.__currentExecutionId);
+                
+                // 显示停止按钮
+                const stopBtn = document.getElementById('stop-btn');
+                if (stopBtn) {
+                    stopBtn.style.display = 'inline-block';
+                }
+            }
         } catch (err) {
             console.error('[批量脚本] 执行失败:', err);
             TaskLogger.logError(`执行失败: ${err.message || err}`);
@@ -978,34 +1060,26 @@ function startExecutionTimer() {
  * 清理资源
  */
 function cleanupResources() {
-    // 清理日志渲染器
-    if (window.__currentLogCleanup) {
-        try {
-            window.__currentLogCleanup();
-            window.__currentLogCleanup = null;
-        } catch (e) {
-            console.warn('清理日志渲染器失败:', e);
-        }
+    // 清理定时器
+    if (window.__executionTimer) {
+        clearInterval(window.__executionTimer);
+        window.__executionTimer = null;
     }
     
     // 清理日志监听器
     if (window.__currentLogUnsubscribers) {
-        try {
-            window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                if (typeof unsubscribe === 'function') {
-                    unsubscribe();
-                }
-            });
-            window.__currentLogUnsubscribers = null;
-        } catch (e) {
-            console.warn('清理日志监听器失败:', e);
-        }
+        window.__currentLogUnsubscribers.forEach(unsubscribe => {
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        });
+        window.__currentLogUnsubscribers = null;
     }
     
-    // 清理执行计时器
-    if (window.__executionTimer) {
-        clearInterval(window.__executionTimer);
-        window.__executionTimer = null;
+    // 清理日志渲染器
+    if (window.__currentLogCleanup && typeof window.__currentLogCleanup === 'function') {
+        window.__currentLogCleanup();
+        window.__currentLogCleanup = null;
     }
     
     // 清理日志观察器
@@ -1014,14 +1088,17 @@ function cleanupResources() {
         window.__logObserver = null;
     }
     
-    // 移除所有IPC监听器
-    if (window.electron && window.electron.ipcRenderer) {
-        window.electron.ipcRenderer.removeAllListeners('script-log');
-        window.electron.ipcRenderer.removeAllListeners('script-completed');
+    // 清理执行ID
+    if (window.__currentExecutionId) {
+        window.__currentExecutionId = null;
     }
     
-    // 注意：不要销毁钱包分组管理器，以保持折叠功能正常工作
-    // pageState.walletGroupManager.destroy(); // 移除这行
+    // 清理批量任务日志
+    if (window.batchTaskLogs) {
+        window.batchTaskLogs = {};
+    }
+    
+    console.log('[批量脚本] 资源清理完成');
 }
 
 /**

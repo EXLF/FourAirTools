@@ -17,7 +17,10 @@ const defaultSettings = {
     
     // 安全与隐私
     autoCheckUpdate: true,
-
+    
+    // 网络设置
+    rpcUrl: '',  // 空字符串表示使用默认RPC
+    connectionTimeout: 30,
     
     // 数据与备份
     dataLocation: '',
@@ -429,10 +432,125 @@ async function handleCheckUpdate() {
         if (window.appAPI && window.appAPI.checkForUpdates) {
             showToast('正在检查更新...', 'info');
             const result = await window.appAPI.checkForUpdates();
+            
+            // 处理错误情况
+            if (result.error) {
+                showToast(`检查更新失败: ${result.error}`, 'error');
+                return;
+            }
+            
             if (result.hasUpdate) {
-                if (confirm(`发现新版本: ${result.version}。是否现在更新？`)) {
-                    await window.appAPI.downloadUpdate();
-                }
+                // 创建更新对话框
+                const updateModal = document.createElement('div');
+                updateModal.className = 'modal update-modal';
+                updateModal.innerHTML = `
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-header">
+                            <h4>发现新版本</h4>
+                            <button class="modal-close-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <p><strong>当前版本:</strong> v${result.currentVersion}</p>
+                            <p><strong>最新版本:</strong> v${result.latestVersion}</p>
+                            <div class="release-notes" style="margin-top: 16px;">
+                                <strong>更新内容:</strong>
+                                <div style="max-height: 200px; overflow-y: auto; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                                    ${result.releaseNotes.replace(/\n/g, '<br>')}
+                                </div>
+                            </div>
+                            <div id="download-progress" style="display: none; margin-top: 16px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span>下载进度:</span>
+                                    <span id="progress-text">0%</span>
+                                </div>
+                                <div style="background: #e9ecef; height: 20px; border-radius: 4px; overflow: hidden;">
+                                    <div id="progress-bar" style="background: #6c5ce7; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                </div>
+                                <div id="progress-details" style="font-size: 12px; color: #666; margin-top: 4px;"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" id="cancel-update">稍后更新</button>
+                            <button class="btn btn-primary" id="download-update">
+                                ${result.downloadUrl ? '立即下载' : '前往下载页面'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(updateModal);
+                
+                // 绑定事件
+                const closeBtn = updateModal.querySelector('.modal-close-btn');
+                const cancelBtn = updateModal.querySelector('#cancel-update');
+                const downloadBtn = updateModal.querySelector('#download-update');
+                
+                const closeModal = () => {
+                    updateModal.remove();
+                    // 移除下载进度监听器
+                    if (window.electron && window.electron.ipcRenderer) {
+                        window.electron.ipcRenderer.removeAllListeners('update-download-progress');
+                    }
+                };
+                
+                closeBtn.onclick = closeModal;
+                cancelBtn.onclick = closeModal;
+                
+                downloadBtn.onclick = async () => {
+                    if (!result.downloadUrl) {
+                        // 如果没有下载链接，打开GitHub发布页面
+                        if (window.electron && window.electron.shell) {
+                            window.electron.shell.openExternal('https://github.com/fourair/toolbox/releases');
+                        }
+                        closeModal();
+                        return;
+                    }
+                    
+                    // 开始下载
+                    downloadBtn.disabled = true;
+                    downloadBtn.textContent = '下载中...';
+                    document.getElementById('download-progress').style.display = 'block';
+                    
+                    // 监听下载进度
+                    if (window.electron && window.electron.ipcRenderer) {
+                        window.electron.ipcRenderer.on('update-download-progress', (event, data) => {
+                            const progressBar = document.getElementById('progress-bar');
+                            const progressText = document.getElementById('progress-text');
+                            const progressDetails = document.getElementById('progress-details');
+                            
+                            if (progressBar) progressBar.style.width = `${data.progress}%`;
+                            if (progressText) progressText.textContent = `${data.progress}%`;
+                            if (progressDetails) {
+                                const received = (data.receivedBytes / 1024 / 1024).toFixed(2);
+                                const total = (data.totalBytes / 1024 / 1024).toFixed(2);
+                                progressDetails.textContent = `${received} MB / ${total} MB`;
+                            }
+                        });
+                    }
+                    
+                    try {
+                        const downloadResult = await window.appAPI.downloadUpdate(result.downloadUrl);
+                        if (downloadResult.success) {
+                            showToast('更新包下载成功，已打开下载目录', 'success');
+                            closeModal();
+                        } else {
+                            showToast(`下载失败: ${downloadResult.message}`, 'error');
+                            downloadBtn.disabled = false;
+                            downloadBtn.textContent = '重新下载';
+                        }
+                    } catch (error) {
+                        showToast(`下载失败: ${error.message}`, 'error');
+                        downloadBtn.disabled = false;
+                        downloadBtn.textContent = '重新下载';
+                    }
+                };
+                
+                // 显示模态框
+                requestAnimationFrame(() => {
+                    updateModal.classList.add('visible');
+                });
             } else {
                 showToast('您已经使用最新版本', 'success');
             }

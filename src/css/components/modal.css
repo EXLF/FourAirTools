@@ -1,0 +1,66 @@
+/* 忘记密码模态框样式 */
+.forgot-password-modal .option-card {
+    transition: box-shadow 0.2s ease;
+}
+
+.forgot-password-modal .option-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.forgot-password-modal .option-card h5 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 16px;
+}
+
+.forgot-password-modal .option-card p {
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.forgot-password-modal .btn-outline-danger {
+    background: transparent;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+
+.forgot-password-modal .btn-outline-danger:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.forgot-password-modal .reset-confirm-section label {
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.forgot-password-modal .reset-confirm-section input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.forgot-password-modal .help-section h5 {
+    font-size: 15px;
+    margin-bottom: 10px;
+}
+
+.forgot-password-modal .help-section ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.forgot-password-modal .help-section li {
+    margin-bottom: 5px;
+}
+
+/* 忘记密码链接样式 */
+.link-forgot-password {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.link-forgot-password:hover {
+    text-decoration: underline;
+    color: #0056b3;
+} 

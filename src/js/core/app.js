@@ -4,6 +4,7 @@ import { setupSidebarNavigation, loadPage } from './navigation.js';
 import { initGlobalEventListeners } from './globalListeners.js';
 import { showSetupPasswordModal } from './authSetup.js'; // 导入设置密码函数
 import { showUnlockModal } from './authUnlock.js'; // 导入解锁函数
+import { initForgotPassword } from '../services/forgotPassword.js'; // 导入忘记密码功能
 
 // 初始加载
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         setupSidebarNavigation();
         initGlobalEventListeners();
+        initForgotPassword(); // 初始化忘记密码功能
 
         // --- 监听来自主进程的认证消息 --- 
         if (window.electron && window.electron.ipcRenderer) {

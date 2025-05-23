@@ -104,6 +104,11 @@ function getConfig() {
         type: "string",
         label: "reCAPTCHA Reload (可选, Klokapp)",
         default: ""
+      },
+      wallet_concurrency: {
+        type: "number",
+        label: "钱包并发数",
+        default: 3
       }
     }
   };
@@ -297,34 +302,107 @@ async function main(context) {
         return { success: false, error: "未选择钱包" };
     }
     
-    // 假设我们只使用第一个选定的钱包进行演示
-    const selectedWalletInfo = wallets[0]; 
-    // TODO: 如果脚本需要处理多个钱包，这里需要循环或不同的逻辑
-    // 注意：selectedWalletInfo 需要包含地址和私钥。当前从前端传来的钱包对象结构未知，假设它有 address 和 privateKey
-    if (!selectedWalletInfo.privateKey) {
-      console.error("选中的钱包缺少私钥信息，无法执行此脚本。");
-      return { success: false, error: "钱包缺少私钥" };
-    }
-
-    const bot = new KlokappBotInternal(selectedWalletInfo); // 将选中的钱包信息传给机器人
-
-    if (await bot.connectWallet()) {
-        // await bot.startMainLoop(questions, CHAT_DELAY_MS, MAIN_LOOP_SLEEP_MS); // 主循环暂时注释，先测试连接和单次交互
-        console.info("连接成功，可以尝试调用其他bot方法，如 performChats。主循环已注释。");
-        // 示例：进行一次聊天
-        const threads = await bot.apiClient.get('/chat/threads').then(r => r.data.data.threads).catch(() => []);
-        if (threads.length > 0) {
-            await bot.sendMessage(threads[0].id, questions[0] || "你好");
-        } else {
-            console.warn("没有找到聊天会话，无法发送消息。");
+    // 导入批量处理器
+    const { BatchWalletProcessor } = require('../../src/js/utils/batchWalletProcessor.js');
+    
+    // 创建处理器选项
+    const processorOptions = {
+        concurrency: scriptConfig.wallet_concurrency || 3, // 可以在配置中添加并发数设置
+        maxRetries: 3,
+        retryDelay: 2000,
+        onProgress: (progress) => {
+            const percentage = Math.round((progress.current / progress.total) * 100);
+            console.info(`[批量处理] 进度: ${progress.current}/${progress.total} (${percentage}%) - 钱包: ${progress.wallet.address}`);
+        },
+        onError: (error) => {
+            console.error(`[批量处理] 钱包 ${error.wallet.address} 处理失败: ${error.error.message} (重试: ${error.retries})`);
         }
-
-    } else {
-        console.error("无法连接到Klokapp服务，请检查配置和网络。");
+    };
+    
+    // 创建批量处理器
+    const processor = new BatchWalletProcessor(processorOptions);
+    
+    // 定义单个钱包的任务函数
+    const walletTask = async (wallet, taskOptions) => {
+        // 检查是否有私钥
+        if (!wallet.privateKey) {
+            throw new Error("钱包缺少私钥信息");
+        }
+        
+        // 创建机器人实例
+        const bot = new KlokappBotInternal(wallet);
+        
+        // 连接钱包
+        const connected = await bot.connectWallet();
+        if (!connected) {
+            throw new Error("无法连接到Klokapp服务");
+        }
+        
+        console.info(`✅ 钱包 ${wallet.address} 连接成功`);
+        
+        // 获取用户信息
+        const userPoints = await bot.getUserPoints();
+        const userLimits = await bot.getUserLimits();
+        
+        console.info(`📊 钱包 ${wallet.address} - 积分: ${userPoints}, 限制: ${userLimits.current}/${userLimits.max}`);
+        
+        // 执行聊天任务
+        const chatResults = await bot.performChats(questions, CHAT_DELAY_MS, taskOptions.signal);
+        
+        return {
+            address: wallet.address,
+            connected: true,
+            points: userPoints,
+            limits: userLimits,
+            chats: chatResults,
+            timestamp: Date.now()
+        };
+    };
+    
+    // 添加所有钱包任务
+    processor.addTask(wallets, walletTask);
+    
+    console.info(`🚀 开始批量处理 ${wallets.length} 个钱包...`);
+    
+    // 开始处理
+    const results = await processor.start();
+    
+    // 输出结果摘要
+    console.info("="*50);
+    console.info("📊 批量处理完成摘要:");
+    console.info(`- 总钱包数: ${results.totalTasks}`);
+    console.info(`- 成功: ${results.successCount}`);
+    console.info(`- 失败: ${results.errorCount}`);
+    console.info(`- 耗时: ${(results.duration / 1000).toFixed(2)} 秒`);
+    console.info("="*50);
+    
+    // 输出详细成功结果
+    if (results.successCount > 0) {
+        console.info("\n✅ 成功的钱包:");
+        Object.entries(results.results).forEach(([id, data]) => {
+            console.info(`  - ${data.wallet.address}: 积分 ${data.result.points}, 聊天 ${data.result.chats?.length || 0} 条`);
+        });
     }
-
-    console.info("Mira聊天机器人脚本执行流程结束（部分功能已注释，请逐步恢复测试）。");
-    return { success: true, message: "脚本流程已执行，详情请看日志" }; 
+    
+    // 输出详细错误信息
+    if (results.errorCount > 0) {
+        console.error("\n❌ 失败的钱包:");
+        Object.entries(results.errors).forEach(([id, data]) => {
+            console.error(`  - ${data.wallet.address}: ${data.error}`);
+        });
+    }
+    
+    return {
+        success: results.success,
+        message: `批量处理完成: ${results.successCount}/${results.totalTasks} 成功`,
+        summary: {
+            total: results.totalTasks,
+            success: results.successCount,
+            failed: results.errorCount,
+            duration: results.duration
+        },
+        details: results
+    };
 }
 
 module.exports = { getConfig, main }; 

@@ -1,4 +1,6 @@
 import { showToast } from '../../components/toast.js';
+import { getProjects } from '../../services/projectAPI.js';
+import { createCalendar } from '../../components/calendar.js';
 
 // --- 模拟数据 ---
 const mockProjects = [
@@ -138,6 +140,9 @@ let checkInCalendar = null;
 let searchInput = null;
 let refreshBtn = null;
 
+// 在模块级别添加日历实例变量
+let calendarInstance = null;
+
 // --- 初始化函数 ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log('项目跟踪页面 DOM 加载完成');
@@ -206,17 +211,30 @@ function initializeProjectPage() {
 }
 
 // --- 数据加载与渲染 ---
-function loadAndRenderProjects() {
+async function loadAndRenderProjects() {
     console.log('加载并渲染项目列表...');
     if (!projectListContainer) {
         console.error('Project list container not found during load/render!');
         return;
     }
-    // TODO: 实际应从服务器 API 获取数据
-    const projects = mockProjects;
-    renderProjectList(projects);
-    // 默认不选中任何项目
-    showPlaceholder();
+    
+    try {
+        // 显示加载状态
+        projectListContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
+        
+        // 从API获取项目数据
+        const projects = await getProjects();
+        
+        // 渲染项目列表
+        renderProjectList(projects);
+        
+        // 默认不选中任何项目
+        showPlaceholder();
+    } catch (error) {
+        console.error('加载项目数据失败:', error);
+        projectListContainer.innerHTML = '<p class="error-message">加载项目失败，请稍后重试。</p>';
+        showToast('加载项目数据失败', 'error');
+    }
 }
 
 function renderProjectList(projects) {
@@ -485,37 +503,164 @@ function handleDailyCheckIn(taskId, buttonElement) {
 
 // --- 日历相关 (占位符) ---
 function initializeCalendarPlaceholder() {
-    // TODO: 集成日历库 (如 FullCalendar)
-    checkInCalendar.innerHTML = '<p class="placeholder-text">日历功能待实现...</p>';
+    // 集成日历组件
+    if (!checkInCalendar) {
+        console.error('日历容器元素未找到');
+        return;
+    }
+    
+    // 创建日历实例
+    calendarInstance = createCalendar(checkInCalendar, {
+        locale: 'zh-CN',
+        onDateClick: handleCalendarDateClick,
+        onMonthChange: handleCalendarMonthChange
+    });
+    
+    console.log('日历组件已初始化');
 }
 
 function loadCalendarData(projectId) {
     console.log(`加载项目 ${projectId} 的日历打卡数据...`);
-    // TODO: 从本地数据库查询与该项目相关的 'local_task_records'
-    // 模拟：假设查询到一些数据
-    const projectTasks = mockProjects.find(p => p.id === projectId)?.tasks || [];
-    const dailyTaskIds = projectTasks.filter(t => t.type === 'daily').map(t => t.id);
-
-    const checkInDataForCalendar = [];
+    
+    if (!calendarInstance) {
+        console.error('日历实例未初始化');
+        return;
+    }
+    
+    // 清除现有事件
+    calendarInstance.clearEvents();
+    
+    // 获取项目信息
+    const project = mockProjects.find(p => p.id === projectId);
+    if (!project) return;
+    
+    // 获取项目的每日任务
+    const dailyTasks = project.tasks.filter(t => t.type === 'daily');
+    
+    // 从模拟数据中获取打卡记录
+    const checkInEvents = [];
+    
     for (const key in mockLocalCheckIns) {
         if (mockLocalCheckIns[key]) {
             const parts = key.split('_'); // task_101_date_2024-07-30
             if (parts.length === 4 && parts[0] === 'task' && parts[2] === 'date') {
                 const taskId = parseInt(parts[1], 10);
                 const date = parts[3];
-                if (dailyTaskIds.includes(taskId)) {
-                    checkInDataForCalendar.push({ date: date, taskId: taskId });
+                
+                // 查找对应的任务
+                const task = dailyTasks.find(t => t.id === taskId);
+                if (task) {
+                    checkInEvents.push({
+                        date: date,
+                        title: task.title,
+                        type: 'checkin',
+                        color: '#4caf50',
+                        data: { taskId, projectId }
+                    });
                 }
             }
         }
     }
-    console.log('模拟获取到的日历数据:', checkInDataForCalendar);
-    // TODO: 使用 checkInDataForCalendar 更新日历显示
+    
+    // 添加限时任务的截止日期
+    const timedTasks = project.tasks.filter(t => t.type === 'timed' && t.end_time);
+    timedTasks.forEach(task => {
+        const endDate = new Date(task.end_time);
+        checkInEvents.push({
+            date: calendarInstance.formatDate(endDate),
+            title: `${task.title} 截止`,
+            type: 'deadline',
+            color: '#ff5722',
+            data: { taskId: task.id, projectId }
+        });
+    });
+    
+    // 添加项目里程碑
+    if (project.timeline) {
+        project.timeline.forEach(event => {
+            if (event.date) {
+                checkInEvents.push({
+                    date: event.date,
+                    title: event.title,
+                    type: 'milestone',
+                    color: '#2196f3',
+                    data: { projectId, timelineEvent: event }
+                });
+            }
+        });
+    }
+    
+    // 批量添加事件到日历
+    calendarInstance.addEvents(checkInEvents);
+    
+    console.log(`已加载 ${checkInEvents.length} 个日历事件`);
 }
 
 function updateCalendarMark(taskId, date) {
     console.log(`更新日历标记：任务 ${taskId} 于 ${date} 完成`);
-    // TODO: 调用日历库 API 更新指定日期的显示
+    
+    if (!calendarInstance) {
+        console.error('日历实例未初始化');
+        return;
+    }
+    
+    // 获取当前项目ID
+    const projectId = parseInt(document.getElementById('detail-project-name').dataset.projectId, 10);
+    if (!projectId) return;
+    
+    // 获取项目和任务信息
+    const project = mockProjects.find(p => p.id === projectId);
+    const task = project?.tasks.find(t => t.id === taskId);
+    
+    if (task) {
+        // 添加新的打卡事件
+        calendarInstance.addEvent(date, {
+            title: task.title,
+            type: 'checkin',
+            color: '#4caf50',
+            data: { taskId, projectId }
+        });
+    }
+}
+
+/**
+ * 处理日历日期点击
+ */
+function handleCalendarDateClick(dateInfo, events) {
+    console.log('日历日期点击:', dateInfo.dateStr, '事件数:', events.length);
+    
+    if (events.length === 0) {
+        showToast(`${dateInfo.dateStr} 无任何记录`, 'info');
+        return;
+    }
+    
+    // 显示当天的事件详情
+    let message = `${dateInfo.dateStr} 的记录：\n`;
+    events.forEach(event => {
+        const icon = {
+            'checkin': '✅',
+            'deadline': '⏰',
+            'milestone': '🎯'
+        }[event.type] || '📌';
+        
+        message += `${icon} ${event.title}\n`;
+    });
+    
+    showToast(message, 'info');
+}
+
+/**
+ * 处理日历月份改变
+ */
+function handleCalendarMonthChange(currentDate) {
+    console.log('日历月份改变:', currentDate.toLocaleDateString('zh-CN'));
+    
+    // 可以在这里加载新月份的数据（如果需要）
+    const projectId = parseInt(document.getElementById('detail-project-name')?.dataset.projectId, 10);
+    if (projectId) {
+        // 重新加载当前项目的日历数据
+        // loadCalendarData(projectId);
+    }
 }
 
 // --- 项目时间轴渲染 ---

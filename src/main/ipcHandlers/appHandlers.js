@@ -7,30 +7,62 @@ const { ethers } = require('ethers'); // 导入 ethers
 const cryptoService = require('../core/cryptoService.js'); // Updated path
 const os = require('os'); // 导入 os 模块
 
-// *** TODO: Make this configurable in settings ***
-const DEFAULT_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/eOvLOWiFwLA0k3YIYnfJzmKrfUUO_dgo'; // Replace with a real key or use a public one carefully
-// const DEFAULT_RPC_URL = 'https://rpc.ankr.com/eth'; // Example public RPC
+// RPC URL配置 - 从设置中读取
+const DEFAULT_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/eOvLOWiFwLA0k3YIYnfJzmKrfUUO_dgo'; // 默认RPC URL
+
+/**
+ * 比较两个版本号
+ * @param {string} v1 - 版本号1
+ * @param {string} v2 - 版本号2
+ * @returns {number} 如果v1 > v2返回1，v1 < v2返回-1，相等返回0
+ */
+function compareVersions(v1, v2) {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+    
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const part1 = parts1[i] || 0;
+        const part2 = parts2[i] || 0;
+        
+        if (part1 > part2) return 1;
+        if (part1 < part2) return -1;
+    }
+    
+    return 0;
+}
 
 let jsonRpcProvider = null; // Cache the provider
+let currentRpcUrl = null; // 记录当前使用的RPC URL
+
 function getProvider() {
-    // Basic caching to avoid reconnecting constantly
-    // TODO: Add logic to handle changes in configured RPC URL
-    if (!jsonRpcProvider) {
-        try {
-            // Replace with actual configured URL later
-            const rpcUrl = DEFAULT_RPC_URL; 
+    try {
+        // 从设置中获取RPC URL，如果没有设置则使用默认值
+        const rpcUrl = (settings.currentSettings && settings.currentSettings.rpcUrl) || DEFAULT_RPC_URL;
+        
+        // 如果RPC URL发生变化，需要创建新的provider
+        if (currentRpcUrl !== rpcUrl || !jsonRpcProvider) {
             if (!rpcUrl || !rpcUrl.startsWith('http')) {
                 console.warn('[Wallet Balance] Invalid or missing RPC URL.');
                 return null;
             }
+            
             jsonRpcProvider = new ethers.JsonRpcProvider(rpcUrl);
+            currentRpcUrl = rpcUrl;
             console.log(`[Wallet Balance] Connected to RPC: ${rpcUrl}`);
-        } catch (error) {
-            console.error('[Wallet Balance] Failed to create JsonRpcProvider:', error);
-            return null;
         }
+        
+        return jsonRpcProvider;
+    } catch (error) {
+        console.error('[Wallet Balance] Failed to create JsonRpcProvider:', error);
+        return null;
     }
-    return jsonRpcProvider;
+}
+
+// 清除provider缓存（当RPC设置改变时调用）
+function clearProviderCache() {
+    jsonRpcProvider = null;
+    currentRpcUrl = null;
+    console.log('[Wallet Balance] Provider cache cleared');
 }
 
 const BACKUP_DIR_NAME = 'backups'; // 确保在文件顶部或可访问的作用域定义
@@ -334,6 +366,9 @@ function setupSettingsIpcHandlers() {
     // 保存设置
     ipcMain.handle('settings:saveSettings', async (event, newSettings) => {
         try {
+            // 记录旧的RPC URL
+            const oldRpcUrl = settings.currentSettings?.rpcUrl;
+            
             // 更新当前设置
             settings.currentSettings = { ...settings.currentSettings, ...newSettings };
             
@@ -342,6 +377,12 @@ function setupSettingsIpcHandlers() {
             
             // 应用设置
             settings.applySettings(settings.currentSettings);
+            
+            // 如果RPC URL发生变化，清除provider缓存
+            if (newSettings.hasOwnProperty('rpcUrl') && oldRpcUrl !== newSettings.rpcUrl) {
+                clearProviderCache();
+                console.log('[Settings] RPC URL已更改，provider缓存已清除');
+            }
             
             // 新增：如果"关闭时最小化到托盘"(startMinimized)设置已更改，则通知主进程重新应用窗口关闭行为
             if (newSettings.hasOwnProperty('startMinimized')) {
@@ -363,6 +404,9 @@ function setupSettingsIpcHandlers() {
     // 重置设置
     ipcMain.handle('settings:resetSettings', async () => {
         try {
+            // 记录旧的RPC URL
+            const oldRpcUrl = settings.currentSettings?.rpcUrl;
+            
             // 重置设置
             settings.currentSettings = { ...settings.defaultSettings };
             
@@ -371,6 +415,12 @@ function setupSettingsIpcHandlers() {
             
             // 应用设置
             settings.applySettings(settings.currentSettings);
+            
+            // 如果RPC URL发生变化，清除provider缓存
+            if (oldRpcUrl !== settings.currentSettings.rpcUrl) {
+                clearProviderCache();
+                console.log('[Settings] RPC URL已重置，provider缓存已清除');
+            }
             
             return true;
         } catch (error) {
@@ -425,35 +475,231 @@ function setupSettingsIpcHandlers() {
         try {
             console.log('[IPC] 检查更新');
             
-            // TODO: 实现更新检查逻辑
+            // 获取当前版本
+            const currentVersion = app.getVersion();
+            console.log(`[Update] 当前版本: ${currentVersion}`);
             
+            // 从GitHub Release API获取最新版本信息
+            const { net } = require('electron');
+            const request = net.request({
+                method: 'GET',
+                protocol: 'https:',
+                hostname: 'api.github.com',
+                path: '/repos/fourair/toolbox/releases/latest',
+                headers: {
+                    'User-Agent': 'FourAir-Toolbox-Updater',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            return new Promise((resolve, reject) => {
+                let responseData = '';
+                
+                request.on('response', (response) => {
+                    if (response.statusCode !== 200) {
+                        console.error(`[Update] GitHub API响应错误: ${response.statusCode}`);
+                        resolve({
+                            hasUpdate: false,
+                            version: currentVersion,
+                            error: `检查更新失败: HTTP ${response.statusCode}`
+                        });
+                        return;
+                    }
+                    
+                    response.on('data', (chunk) => {
+                        responseData += chunk;
+                    });
+                    
+                    response.on('end', () => {
+                        try {
+                            const releaseInfo = JSON.parse(responseData);
+                            const latestVersion = releaseInfo.tag_name.replace(/^v/, ''); // 移除v前缀
+                            
+                            // 比较版本号
+                            const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
+                            
+                            console.log(`[Update] 最新版本: ${latestVersion}, 需要更新: ${hasUpdate}`);
+                            
+                            // 获取下载链接
+                            let downloadUrl = null;
+                            if (releaseInfo.assets && releaseInfo.assets.length > 0) {
+                                // 根据平台选择合适的安装包
+                                const platform = process.platform;
+                                const arch = process.arch;
+                                
+                                for (const asset of releaseInfo.assets) {
+                                    const name = asset.name.toLowerCase();
+                                    if (platform === 'win32' && name.includes('.exe')) {
+                                        downloadUrl = asset.browser_download_url;
+                                        break;
+                                    } else if (platform === 'darwin' && name.includes('.dmg')) {
+                                        downloadUrl = asset.browser_download_url;
+                                        break;
+                                    } else if (platform === 'linux' && (name.includes('.appimage') || name.includes('.deb'))) {
+                                        downloadUrl = asset.browser_download_url;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            resolve({
+                                hasUpdate,
+                                currentVersion,
+                                latestVersion,
+                                releaseNotes: releaseInfo.body || '暂无更新说明',
+                                downloadUrl,
+                                publishedAt: releaseInfo.published_at
+                            });
+                        } catch (parseError) {
+                            console.error('[Update] 解析版本信息失败:', parseError);
+                            resolve({
+                                hasUpdate: false,
+                                version: currentVersion,
+                                error: '解析版本信息失败'
+                            });
+                        }
+                    });
+                });
+                
+                request.on('error', (error) => {
+                    console.error('[Update] 网络请求失败:', error);
+                    resolve({
+                        hasUpdate: false,
+                        version: currentVersion,
+                        error: '网络连接失败'
+                    });
+                });
+                
+                request.end();
+            });
+        } catch (error) {
+            console.error('[IPC] 检查更新失败:', error);
             return {
                 hasUpdate: false,
                 version: app.getVersion(),
-                releaseNotes: ''
+                error: error.message
             };
-        } catch (error) {
-            console.error('[IPC] 检查更新失败:', error);
-            
-            throw new Error('检查更新失败: ' + error.message);
         }
     });
     
     // 下载更新
-    ipcMain.handle('app:downloadUpdate', async () => {
+    ipcMain.handle('app:downloadUpdate', async (event, downloadUrl) => {
         try {
             console.log('[IPC] 下载更新');
             
-            // TODO: 实现更新下载逻辑
+            if (!downloadUrl) {
+                return {
+                    success: false,
+                    message: '下载链接不可用'
+                };
+            }
             
-            return {
-                success: false,
-                message: '更新下载功能尚未实现'
-            };
+            const { net, shell } = require('electron');
+            const url = require('url');
+            const urlParts = url.parse(downloadUrl);
+            
+            // 获取文件名
+            const fileName = path.basename(urlParts.pathname);
+            const downloadsPath = app.getPath('downloads');
+            const filePath = path.join(downloadsPath, fileName);
+            
+            console.log(`[Update] 开始下载: ${downloadUrl}`);
+            console.log(`[Update] 保存路径: ${filePath}`);
+            
+            // 创建下载请求
+            const request = net.request({
+                method: 'GET',
+                url: downloadUrl,
+                redirect: 'follow'
+            });
+            
+            return new Promise((resolve, reject) => {
+                const writeStream = fs.createWriteStream(filePath);
+                let receivedBytes = 0;
+                let totalBytes = 0;
+                
+                request.on('response', (response) => {
+                    if (response.statusCode !== 200) {
+                        console.error(`[Update] 下载失败: HTTP ${response.statusCode}`);
+                        writeStream.close();
+                        fs.unlinkSync(filePath);
+                        resolve({
+                            success: false,
+                            message: `下载失败: HTTP ${response.statusCode}`
+                        });
+                        return;
+                    }
+                    
+                    // 获取文件总大小
+                    totalBytes = parseInt(response.headers['content-length'], 10) || 0;
+                    console.log(`[Update] 文件大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+                    
+                    response.on('data', (chunk) => {
+                        writeStream.write(chunk);
+                        receivedBytes += chunk.length;
+                        
+                        // 计算下载进度
+                        if (totalBytes > 0) {
+                            const progress = Math.round((receivedBytes / totalBytes) * 100);
+                            // 发送下载进度到渲染进程
+                            event.sender.send('update-download-progress', { 
+                                progress, 
+                                receivedBytes, 
+                                totalBytes 
+                            });
+                        }
+                    });
+                    
+                    response.on('end', () => {
+                        writeStream.end();
+                        console.log(`[Update] 下载完成: ${filePath}`);
+                        
+                        // 下载完成后，打开文件所在目录并选中文件
+                        shell.showItemInFolder(filePath);
+                        
+                        resolve({
+                            success: true,
+                            message: '更新包下载成功',
+                            filePath
+                        });
+                    });
+                });
+                
+                request.on('error', (error) => {
+                    console.error('[Update] 下载错误:', error);
+                    writeStream.close();
+                    
+                    // 删除未完成的文件
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (e) {
+                        // 忽略删除错误
+                    }
+                    
+                    resolve({
+                        success: false,
+                        message: `下载失败: ${error.message}`
+                    });
+                });
+                
+                writeStream.on('error', (error) => {
+                    console.error('[Update] 写入文件错误:', error);
+                    request.abort();
+                    
+                    resolve({
+                        success: false,
+                        message: `保存文件失败: ${error.message}`
+                    });
+                });
+                
+                request.end();
+            });
         } catch (error) {
             console.error('[IPC] 下载更新失败:', error);
-            
-            throw new Error('下载更新失败: ' + error.message);
+            return {
+                success: false,
+                message: `下载更新失败: ${error.message}`
+            };
         }
     });
     
@@ -881,6 +1127,75 @@ function setupApplicationIpcHandlers(mainWindow) {
         // 直接返回空数组，不加载本地数据
         console.log('[Tutorials] 根据用户要求，不加载本地教程数据');
         return [];
+    });
+
+    // 重置应用数据
+    ipcMain.handle('app:resetApplication', async () => {
+        try {
+            console.log('[IPC] 重置应用数据');
+            
+            // 获取应用数据目录
+            const userDataPath = app.getPath('userData');
+            console.log('[Reset] 用户数据路径:', userDataPath);
+            
+            // 关闭数据库连接
+            if (db && db.db) {
+                try {
+                    await db.closeDatabase(db.db);
+                    console.log('[Reset] 数据库连接已关闭');
+                } catch (error) {
+                    console.error('[Reset] 关闭数据库失败:', error);
+                }
+            }
+            
+            // 清除加密服务的会话密钥
+            if (cryptoService) {
+                cryptoService.clearSessionKey();
+                console.log('[Reset] 会话密钥已清除');
+            }
+            
+            // 删除应用数据文件
+            const filesToDelete = [
+                'fourair.db',          // 数据库文件
+                'settings.json',       // 设置文件
+                'app.salt',           // 盐值文件
+                'backup'              // 备份目录
+            ];
+            
+            for (const file of filesToDelete) {
+                const filePath = path.join(userDataPath, file);
+                try {
+                    const stats = await fsPromises.stat(filePath);
+                    if (stats.isDirectory()) {
+                        // 递归删除目录
+                        await fsPromises.rm(filePath, { recursive: true, force: true });
+                        console.log(`[Reset] 已删除目录: ${file}`);
+                    } else {
+                        // 删除文件
+                        await fsPromises.unlink(filePath);
+                        console.log(`[Reset] 已删除文件: ${file}`);
+                    }
+                } catch (error) {
+                    if (error.code !== 'ENOENT') {
+                        console.error(`[Reset] 删除 ${file} 失败:`, error);
+                    }
+                }
+            }
+            
+            console.log('[Reset] 应用数据重置完成');
+            
+            return {
+                success: true,
+                message: '应用数据已成功重置'
+            };
+            
+        } catch (error) {
+            console.error('[IPC] 重置应用失败:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
     });
 
     console.log('[IPC] Application IPC handlers ready.');

@@ -58,6 +58,23 @@
            </div>
        </div>
        
+       <!-- 网络设置 -->
+       <div class="card">
+           <h4><i class="fa fa-network-wired"></i> 网络设置</h4>
+           <div class="option-group">
+               <label>RPC节点地址:</label>
+               <input type="text" id="rpc-url" class="form-control" placeholder="https://eth-mainnet.g.alchemy.com/v2/...">
+               <small class="hint">留空使用默认RPC节点，支持HTTP/HTTPS格式的JSON-RPC端点</small>
+           </div>
+           <div class="option-group">
+               <label>连接超时时间:</label>
+               <div class="input-group">
+                   <input type="number" id="connection-timeout" class="form-control" value="30" min="5" max="300">
+                   <span class="input-suffix">秒</span>
+               </div>
+           </div>
+       </div>
+       
        <!-- 数据与备份 -->
        <div class="card">
            <h4><i class="fa fa-database"></i> 数据与备份</h4>
