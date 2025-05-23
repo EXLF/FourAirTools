@@ -216,6 +216,14 @@ export class ProxyManager {
         
         // 初始化时更新选中的代理
         this.updateSelectedProxies(taskInstanceId, taskConfig);
+        
+        // 初始化时更新全选复选框状态
+        if (selectAllCheckbox && checkboxes.length > 0) {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = someChecked && !allChecked;
+        }
     }
 
     /**

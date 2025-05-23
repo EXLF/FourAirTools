@@ -94,24 +94,10 @@ fourAirtools/
 │   │   │   │   │   └── utils.js
 │   │   │   │   └── index.js
 │   │   │   ├── projects/
-│   │   │   │   ├── actions.js
-│   │   │   │   ├── index.js
-│   │   │   │   ├── modals.js
-│   │   │   │   └── table.js
-│   │   │   ├── scriptPlugins/
-│   │   │   │   ├── detail/
-│   │   │   │   │   ├── config.js
-│   │   │   │   │   ├── events.js
-│   │   │   │   │   ├── index.js
-│   │   │   │   │   ├── logger.js
-│   │   │   │   │   ├── proxy.js
-│   │   │   │   │   ├── scripts.js
-│   │   │   │   │   ├── state.js
-│   │   │   │   │   ├── view.js
-│   │   │   │   │   └── wallets.js
 │   │   │   │   └── index.js
 │   │   │   ├── settings/
-│   │   │   │   └── index.js
+│   │   │   │   ├── index.js
+│   │   │   │   └── modals.js
 │   │   │   ├── social/
 │   │   │   │   ├── actions.js
 │   │   │   │   ├── index.js
@@ -158,10 +144,11 @@ fourAirtools/
 │   │   └── scriptEngine.js
 │   ├── preload.js
 │   └── templates/
+│       ├── batch-scripts.html
 │       ├── community.html
 │       ├── dashboard.html
+│       ├── network.html
 │       ├── projects.html
-│       ├── script-plugins.html
 │       ├── settings.html
 │       ├── social.html
 │       ├── tool-network.html

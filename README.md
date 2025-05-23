@@ -19,7 +19,7 @@
     *   代理密码在存储前会进行加密，并在需要时（如脚本执行）由应用后端按需解密。
     *   提供代理连通性、延迟、出口IP信息及风险评估。
     *   支持在添加代理时批量导入多个代理配置，支持多种格式，包括"IP:端口:账号:密码"和"协议类型:IP:端口:账号:密码"等格式。
-*   **脚本插件**:
+*   **批量脚本**:
     *   支持加载和执行用户自定义脚本，实现批量或自动化链上交互。
     *   脚本引擎在执行脚本时，会按需解密选定钱包的私钥/助记词以及选定代理的密码，安全地提供给沙箱中的脚本使用。
     *   脚本沙箱环境进一步加固，限制了对宿主 `process.env` 的直接访问。
@@ -77,40 +77,6 @@
 *   **安全第一**: 请务必牢记并妥善保管您设置的主密码。丢失主密码将导致加密数据无法恢复。启用自动解锁功能时，请确保您的操作系统账户安全。
 *   **开发状态**: 本项目仍在持续开发中，部分功能可能尚未完善。
 
-## 模块重构: 脚本插件 (Script Plugins)
-
-本次对 `src/js/pages/scriptPlugins/` 目录及其相关模板 `src/templates/script-plugins.html` 进行了重构。
-
-**重构目标:**
-
-1.  **提升模块化与代码组织**: 将逻辑拆分到更小、职责更单一的模块中（例如，详情页逻辑移至 `detail/` 子目录）。
-2.  **增强代码清晰度和可维护性**: 通过合理的函数划分、参数传递和回调机制，使代码更易于理解和修改。
-3.  **遵循关注点分离原则**: HTML 模板负责静态结构，JavaScript 专注于动态内容、交互和业务逻辑。
-4.  **优化导航和视图切换**: 实现更可靠的页面内导航，特别是在脚本列表与详情视图之间，以及详情页内部切换不同脚本的体验。
-5.  **移除冗余/未使用代码**: 清理不再使用的函数、事件监听器、全局变量及占位文件。
-6.  **功能调整**: 根据需求移除了本地"添加脚本"的功能，脚本将通过服务器推送。
-
-**主要重构内容概要:**
-
-*   **`src/templates/script-plugins.html`**:
-    *   重构为包含完整页面结构（头部、筛选/搜索栏、卡片容器）的静态骨架。
-    *   移除了本地"添加脚本"按钮。
-    *   确保了 `tpl-modal-run-plugin` 模态框模板的完整性和一致性。
-*   **`src/js/pages/scriptPlugins/index.js` (脚本插件列表页主逻辑)**:
-    *   `initScriptPluginPage`: 简化为入口，调用 `renderScriptPluginsListView`。
-    *   `renderScriptPluginsListView`: 负责获取模板元素、绑定列表级事件、加载渲染脚本卡片、初始化搜索/筛选。
-    *   `loadAndRenderScriptCards`: 从 `ScriptManager` 获取数据，创建卡片，填充筛选器。
-    *   `ScriptManager`: 统一处理与主进程的脚本相关IPC通信。
-    *   视图切换 (`initializeDetailView`, `navigateToScriptCards`, `loadScriptDetail`):
-        *   `navigateToScriptCards` 修改为通过调用全局 `loadPage('script-plugins')` 重新加载和初始化列表页面。
-        *   `loadScriptDetail` 作为回调传递给详情页内部脚本列表，用于在详情页内切换脚本显示。
-    *   移除了 `handleAddScript` 函数及相关逻辑和大量旧代码。
-*   **`src/js/pages/scriptPlugins/detail/` (脚本详情页)**:
-    *   `view.js` (`renderScriptDetailView`): 渲染详情页HTML，接收并传递导航回调和侧边栏脚本选择回调。
-    *   `events.js` (`bindDetailViewEvents`): 处理详情页事件，使用导航回调返回列表页。
-    *   `scripts.js` (`loadScriptList`): 渲染详情页侧边栏脚本列表，接收并使用侧边栏脚本选择回调。
-*   **文件清理**: 删除了 `src/js/pages/scriptPlugins/`目录下未使用的 `modals.js`, `table.js`, `actions.js` 文件。
-
 ## 模块重构: 社交账户 (Social)
 
 当前正在对 `src/js/pages/social/` 目录及其相关模板 `src/templates/social.html` 进行重构。
@@ -145,7 +111,7 @@
 
 ## 近期关键增强
 
-*   **脚本插件系统**:
+*   **批量脚本系统**:
     *   实现了模块化脚本架构，支持用户自定义脚本的加载、配置和执行。
     *   完善了脚本执行引擎，支持代理配置和实时日志输出。
     *   优化了脚本执行相关的钱包选择和UI交互。
@@ -209,3 +175,11 @@ FourAir支持自定义脚本，用于自动化与各种Web3项目的交互。目
 
 - `getConfig()`: 返回脚本的配置信息，包括名称、描述、参数等
 - `main(context)`: 脚本的主执行函数，接收context对象，包含钱包、配置等信息
+
+### 主要特点:
+
+*   **批量脚本**: 
+    * 自动化执行各种任务脚本
+    * 支持多钱包并行执行
+    * 日志记录和错误处理
+*   **钱包管理**: 

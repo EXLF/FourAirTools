@@ -125,11 +125,6 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/social/index.js';
             initFunctionName = 'initSocialPage';
             break;
-        // 脚本插件管理页面
-        case 'script-plugins':
-            modulePath = '../pages/scriptPlugins/index.js';
-            initFunctionName = 'initScriptPluginPage';
-            break;
         // 批量脚本管理页面
         case 'batch-scripts':
             modulePath = '../pages/batchScripts/index.js';
@@ -158,11 +153,10 @@ async function initializePageContent(pageId) {
         // 工具页面（现在需要初始化）
         case 'tools':
             modulePath = '../pages/tools/index.js';
-            initFunctionName = 'initToolsPage';
             break;
         // 未定义的页面
         default:
-            console.log(`未为页面定义特定的JS模块: ${pageId}`);
+            console.error(`Unknown page ID: ${pageId}`);
             return;
     }
 
@@ -187,20 +181,7 @@ async function initializePageContent(pageId) {
  */
 export function loadPageWithContext(pageId, context) {
     loadPage(pageId).then(() => {
-        setTimeout(() => {
-            console.log(`为${pageId}提供的上下文:`, context);
-            if (pageId === 'script-plugins' && typeof context === 'string') {
-                const functionFilter = contentArea.querySelector('#plugin-function-filter');
-                if (functionFilter) {
-                    const typeLower = context.toLowerCase();
-                    if ([...functionFilter.options].some(opt => opt.value === typeLower)) {
-                        functionFilter.value = typeLower;
-                        functionFilter.dispatchEvent(new Event('change'));
-                        console.log(`已将插件功能过滤器预选为: ${typeLower}`);
-                    }
-                }
-            }
-        }, 50);
+        console.log(`为${pageId}提供的上下文:`, context);
     }).catch(error => {
          console.error(`加载带上下文的页面${pageId}时出错:`, error);
     });

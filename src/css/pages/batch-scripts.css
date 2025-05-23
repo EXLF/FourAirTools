@@ -1,58 +1,60 @@
 /* 批量脚本管理页面样式 */
 
-/* 引入卡片样式 - 确保与脚本插件页面样式一致 */
-@import '../components/scriptCards.css';
+/* 引入卡片样式 */
+@import url('../components/scriptCards.css');
 
 /* 模块化批量任务管理器界面样式 */
 .modular-manager-page {
     display: flex;
     flex-direction: column;
     height: 100%;
-    background-color: var(--bg-main, #f4f6f8); /* 主背景色 */
+    background-color: #f8f9fa;
 }
 
 .modular-manager-page .page-header {
-    padding: 10px 15px;
-    background-color: var(--bg-header, #fff);
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    padding: 15px 20px;
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .modular-manager-page .page-header h1 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
     display: flex;
     align-items: center;
 }
 
 .modular-manager-page .page-header #batch-script-type-name {
-    font-weight: normal;
-    color: var(--primary-color, #007bff);
-    margin-left: 8px;
+    font-weight: 500;
+    color: #6c5ce7;
+    margin-left: 10px;
 }
 
 .modular-manager-page .header-actions .btn {
-    font-size: 0.85rem;
-    padding: 6px 12px;
+    font-size: 14px;
 }
 
 .modular-content-area {
     display: flex;
     flex: 1;
     overflow: hidden;
-    padding: 15px;
-    gap: 15px;
+    padding: 20px;
+    gap: 20px;
 }
 
 .module-navigation {
-    width: 220px;
-    background-color: var(--bg-sidebar, #fff);
-    border-radius: 6px;
-    padding: 10px 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    height: fit-content; /* 根据内容自适应高度 */
+    width: 240px;
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 15px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    height: fit-content;
 }
 
 .module-navigation ul {
@@ -64,43 +66,49 @@
 .module-navigation li a {
     display: flex;
     align-items: center;
-    padding: 10px 15px;
+    padding: 12px 20px;
     text-decoration: none;
-    color: var(--text-color, #333);
+    color: #495057;
     border-left: 3px solid transparent;
-    transition: background-color 0.2s ease, border-left-color 0.2s ease;
-    font-size: 0.9rem;
-}
-
-.module-navigation li a i {
-    margin-right: 10px;
-    width: 18px; /* 固定图标宽度 */
-    text-align: center;
-    color: var(--text-muted, #6c757d);
-}
-
-.module-navigation li a:hover {
-    background-color: var(--hover-color, #f0f0f0);
-}
-
-.module-navigation li.active a {
-    background-color: var(--primary-color-light, #e7f3ff);
-    border-left-color: var(--primary-color, #007bff);
-    color: var(--primary-color, #007bff);
+    transition: all 0.2s ease;
+    font-size: 14px;
     font-weight: 500;
 }
 
+.module-navigation li a i {
+    margin-right: 12px;
+    width: 20px;
+    text-align: center;
+    color: #adb5bd;
+    font-size: 16px;
+}
+
+.module-navigation li a:hover {
+    background-color: #f8f9fa;
+    color: #6c5ce7;
+}
+
+.module-navigation li a:hover i {
+    color: #6c5ce7;
+}
+
+.module-navigation li.active a {
+    background-color: #f0ebff;
+    border-left-color: #6c5ce7;
+    color: #6c5ce7;
+}
+
 .module-navigation li.active a i {
-    color: var(--primary-color, #007bff);
+    color: #6c5ce7;
 }
 
 .module-content-display {
     flex: 1;
-    background-color: var(--bg-content, #fff);
-    border-radius: 6px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    overflow-y: auto; /* 内容超出时可滚动 */
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow-y: auto;
 }
 
 .module-placeholder {
@@ -108,17 +116,18 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--text-muted, #999);
-    font-size: 1.1rem;
+    color: #adb5bd;
+    font-size: 16px;
 }
 
 .modular-footer-actions {
-    padding: 10px 15px;
-    background-color: var(--bg-footer, #fff);
-    border-top: 1px solid var(--border-color, #e0e0e0);
+    padding: 15px 20px;
+    background-color: #fff;
+    border-top: 1px solid #e9ecef;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .modular-footer-actions .spacer {
@@ -126,8 +135,7 @@
 }
 
 .modular-footer-actions .btn {
-    font-size: 0.9rem;
-    padding: 8px 15px;
+    font-size: 14px;
 }
 
 /* 保持原有 batch-scripts-page 的部分样式，如果某些组件（如模态框）仍在复用 */
@@ -750,89 +758,105 @@
 
 /* 新的配置部分的样式 */
 .module-content-panel {
-    padding: 5px;
+    padding: 0;
 }
 
 .config-section {
     background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
     margin-bottom: 20px;
     overflow: hidden;
 }
 
 .section-header {
-    padding: 12px 15px;
-    border-bottom: 1px solid #f0f0f0;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #fbfbfb;
+    background-color: #f8f9fa;
 }
 
 .section-header h3 {
     margin: 0;
     font-size: 16px;
-    font-weight: 500;
-    color: #333;
+    font-weight: 600;
+    color: #2c3e50;
     display: flex;
     align-items: center;
 }
 
 .section-header h3 i {
-    margin-right: 8px;
-    color: #4a90e2;
+    margin-right: 10px;
+    color: #6c5ce7;
+    font-size: 18px;
 }
 
 /* 钱包选择相关样式 */
 .wallet-selection-container {
-    padding: 15px;
+    padding: 20px;
 }
 
 .wallet-actions {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
+    margin-bottom: 15px;
 }
 
 .wallet-search {
     position: relative;
     flex: 1;
-    max-width: 300px;
+    max-width: 320px;
 }
 
 .wallet-search input {
     width: 100%;
-    padding: 6px 30px 6px 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    font-size: 13px;
+    padding: 8px 35px 8px 12px;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.wallet-search input:focus {
+    outline: none;
+    border-color: #6c5ce7;
 }
 
 .wallet-search i {
     position: absolute;
-    right: 10px;
+    right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #999;
+    color: #adb5bd;
     pointer-events: none;
 }
 
 .wallet-selection-controls {
     display: flex;
-    gap: 5px;
+    gap: 8px;
+}
+
+.wallet-selection-controls .btn-link {
+    font-size: 14px;
+    padding: 6px 12px;
+    color: #6c5ce7;
+    font-weight: 500;
 }
 
 .wallets-list {
-    max-height: 300px;
+    max-height: 320px;
     overflow-y: auto;
-    margin-top: 10px;
-    border: 1px solid #eee;
-    border-radius: 4px;
+    margin-top: 15px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background-color: #f8f9fa;
 }
 
 .wallet-group {
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #e9ecef;
 }
 
 .wallet-group:last-child {
@@ -840,43 +864,53 @@
 }
 
 .wallet-group-header {
-    padding: 8px 10px;
-    background-color: #f9f9f9;
+    padding: 10px 15px;
+    background-color: #fff;
     cursor: pointer;
     user-select: none;
+    transition: background-color 0.2s;
+}
+
+.wallet-group-header:hover {
+    background-color: #f8f9fa;
 }
 
 .group-title {
     display: flex;
     align-items: center;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 14px;
-    color: #555;
+    color: #495057;
 }
 
 .group-title i {
-    margin-right: 6px;
-    color: #888;
+    margin-right: 8px;
+    color: #adb5bd;
+    font-size: 16px;
 }
 
 .wallet-group-content {
-    padding: 5px 10px;
+    padding: 8px 15px;
+    background-color: #fff;
 }
 
 .wallet-item {
     display: flex;
     align-items: center;
-    padding: 6px 4px;
-    border-radius: 4px;
+    padding: 8px 10px;
+    border-radius: 6px;
     transition: background-color 0.15s;
 }
 
 .wallet-item:hover {
-    background-color: #f5f7fa;
+    background-color: #f0ebff;
+}
+
+.wallet-item input[type="checkbox"] {
+    margin-right: 10px;
 }
 
 .wallet-label {
-    margin-left: 8px;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -884,42 +918,47 @@
 }
 
 .wallet-name {
-    font-size: 13px;
-    color: #333;
+    font-size: 14px;
+    color: #2c3e50;
+    font-weight: 500;
     margin-bottom: 2px;
 }
 
 .wallet-address {
     font-size: 12px;
-    color: #888;
-    font-family: monospace;
+    color: #6c757d;
+    font-family: 'Courier New', monospace;
 }
 
 .wallet-selection-summary {
     display: flex;
     justify-content: space-between;
-    padding: 12px 5px 5px 5px;
-    color: #666;
-    font-size: 13px;
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    margin-top: 15px;
+    border-radius: 0 0 8px 8px;
 }
 
 .summary-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .summary-label {
-    color: #888;
+    color: #6c757d;
+    font-size: 14px;
 }
 
 .summary-value {
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 16px;
+    color: #2c3e50;
 }
 
 .summary-value.highlight {
-    color: #4a90e2;
-    font-weight: 600;
+    color: #6c5ce7;
 }
 
 /* 代理相关样式 */
@@ -930,15 +969,52 @@
 .proxy-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+}
+
+.proxy-toggle label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+}
+
+/* 代理策略下拉框样式 */
+.proxy-strategy-select,
+.form-select {
+    padding: 8px 12px;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    background-color: #fff;
+    font-size: 14px;
+    color: #495057;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 35px;
+    min-width: 200px;
+}
+
+.proxy-strategy-select:focus,
+.form-select:focus {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+}
+
+.proxy-strategy-select:hover,
+.form-select:hover {
+    border-color: #a29bfe;
 }
 
 /* 切换开关样式 */
 .switch {
     position: relative;
     display: inline-block;
-    width: 46px;
-    height: 22px;
+    width: 48px;
+    height: 24px;
 }
 
 .switch input {
@@ -954,15 +1030,15 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
+    background-color: #dfe4ea;
     transition: .3s;
 }
 
 .slider:before {
     position: absolute;
     content: "";
-    height: 16px;
-    width: 16px;
+    height: 18px;
+    width: 18px;
     left: 3px;
     bottom: 3px;
     background-color: white;
@@ -970,11 +1046,11 @@
 }
 
 input:checked + .slider {
-    background-color: #4a90e2;
+    background-color: #6c5ce7;
 }
 
 input:focus + .slider {
-    box-shadow: 0 0 1px #4a90e2;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
 }
 
 input:checked + .slider:before {
@@ -982,7 +1058,7 @@ input:checked + .slider:before {
 }
 
 .slider.round {
-    border-radius: 22px;
+    border-radius: 24px;
 }
 
 .slider.round:before {
@@ -990,7 +1066,7 @@ input:checked + .slider:before {
 }
 
 .proxy-options {
-    padding: 15px;
+    padding: 20px;
 }
 
 /* 新的代理策略选择器样式 */
@@ -1002,24 +1078,25 @@ input:checked + .slider:before {
 
 .strategy-option {
     flex: 1;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 20px;
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
     display: flex;
     align-items: center;
+    background-color: #fff;
 }
 
 .strategy-option:hover {
-    border-color: #4a90e2;
-    background-color: #f5f8fc;
+    border-color: #a29bfe;
+    background-color: #f8f7ff;
 }
 
 .strategy-option.selected {
-    border-color: #4a90e2;
-    background-color: #e7f0fb;
+    border-color: #6c5ce7;
+    background-color: #f0ebff;
 }
 
 .strategy-option input[type="radio"] {
@@ -1031,17 +1108,17 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #f5f5f5;
-    margin-right: 12px;
-    color: #555;
-    font-size: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background-color: #f8f9fa;
+    margin-right: 15px;
+    color: #6c757d;
+    font-size: 20px;
 }
 
 .strategy-option.selected .strategy-icon {
-    background-color: #4a90e2;
+    background-color: #6c5ce7;
     color: white;
 }
 
@@ -1052,36 +1129,39 @@ input:checked + .slider:before {
 .strategy-title {
     font-weight: 600;
     font-size: 16px;
-    color: #333;
+    color: #2c3e50;
     margin-bottom: 4px;
 }
 
 .strategy-desc {
     font-size: 13px;
-    color: #777;
+    color: #6c757d;
+    line-height: 1.4;
 }
 
 /* 代理策略详情区域 */
 .proxy-strategy-details {
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
     margin-bottom: 20px;
+    border: 1px solid #e9ecef;
 }
 
 .proxy-strategy-description {
     display: flex;
     align-items: flex-start;
-    margin-bottom: 15px;
-    color: #666;
-    font-size: 13px;
-    line-height: 1.5;
+    margin-bottom: 20px;
+    color: #495057;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 .proxy-strategy-description i {
-    margin-right: 8px;
+    margin-right: 10px;
     margin-top: 2px;
-    color: #4a90e2;
+    color: #6c5ce7;
+    font-size: 16px;
 }
 
 /* 一对一模式的样式 */
@@ -1089,45 +1169,52 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 15px 0;
-    gap: 20px;
+    padding: 20px 0;
+    gap: 30px;
 }
 
 .accounts-count, .proxies-count {
     text-align: center;
     background-color: white;
-    border-radius: 8px;
-    padding: 12px 20px;
-    min-width: 100px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    padding: 20px 30px;
+    min-width: 120px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
 }
 
 .count-value {
-    font-size: 24px;
-    font-weight: 600;
-    color: #333;
+    font-size: 28px;
+    font-weight: 700;
+    color: #2c3e50;
     margin-bottom: 5px;
 }
 
 .count-label {
-    font-size: 13px;
-    color: #777;
+    font-size: 14px;
+    color: #6c757d;
+    font-weight: 500;
 }
 
 .count-warning {
     font-size: 12px;
-    color: #e65100;
-    margin-top: 4px;
+    color: #e74c3c;
+    margin-top: 5px;
+    font-weight: 500;
 }
 
 .assignment-arrow {
-    font-size: 24px;
-    color: #aaa;
+    font-size: 28px;
+    color: #adb5bd;
 }
 
 .proxies-count.warning {
-    border: 1px solid #ffcc80;
-    background-color: #fff8e1;
+    border-color: #ffeaa7;
+    background-color: #fffbf0;
+}
+
+.proxies-count.warning .count-value {
+    color: #f39c12;
 }
 
 /* 一对多模式的样式 */
@@ -1192,182 +1279,106 @@ input:checked + .slider:before {
 
 /* 代理列表管理部分 */
 .proxy-management {
-    background-color: white;
-    border-radius: 8px;
-    padding: 15px;
-    margin-top: 15px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
+    border: 1px solid #e9ecef;
 }
 
 .proxy-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .proxy-header h4 {
     margin: 0;
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
 }
 
 .proxy-actions {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+}
+
+.proxy-actions .btn {
+    font-size: 13px;
+    padding: 6px 14px;
+}
+
+.proxy-actions .btn-secondary {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dfe4ea;
+}
+
+.proxy-actions .btn-secondary:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.proxy-actions .btn-primary {
+    background-color: #6c5ce7;
+    color: #fff;
+    border: 1px solid #6c5ce7;
+}
+
+.proxy-actions .btn-primary:hover {
+    background-color: #5a4cdb;
+    border-color: #5a4cdb;
 }
 
 .proxy-manual-input textarea {
     width: 100%;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    padding: 10px;
-    font-family: monospace;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
     font-size: 13px;
     resize: vertical;
-    min-height: 80px;
+    min-height: 100px;
+    background-color: #fff;
+    transition: border-color 0.2s;
+}
+
+.proxy-manual-input textarea:focus {
+    outline: none;
+    border-color: #6c5ce7;
 }
 
 .proxy-count-info {
-    margin-top: 10px;
-    font-size: 13px;
-    color: #777;
+    margin-top: 12px;
+    font-size: 14px;
+    color: #6c757d;
 }
 
 .proxy-warning {
-    color: #e65100;
-    margin-left: 5px;
-}
-
-/* 钱包组和勾选框相关样式 */
-.group-toggle {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 8px;
-}
-
-.group-checkbox {
-    margin-right: 12px; /* 增加勾选框右侧间距 */
-    margin-left: 4px; /* 增加勾选框左侧间距 */
-    position: relative;
-    top: 1px; /* 微调勾选框垂直对齐 */
-}
-
-/* 确保标签中的图标和文字有良好的间距 */
-.group-title label i {
-    margin-right: 6px;
-    margin-left: 2px;
-}
-
-/* 代理卡片信息行样式 */
-.proxy-info-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px;
-    flex-wrap: wrap;
-}
-
-.proxy-info-row span {
-    display: inline-flex;
-    align-items: center;
-    font-size: 13px;
-    white-space: nowrap;
-}
-
-.proxy-info-row .proxy-protocol {
-    background-color: #f0f2f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: #666;
-    font-weight: 500;
-    text-transform: uppercase;
-    font-size: 11px;
-}
-
-.proxy-info-row .proxy-host {
-    color: #333;
+    color: #e74c3c;
+    margin-left: 8px;
     font-weight: 500;
 }
 
-.proxy-info-row .proxy-port {
-    color: #555;
-}
-
-.proxy-info-row .proxy-port:before {
-    content: ":";
-    margin-right: 2px;
-}
-
-.proxy-info-row .proxy-location {
-    color: #0277bd;
-    margin-left: auto;
-}
-
-.proxy-info-row .proxy-location i {
-    margin-right: 4px;
-    font-size: 12px;
-}
-
-.proxy-info-row .proxy-auth-badge {
-    background-color: #e3f2fd;
-    color: #1565c0;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-}
-
-.proxy-info-row .proxy-auth-badge i {
-    margin-right: 3px;
-    font-size: 10px;
-}
-
-.proxy-info-row .proxy-status {
-    background-color: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-}
-
-.proxy-info-row .proxy-status i {
-    font-size: 8px;
-    margin-right: 3px;
-}
-
-.proxy-info-row .status-active {
-    color: #2e7d32;
-    background-color: #e8f5e9;
-}
-
-.proxy-info-row .status-inactive {
-    color: #d32f2f;
-    background-color: #ffebee;
-}
-
-.proxy-info-row .status-error {
-    color: #d32f2f;
-    background-color: #ffebee;
-}
-
-.proxy-info-row .status-unknown {
-    color: #757575;
-    background-color: #f5f5f5;
-}
-
-/* 更新可视化代理列表样式 */
+/* 代理列表样式 */
 .proxy-visual-list {
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
+    padding: 5px;
+    background-color: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
 }
 
 .proxy-item {
-    border-bottom: 1px solid #f0f0f0;
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f2f5;
+    transition: background-color 0.2s;
     display: flex;
     align-items: center;
-    padding: 0 8px;
-    transition: background-color 0.2s;
+    gap: 12px;
 }
 
 .proxy-item:last-child {
@@ -1375,18 +1386,331 @@ input:checked + .slider:before {
 }
 
 .proxy-item:hover {
-    background-color: #f9f9f9;
+    background-color: #f8f9fa;
 }
 
 .proxy-item.selected {
-    background-color: #e3f2fd;
+    background-color: #f0ebff;
 }
 
 .proxy-card-checkbox {
-    padding: 0 5px;
+    flex-shrink: 0;
 }
 
 .proxy-card-content {
     flex: 1;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.proxy-info-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 14px;
+}
+
+.proxy-info-row span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.proxy-info-row .proxy-protocol {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.proxy-info-row .proxy-host {
+    color: #2c3e50;
+    font-weight: 500;
+    font-family: 'Courier New', monospace;
+}
+
+.proxy-info-row .proxy-port {
+    color: #6c757d;
+}
+
+.proxy-info-row .proxy-port:before {
+    content: ':';
+    margin-right: 2px;
+}
+
+.proxy-info-row .proxy-location {
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.proxy-info-row .proxy-location i {
+    color: #adb5bd;
+}
+
+.proxy-info-row .proxy-auth-badge {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.proxy-info-row .proxy-auth-badge i {
+    margin-right: 3px;
+}
+
+.proxy-info-row .proxy-status {
+    margin-left: auto;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.proxy-info-row .proxy-status i {
+    font-size: 10px;
+}
+
+.proxy-info-row .status-active {
+    color: #20c997;
+}
+
+.proxy-info-row .status-inactive {
+    color: #adb5bd;
+}
+
+.proxy-info-row .status-error {
+    color: #e74c3c;
+}
+
+.proxy-info-row .status-unknown {
+    color: #f39c12;
+}
+
+/* 通用优化样式 */
+.module-content-display .form-group {
+    margin-bottom: 20px;
+}
+
+.module-content-display .form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.module-content-display .form-control,
+.module-content-display select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    background-color: #fff;
+    color: #495057;
+}
+
+.module-content-display select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 35px;
+}
+
+.module-content-display .form-control:focus,
+.module-content-display select:focus {
+    outline: none;
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+}
+
+.module-content-display .form-control:hover,
+.module-content-display select:hover {
+    border-color: #a29bfe;
+}
+
+.module-content-display .form-text {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+.module-content-display .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.module-content-display .alert i {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.module-content-display .alert-info {
+    background-color: #e7f3ff;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.module-content-display .alert-info i {
+    color: #17a2b8;
+}
+
+.module-content-display .alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.module-content-display .alert-warning i {
+    color: #ffc107;
+}
+
+.module-content-display .alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.module-content-display .alert-success i {
+    color: #28a745;
+}
+
+.module-content-display .alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.module-content-display .alert-danger i {
+    color: #dc3545;
+}
+
+/* 模块内容区域按钮样式覆盖 */
+.module-content-display .btn {
+    border: 1px solid transparent;
+}
+
+.module-content-display .btn-primary {
+    background-color: #6c5ce7;
+    color: #fff;
+    border-color: #6c5ce7;
+    box-shadow: 0 2px 5px rgba(108, 92, 231, 0.3);
+}
+
+.module-content-display .btn-primary:hover {
+    background-color: #5a4cdb;
+    border-color: #5a4cdb;
+    box-shadow: 0 4px 10px rgba(108, 92, 231, 0.4);
+    transform: translateY(-1px);
+}
+
+.module-content-display .btn-secondary {
+    background-color: #f8f9fa;
+    color: #495057;
+    border-color: #dfe4ea;
+}
+
+.module-content-display .btn-secondary:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.module-content-display .btn-success {
+    background-color: #20c997;
+    color: #fff;
+    border-color: #20c997;
+    box-shadow: 0 2px 5px rgba(32, 201, 151, 0.3);
+}
+
+.module-content-display .btn-success:hover {
+    background-color: #1baa80;
+    border-color: #1baa80;
+    box-shadow: 0 4px 10px rgba(32, 201, 151, 0.4);
+    transform: translateY(-1px);
+}
+
+.module-content-display .btn-danger {
+    background-color: #e74c3c;
+    color: #fff;
+    border-color: #e74c3c;
+    box-shadow: 0 2px 5px rgba(231, 76, 60, 0.3);
+}
+
+.module-content-display .btn-danger:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
+    transform: translateY(-1px);
+}
+
+/* 响应式优化 */
+@media (max-width: 1200px) {
+    .modular-content-area {
+        padding: 15px;
+    }
+    
+    .module-navigation {
+        width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .modular-content-area {
+        flex-direction: column;
+        padding: 10px;
+        gap: 15px;
+    }
+    
+    .module-navigation {
+        width: 100%;
+        padding: 10px 0;
+    }
+    
+    .module-navigation ul {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 5px;
+    }
+    
+    .module-navigation li {
+        flex-shrink: 0;
+    }
+    
+    .module-navigation li a {
+        padding: 8px 15px;
+        border-left: none;
+        border-bottom: 2px solid transparent;
+    }
+    
+    .module-navigation li.active a {
+        border-bottom-color: #6c5ce7;
+        background-color: transparent;
+    }
+    
+    .proxy-strategy-selector {
+        flex-direction: column;
+    }
+    
+    .proxy-assignment-preview {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .assignment-arrow {
+        transform: rotate(90deg);
+    }
 } 
