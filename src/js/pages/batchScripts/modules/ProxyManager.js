@@ -129,101 +129,45 @@ export class ProxyManager {
             return;
         }
         
-        // 创建表格形式的代理列表
-        const tableHtml = `
-            <table class="proxy-table">
-                <thead>
-                    <tr>
-                        <th width="40"><input type="checkbox" id="select-all-proxies-table-${taskInstanceId}"></th>
-                        <th width="60">ID</th>
-                        <th width="80">类型</th>
-                        <th>主机地址</th>
-                        <th width="80">端口</th>
-                        <th width="100">状态</th>
-                        <th>位置</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.availableProxies.map(proxy => {
-                        const isSelected = taskConfig.proxyConfig.proxies.includes(this.formatProxy(proxy));
-                        const location = proxy.country ? 
-                            `${proxy.country}${proxy.city ? ' - ' + proxy.city : ''}` : 
-                            '未知';
-                        
-                        return `
-                            <tr class="proxy-row ${isSelected ? 'selected' : ''}">
-                                <td><input type="checkbox" 
+        // 创建代理列表容器
+        const listHtml = `
+            <div class="proxy-list-container">
+                ${this.availableProxies.map(proxy => {
+                    const isSelected = taskConfig.proxyConfig.proxies.includes(this.formatProxy(proxy));
+                    const location = proxy.country ? 
+                        `${proxy.country}${proxy.city ? ' - ' + proxy.city : ''}` : 
+                        '未知';
+                    
+                    return `
+                        <div class="proxy-item ${isSelected ? 'selected' : ''}">
+                            <label>
+                                <input type="checkbox" 
                                     name="selected-proxies" 
                                     value="${proxy.id}"
-                                    ${isSelected ? 'checked' : ''}></td>
-                                <td>${proxy.name || proxy.id}</td>
-                                <td><span class="proxy-type-badge ${proxy.type ? proxy.type.toLowerCase() : ''}">${proxy.type || 'HTTP'}</span></td>
-                                <td>${proxy.host}</td>
-                                <td>${proxy.port}</td>
-                                <td><span class="proxy-status ${this.getProxyStatusClass(proxy.status)}">${this.getProxyStatusText(proxy.status)}</span></td>
-                                <td class="proxy-location">${location}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
+                                    ${isSelected ? 'checked' : ''}>
+                                <div class="proxy-info">
+                                    <span class="proxy-address">${proxy.host}:${proxy.port}</span>
+                                    <span class="proxy-location">${location}</span>
+                                </div>
+                            </label>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
         `;
         
-        proxyListDiv.innerHTML = tableHtml;
+        proxyListDiv.innerHTML = listHtml;
         
-        // 绑定全选复选框事件
-        const selectAllCheckbox = document.getElementById(`select-all-proxies-table-${taskInstanceId}`);
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                const checkboxes = proxyListDiv.querySelectorAll('input[name="selected-proxies"]');
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = e.target.checked;
-                });
-                this.updateSelectedProxies(taskInstanceId, taskConfig);
-            });
-        }
-        
-        // 绑定单个复选框事件
+        // 绑定复选框事件
         const checkboxes = proxyListDiv.querySelectorAll('input[name="selected-proxies"]');
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 this.updateSelectedProxies(taskInstanceId, taskConfig);
-                
-                // 更新全选复选框状态
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                const someChecked = Array.from(checkboxes).some(cb => cb.checked);
-                if (selectAllCheckbox) {
-                    selectAllCheckbox.checked = allChecked;
-                    selectAllCheckbox.indeterminate = someChecked && !allChecked;
-                }
-            });
-        });
-        
-        // 绑定行点击事件
-        const rows = proxyListDiv.querySelectorAll('.proxy-row');
-        rows.forEach(row => {
-            row.addEventListener('click', (e) => {
-                // 如果点击的是复选框本身，不处理
-                if (e.target.type === 'checkbox') return;
-                
-                const checkbox = row.querySelector('input[type="checkbox"]');
-                if (checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    checkbox.dispatchEvent(new Event('change'));
-                }
             });
         });
         
         // 初始化时更新选中的代理
         this.updateSelectedProxies(taskInstanceId, taskConfig);
-        
-        // 初始化时更新全选复选框状态
-        if (selectAllCheckbox && checkboxes.length > 0) {
-            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            const someChecked = Array.from(checkboxes).some(cb => cb.checked);
-            selectAllCheckbox.checked = allChecked;
-            selectAllCheckbox.indeterminate = someChecked && !allChecked;
-        }
     }
 
     /**
@@ -267,36 +211,33 @@ export class ProxyManager {
      */
     generateProxyConfigHTML(taskInstanceId, proxyConfig) {
         return `
-            <div class="proxy-config-section">
-                <div class="config-header">
-                    <h3><i class="fas fa-globe"></i> 代理配置</h3>
-                    <label class="switch">
+            <div class="proxy-section">
+                <div class="proxy-header">
+                    <label>
                         <input type="checkbox" id="proxy-enabled-${taskInstanceId}" ${proxyConfig.enabled ? 'checked' : ''}>
-                        <span class="slider"></span>
+                        <i class="fas fa-globe"></i> 启用代理
                     </label>
                 </div>
                 
                 <div class="proxy-config-content" id="proxy-config-content-${taskInstanceId}" style="${proxyConfig.enabled ? '' : 'display: none;'}">
                     <div class="proxy-strategy">
                         <label>代理策略:</label>
-                        <select id="proxy-strategy-${taskInstanceId}" class="form-select">
+                        <select id="proxy-strategy-${taskInstanceId}">
                             <option value="one-to-one" ${proxyConfig.strategy === 'one-to-one' ? 'selected' : ''}>一对一（每个钱包固定代理）</option>
                             <option value="one-to-many" ${proxyConfig.strategy === 'one-to-many' ? 'selected' : ''}>一对多（轮流使用代理池）</option>
                         </select>
                     </div>
                     
-                    <div id="proxy-strategy-details-${taskInstanceId}" class="strategy-details"></div>
+                    <div id="proxy-strategy-details-${taskInstanceId}" class="proxy-strategy-details"></div>
                     
-                    <div class="proxy-list-section">
-                        <div class="section-header">
-                            <span id="selected-proxy-count-${taskInstanceId}">已选择 ${proxyConfig.proxies.length} 个代理</span>
-                            <button class="btn btn-sm" id="refresh-proxy-list-${taskInstanceId}">
-                                <i class="fas fa-sync"></i> 刷新列表
-                            </button>
-                        </div>
-                        <div id="proxy-list-${taskInstanceId}" class="proxy-list">
-                            <!-- 代理列表将动态加载 -->
-                        </div>
+                    <div class="proxy-list-header">
+                        <span class="proxy-list-title" id="selected-proxy-count-${taskInstanceId}">已选择 ${proxyConfig.proxies.length} 个代理</span>
+                        <button class="refresh-proxy-btn" id="refresh-proxy-list-${taskInstanceId}">
+                            <i class="fas fa-sync"></i> 刷新
+                        </button>
+                    </div>
+                    <div id="proxy-list-${taskInstanceId}" class="proxy-list">
+                        <!-- 代理列表将动态加载 -->
                     </div>
                 </div>
             </div>

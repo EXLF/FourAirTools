@@ -15,25 +15,30 @@ export class WalletGroupManager {
         this.groupHeaders = document.querySelectorAll('.wallet-group-header');
         
         // 移除可能存在的旧的事件监听器
-        this.groupHeaders.forEach(header => {
+        this.groupHeaders.forEach((header, index) => {
             header.removeEventListener('click', this.boundHandleGroupHeaderClick);
             
             // 添加新的事件监听器
             header.addEventListener('click', this.boundHandleGroupHeaderClick);
             
-            // 默认展开第一个组
+            // 设置默认状态：第一个组展开，其他组折叠
             const groupContent = header.nextElementSibling;
+            const icon = header.querySelector('i');
+            
             if (groupContent && groupContent.classList.contains('wallet-group-content')) {
-                const icon = header.querySelector('i');
-                if (header === this.groupHeaders[0]) {
+                if (index === 0) {
+                    // 第一个分组默认展开
                     groupContent.style.display = 'block';
                     if (icon) icon.classList.add('rotated');
                 } else {
+                    // 其他分组默认折叠
                     groupContent.style.display = 'none';
                     if (icon) icon.classList.remove('rotated');
                 }
             }
         });
+        
+        console.log(`初始化了 ${this.groupHeaders.length} 个钱包分组的折叠功能`);
     }
 
     /**
@@ -45,18 +50,28 @@ export class WalletGroupManager {
         const icon = header.querySelector('i');
         const groupContent = header.nextElementSibling;
         
-        // 如果点击的是复选框，不折叠
-        if (event.target.type === 'checkbox') {
+        // 如果点击的是复选框或标签，不折叠
+        if (event.target.type === 'checkbox' || 
+            event.target.classList.contains('group-checkbox') ||
+            event.target.tagName === 'LABEL') {
             return;
         }
         
-        if (groupContent && groupContent.classList.contains('wallet-group-content')) {
-            if (groupContent.style.display === 'none' || !groupContent.style.display) {
-                groupContent.style.display = 'block';
-                if (icon) icon.classList.add('rotated');
-            } else {
-                groupContent.style.display = 'none';
-                if (icon) icon.classList.remove('rotated');
+        // 只有点击图标或分组名称时才折叠
+        if (event.target === icon || 
+            event.target.classList.contains('group-name') ||
+            event.target === header) {
+            
+            if (groupContent && groupContent.classList.contains('wallet-group-content')) {
+                const isVisible = groupContent.style.display !== 'none' && groupContent.style.display !== '';
+                
+                if (isVisible) {
+                    groupContent.style.display = 'none';
+                    if (icon) icon.classList.remove('rotated');
+                } else {
+                    groupContent.style.display = 'block';
+                    if (icon) icon.classList.add('rotated');
+                }
             }
         }
     }

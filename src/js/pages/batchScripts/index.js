@@ -141,36 +141,68 @@ function navigateToModularTaskManager(taskInstanceId) {
     }
 
     const templateHtml = `
-    <div class="page-container modular-manager-page simple-config-page">
-        <div class="page-header">
-            <h1 id="modular-manager-title">配置批量任务: ${pageState.currentBatchScriptType.name}</h1>
-            <div class="header-actions">
-                <button id="back-to-cards-btn" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> 返回卡片
+    <div class="batch-task-container">
+        <div class="task-header">
+            <div class="header-nav">
+                <button id="back-to-cards-btn" class="back-btn" title="返回">
+                    <i class="fas fa-arrow-left"></i>
                 </button>
+                <h3>${pageState.currentBatchScriptType.name}</h3>
+            </div>
+            <div class="header-status">
+                <span class="status-text" id="statusText">配置中</span>
+                <span class="timer" id="timer" style="display: none;">00:00</span>
             </div>
         </div>
-        <main class="module-content-display" id="moduleContentDisplay">
-            <!-- 配置内容将在此处动态加载 -->
-        </main>
-        <div class="task-logs-panel" id="taskLogsPanel" style="display: none;">
-            <div class="logs-header">
-                <h3><i class="fas fa-terminal"></i> 脚本执行日志</h3>
-                <div class="logs-actions">
-                    <button id="clear-logs-btn" class="btn btn-sm" title="清空日志">
-                        <i class="fas fa-eraser"></i>
-                    </button>
-                    <button id="collapse-logs-btn" class="btn btn-sm" title="折叠/展开">
-                        <i class="fas fa-chevron-up"></i>
+        
+        <div class="task-body">
+            <!-- 配置区域 -->
+            <div class="config-section" id="configSection">
+                <div class="config-content" id="moduleContentDisplay">
+                    <!-- 配置内容将在此处动态加载 -->
+                </div>
+                <div class="action-bar">
+                    <button id="start-execution-btn" class="btn btn-primary">
+                        <i class="fas fa-play"></i> 开始执行
                     </button>
                 </div>
             </div>
-            <div id="taskLogContainer" class="logs-content"></div>
-        </div>
-        <div class="simple-config-footer-actions">
-            <button id="start-execution-btn" class="btn btn-success">
-                <i class="fas fa-play"></i> 开始执行
-            </button>
+            
+            <!-- 执行日志区域 -->
+            <div class="log-section" id="logSection" style="display: none;">
+                <div class="log-toolbar">
+                    <div class="log-info">
+                        <span class="log-title">执行日志</span>
+                        <span class="log-stats">
+                            <span id="totalCount">0</span> 个任务 | 
+                            成功 <span id="successCount">0</span> | 
+                            失败 <span id="failCount">0</span>
+                        </span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="tool-btn" id="autoScrollBtn" title="自动滚动">
+                            <i class="fas fa-angle-double-down"></i>
+                        </button>
+                        <button class="tool-btn" id="downloadBtn" title="下载日志">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="tool-btn" id="clearBtn" title="清空日志">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="log-container" id="taskLogContainer">
+                    <!-- 日志内容 -->
+                </div>
+                <div class="log-footer">
+                    <button id="back-to-config-btn" class="btn btn-secondary">
+                        <i class="fas fa-chevron-left"></i> 返回配置
+                    </button>
+                    <button id="stop-btn" class="btn btn-danger" style="display: none;">
+                        <i class="fas fa-stop"></i> 停止执行
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     `;
@@ -195,7 +227,7 @@ function navigateToModularTaskManager(taskInstanceId) {
     loadModuleContent('simple-config', taskInstanceId);
     
     // 添加必要的样式
-    addTaskLogStyles();
+    addCompactTaskStyles();
 }
 
 /**
@@ -203,9 +235,9 @@ function navigateToModularTaskManager(taskInstanceId) {
  * @param {string} taskInstanceId - 当前配置的任务实例的唯一ID
  */
 function bindModularManagerEvents(taskInstanceId) {
-    const managerPage = pageState.contentAreaRef.querySelector('.simple-config-page');
+    const managerPage = pageState.contentAreaRef.querySelector('.batch-task-container');
     if (!managerPage) {
-        console.error("Simple config page element not found");
+        console.error("Batch task container not found");
         return;
     }
 
@@ -223,9 +255,50 @@ function bindModularManagerEvents(taskInstanceId) {
     // 开始执行按钮
     const startTaskButton = managerPage.querySelector('#start-execution-btn');
     if (startTaskButton) {
+        // 监听钱包选择变化，更新按钮状态
+        const updateStartButtonState = () => {
+            const selectedWallets = document.querySelectorAll('input[name="selected-wallets"]:checked');
+            const walletCount = selectedWallets.length;
+            
+            if (walletCount > 0) {
+                startTaskButton.disabled = false;
+            } else {
+                startTaskButton.disabled = true;
+            }
+        };
+        
+        // 初始检查
+        setTimeout(updateStartButtonState, 100);
+        
+        // 监听钱包选择变化
+        document.addEventListener('change', (e) => {
+            if (e.target.name === 'selected-wallets') {
+                updateStartButtonState();
+            }
+        });
+        
         startTaskButton.addEventListener('click', async (event) => {
             event.preventDefault();
             await handleStartExecution(taskInstanceId, startTaskButton);
+        });
+    }
+
+    // 返回配置按钮
+    const backToConfigBtn = managerPage.querySelector('#back-to-config-btn');
+    if (backToConfigBtn) {
+        backToConfigBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            switchToConfigStage();
+        });
+    }
+
+    // 停止执行按钮
+    const stopTaskButton = managerPage.querySelector('#stop-btn');
+    if (stopTaskButton) {
+        stopTaskButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            // TODO: 实现停止功能
+            console.log('停止执行功能待实现');
         });
     }
 }
@@ -275,11 +348,11 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         }
     }
     
+    // 切换到执行阶段界面
+    switchToExecutionStage(taskConfig);
+    
     // 清理旧的监听器和日志
     cleanupResources();
-    
-    // 显示日志面板
-    setupLogPanel();
     
     // 初始化日志
     const logContainer = document.getElementById('taskLogContainer');
@@ -351,13 +424,108 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         } catch (err) {
             console.error('[批量脚本] 执行失败:', err);
             TaskLogger.logError(`执行失败: ${err.message || err}`);
+            switchToConfigStage();
             startTaskButton.disabled = false;
             startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
         }
     } else {
-        alert('脚本执行接口未定义');
-        startTaskButton.disabled = false;
-        startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
+        console.warn('脚本执行接口未定义，使用模拟执行');
+        TaskLogger.logWarning('脚本执行接口未定义，将模拟执行过程');
+        
+        // 模拟执行过程
+        setTimeout(() => {
+            TaskLogger.logInfo('开始模拟执行...');
+            let completed = 0;
+            const total = taskConfig.accounts.length;
+            
+            const simulateInterval = setInterval(() => {
+                if (completed < total) {
+                    completed++;
+                    TaskLogger.logSuccess(`账户 ${completed}/${total} 执行成功`);
+                    document.getElementById('successCount').textContent = completed;
+                } else {
+                    clearInterval(simulateInterval);
+                    
+                    // 手动触发完成处理
+                    TaskLogger.logSuccess('✅ 批量脚本执行完成！');
+                    TaskLogger.logInfo(`📊 执行总结:`);
+                    TaskLogger.logInfo(`   - 总账户数: ${total}`);
+                    TaskLogger.logInfo(`   - 成功: ${completed}`);
+                    TaskLogger.logInfo(`   - 失败: 0`);
+                    TaskLogger.logInfo(`   - 耗时: 模拟执行`);
+                    
+                    // 停止计时器
+                    if (window.__executionTimer) {
+                        clearInterval(window.__executionTimer);
+                        window.__executionTimer = null;
+                    }
+                    
+                    // 更新状态
+                    const statusText = document.getElementById('statusText');
+                    if (statusText) {
+                        statusText.textContent = '已完成';
+                        statusText.style.color = '#27ae60';
+                    }
+                    
+                    // 重置按钮状态
+                    startTaskButton.disabled = false;
+                    startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
+                }
+            }, 1000);
+        }, 1000);
+    }
+}
+
+/**
+ * 切换到执行阶段
+ * @param {Object} taskConfig - 任务配置
+ */
+function switchToExecutionStage(taskConfig) {
+    // 隐藏配置区域，显示日志区域
+    document.getElementById('configSection').style.display = 'none';
+    document.getElementById('logSection').style.display = 'block';
+    
+    // 更新状态
+    const statusText = document.getElementById('statusText');
+    if (statusText) {
+        statusText.textContent = '执行中';
+        statusText.style.color = '#f39c12';
+    }
+    
+    // 显示计时器
+    document.getElementById('timer').style.display = 'inline';
+    
+    // 更新统计信息
+    document.getElementById('totalCount').textContent = taskConfig.accounts.length;
+    document.getElementById('successCount').textContent = '0';
+    document.getElementById('failCount').textContent = '0';
+    
+    // 开始计时
+    startExecutionTimer();
+}
+
+/**
+ * 切换回配置阶段
+ */
+function switchToConfigStage() {
+    // 显示配置区域，隐藏日志区域
+    document.getElementById('configSection').style.display = 'block';
+    document.getElementById('logSection').style.display = 'none';
+    
+    // 更新状态
+    const statusText = document.getElementById('statusText');
+    if (statusText) {
+        statusText.textContent = '配置中';
+        statusText.style.color = '#666';
+    }
+    
+    // 隐藏计时器
+    document.getElementById('timer').style.display = 'none';
+    
+    // 停止计时器
+    if (window.__executionTimer) {
+        clearInterval(window.__executionTimer);
+        window.__executionTimer = null;
     }
 }
 
@@ -424,9 +592,35 @@ function setupScriptLogListeners(taskInstanceId, startTaskButton) {
             TaskLogger.logInfo(`   - 成功: ${data.summary.successCount || 0}`);
             TaskLogger.logInfo(`   - 失败: ${data.summary.failedCount || 0}`);
             TaskLogger.logInfo(`   - 耗时: ${data.summary.duration || '未知'}`);
+            
+            // 更新统计信息
+            document.getElementById('successCount').textContent = data.summary.successCount || 0;
+            document.getElementById('failCount').textContent = data.summary.failedCount || 0;
         }
         
-        // 重置按钮状态
+        // 停止计时器
+        if (window.__executionTimer) {
+            clearInterval(window.__executionTimer);
+            window.__executionTimer = null;
+        }
+        
+        // 停止日志观察器
+        if (window.__logObserver) {
+            window.__logObserver.disconnect();
+            window.__logObserver = null;
+        }
+        
+        // 更新状态
+        const statusText = document.getElementById('statusText');
+        if (statusText) {
+            statusText.textContent = '已完成';
+            statusText.style.color = '#27ae60';
+        }
+        
+        // 显示停止按钮
+        document.getElementById('stop-btn').style.display = 'none';
+        
+        // 重置开始按钮状态
         startTaskButton.disabled = false;
         startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
         
@@ -527,6 +721,11 @@ async function loadModuleContent(moduleId, taskInstanceId) {
         // 绑定事件
         bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies);
         
+        // 修复：确保在DOM更新后再次初始化折叠功能
+        setTimeout(() => {
+            pageState.walletGroupManager.initWalletGroupCollapse();
+        }, 100);
+        
         // 如果IPC不可用，显示警告
         if (!detectIPC()) {
             const warningDiv = document.createElement('div');
@@ -584,6 +783,7 @@ function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxie
             if (e.target.classList.contains('group-checkbox')) {
                 const group = e.target.dataset.group;
                 pageState.walletGroupManager.handleGroupCheckboxChange(group, e.target.checked, walletsListDiv);
+                updateSelectedCount(); // 更新总计数
             }
         });
         
@@ -703,20 +903,35 @@ function saveCurrentModuleData(taskInstanceId) {
 }
 
 /**
- * 设置日志面板
+ * 开始执行计时器
  */
-function setupLogPanel() {
-    const logsPanel = document.getElementById('taskLogsPanel');
-    if (!logsPanel) return;
+function startExecutionTimer() {
+    let seconds = 0;
+    const timerElement = document.getElementById('timer');
     
-    logsPanel.style.display = 'block';
+    if (window.__executionTimer) {
+        clearInterval(window.__executionTimer);
+    }
     
-    const clearLogsBtn = document.getElementById('clear-logs-btn');
-    const collapseLogsBtn = document.getElementById('collapse-logs-btn');
-    const logContainer = document.getElementById('taskLogContainer');
+    window.__executionTimer = setInterval(() => {
+        seconds++;
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        
+        if (timerElement) {
+            timerElement.textContent = 
+                `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    }, 1000);
+    
+    // 绑定日志控制按钮
+    const clearLogsBtn = document.getElementById('clearBtn');
+    const downloadLogsBtn = document.getElementById('downloadBtn');
+    const toggleAutoScrollBtn = document.getElementById('autoScrollBtn');
     
     if (clearLogsBtn) {
         clearLogsBtn.onclick = () => {
+            const logContainer = document.getElementById('taskLogContainer');
             if (logContainer) {
                 TaskLogger.clearLogContainer(logContainer);
                 TaskLogger.logInfo('日志已清空');
@@ -724,18 +939,38 @@ function setupLogPanel() {
         };
     }
     
-    if (collapseLogsBtn) {
-        collapseLogsBtn.onclick = () => {
-            const logsContent = logsPanel.querySelector('.logs-content');
-            const icon = collapseLogsBtn.querySelector('i');
-            if (logsContent.style.display === 'none') {
-                logsContent.style.display = 'block';
-                icon.className = 'fas fa-chevron-up';
-            } else {
-                logsContent.style.display = 'none';
-                icon.className = 'fas fa-chevron-down';
+    if (downloadLogsBtn) {
+        downloadLogsBtn.onclick = downloadLogs;
+    }
+    
+    if (toggleAutoScrollBtn) {
+        let autoScroll = true;
+        toggleAutoScrollBtn.classList.add('active');
+        
+        toggleAutoScrollBtn.onclick = () => {
+            autoScroll = !autoScroll;
+            toggleAutoScrollBtn.classList.toggle('active', autoScroll);
+            
+            if (autoScroll) {
+                const logContainer = document.getElementById('taskLogContainer');
+                if (logContainer) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
             }
         };
+        
+        // 自动滚动逻辑
+        const logContainer = document.getElementById('taskLogContainer');
+        if (logContainer) {
+            const observer = new MutationObserver(() => {
+                if (autoScroll) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            });
+            
+            observer.observe(logContainer, { childList: true, subtree: true });
+            window.__logObserver = observer;
+        }
     }
 }
 
@@ -767,297 +1002,621 @@ function cleanupResources() {
         }
     }
     
+    // 清理执行计时器
+    if (window.__executionTimer) {
+        clearInterval(window.__executionTimer);
+        window.__executionTimer = null;
+    }
+    
+    // 清理日志观察器
+    if (window.__logObserver) {
+        window.__logObserver.disconnect();
+        window.__logObserver = null;
+    }
+    
     // 移除所有IPC监听器
     if (window.electron && window.electron.ipcRenderer) {
         window.electron.ipcRenderer.removeAllListeners('script-log');
         window.electron.ipcRenderer.removeAllListeners('script-completed');
     }
     
-    // 清理管理器
-    pageState.walletGroupManager.destroy();
+    // 注意：不要销毁钱包分组管理器，以保持折叠功能正常工作
+    // pageState.walletGroupManager.destroy(); // 移除这行
 }
 
 /**
- * 添加任务日志样式
+ * 添加紧凑任务管理器样式
  */
-function addTaskLogStyles() {
-    if (document.getElementById('task-log-styles')) return;
+function addCompactTaskStyles() {
+    if (document.getElementById('compact-task-styles')) return;
     
     const styleElement = document.createElement('style');
-    styleElement.id = 'task-log-styles';
+    styleElement.id = 'compact-task-styles';
     styleElement.textContent = `
-        .task-logs-panel {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow: hidden;
+        /* 主容器 */
+        .batch-task-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
             background: #f8f9fa;
         }
         
-        .logs-header {
+        /* 顶部栏 */
+        .task-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 15px;
-            background: #f1f1f1;
-            border-bottom: 1px solid #ddd;
+            padding: 12px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
         }
         
-        .logs-header h3 {
-            margin: 0;
-            font-size: 16px;
+        .header-nav {
             display: flex;
             align-items: center;
+            gap: 12px;
         }
         
-        .logs-header h3 i {
-            margin-right: 8px;
+        .back-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s;
         }
         
-        .logs-actions {
+        .back-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .header-nav h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        
+        .header-status {
             display: flex;
-            gap: 5px;
+            align-items: center;
+            gap: 16px;
+            font-size: 14px;
         }
         
-        .logs-content {
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 10px;
+        .status-text {
+            color: #666;
+        }
+        
+        .timer {
             font-family: monospace;
-            background: #222;
-            color: #eee;
+            color: #666;
+        }
+        
+        /* 主体区域 */
+        .task-body {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* 配置区域 */
+        .config-section {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .config-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .action-bar {
+            padding: 16px 20px;
+            background: #fff;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        /* 日志区域 */
+        .log-section {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+        
+        .log-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .log-info {
+            font-size: 14px;
+        }
+        
+        .log-title {
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-right: 16px;
+        }
+        
+        .log-stats {
+            color: #666;
+        }
+        
+        .log-stats span {
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        
+        .log-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .tool-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .tool-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .tool-btn.active {
+            background: #6c5ce7;
+            color: #fff;
+        }
+        
+        .log-container {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: #1e1e1e;
+            color: #d4d4d4;
         }
         
         .log-entry {
-            padding: 3px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            word-break: break-word;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: flex-start;
         }
         
         .log-time {
-            color: #888;
-            margin-right: 8px;
+            color: #858585;
+            margin-right: 12px;
+            flex-shrink: 0;
         }
         
-        .log-type-info .log-message { color: #eee; }
-        .log-type-success .log-message { color: #4caf50; }
-        .log-type-warning .log-message { color: #ff9800; }
-        .log-type-error .log-message { color: #f44336; }
+        .log-message {
+            flex: 1;
+            word-break: break-word;
+        }
         
-        /* 钱包分组样式 */
-        .wallet-group {
-            margin-bottom: 10px;
-            border: 1px solid #e0e0e0;
+        .log-type-info .log-message { color: #d4d4d4; }
+        .log-type-success .log-message { color: #4ec9b0; }
+        .log-type-warning .log-message { color: #dcdcaa; }
+        .log-type-error .log-message { color: #f48771; }
+        
+        .log-footer {
+            padding: 16px 20px;
+            background: #fff;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        /* 模块内容样式 */
+        .module-section {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .module-section h2 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 钱包选择 */
+        .wallet-selection-section {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 13px;
+        }
+        
+        .wallet-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .wallet-actions .btn {
+            padding: 3px 8px;
+            font-size: 12px;
+        }
+        
+        .wallet-search-box {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e9ecef;
+            position: relative;
+        }
+        
+        .wallet-search-box input {
+            width: 100%;
+            padding: 5px 8px;
+            padding-right: 28px;
+            font-size: 12px;
+            border: 1px solid #dee2e6;
             border-radius: 4px;
         }
         
+        .wallet-search-box i {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .wallet-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        /* 钱包分组样式 */
+        .wallet-group {
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .wallet-group:last-child {
+            border-bottom: none;
+        }
+        
         .wallet-group-header {
-            padding: 10px;
-            background: #f5f5f5;
-            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 10px;
+            padding: 6px 12px;
+            background: #fafafa;
+            cursor: pointer;
+            font-size: 13px;
+            user-select: none;
         }
         
-        .wallet-group-header i {
-            transition: transform 0.3s;
+        .wallet-group-header:hover {
+            background: #f5f5f5;
         }
         
-        .wallet-group-header i.rotated {
-            transform: rotate(90deg);
+        .group-toggle {
+            margin-right: 6px;
+            color: #666;
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .group-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .group-checkbox {
+            margin-right: 8px;
+        }
+        
+        .group-name {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .group-count {
+            font-size: 12px;
+            color: #666;
         }
         
         .wallet-group-content {
-            padding: 10px;
+            display: block;
+        }
+        
+        .wallet-group-content.collapsed {
             display: none;
         }
         
         .wallet-item {
-            padding: 5px 0;
+            display: flex;
+            align-items: center;
+            padding: 6px 12px 6px 32px;
+            font-size: 12px;
+            transition: background 0.2s;
         }
         
-        /* 代理配置样式 */
-        .proxy-config-section {
+        .wallet-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .wallet-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .wallet-item label {
+            flex: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin: 0;
+        }
+        
+        .wallet-address {
+            font-family: monospace;
+            font-size: 11px;
+            color: #666;
+            margin-left: 8px;
+        }
+        
+        /* 代理配置样式优化 */
+        .proxy-section {
             margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
         }
         
-        .config-header {
+        .proxy-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .proxy-header label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .proxy-config-content {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .proxy-strategy {
+            margin-bottom: 16px;
+        }
+        
+        .proxy-strategy label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+            display: block;
+        }
+        
+        .proxy-strategy select {
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: #fff;
+        }
+        
+        .proxy-list-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         
-        /* 开关样式 */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
+        .proxy-list-title {
+            font-size: 13px;
+            color: #666;
         }
         
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .slider {
-            background-color: #2196F3;
-        }
-        
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        
-        .proxy-list {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #e0e0e0;
+        .refresh-proxy-btn {
+            padding: 4px 10px;
+            font-size: 12px;
+            background: transparent;
+            border: 1px solid #dee2e6;
             border-radius: 4px;
-            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .refresh-proxy-btn:hover {
+            border-color: #6c5ce7;
+            color: #6c5ce7;
+        }
+        
+        /* 代理列表样式 */
+        .proxy-list-container {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            background: #fff;
+            max-height: 200px;
+            overflow-y: auto;
         }
         
         .proxy-item {
-            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
             border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+            transition: background 0.2s;
         }
         
         .proxy-item:last-child {
             border-bottom: none;
         }
         
-        .strategy-info {
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        
-        .strategy-info.valid {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .strategy-info.invalid {
-            background: #ffebee;
-            color: #c62828;
-        }
-        
-        /* 代理表格样式 */
-        .proxy-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        
-        .proxy-table th {
-            background: #f5f5f5;
-            padding: 8px 10px;
-            text-align: left;
-            font-weight: 500;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        
-        .proxy-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .proxy-table tbody tr:hover {
+        .proxy-item:hover {
             background: #f8f9fa;
+        }
+        
+        .proxy-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        .proxy-item label {
+            flex: 1;
+            display: flex;
+            align-items: center;
             cursor: pointer;
         }
         
-        .proxy-table tbody tr.selected {
-            background: #e3f2fd;
+        .proxy-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .proxy-type-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: 500;
-            background: #e0e0e0;
-            color: #333;
-        }
-        
-        .proxy-type-badge.http {
-            background: #bbdefb;
-            color: #1565c0;
-        }
-        
-        .proxy-type-badge.socks5 {
-            background: #c5e1a5;
-            color: #558b2f;
-        }
-        
-        .proxy-type-badge.https {
-            background: #b2dfdb;
-            color: #00695c;
-        }
-        
-        .proxy-status {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        .proxy-status.active {
-            background: #c8e6c9;
-            color: #2e7d32;
-        }
-        
-        .proxy-status.inactive {
-            background: #ffcdd2;
-            color: #c62828;
-        }
-        
-        .proxy-status.unknown {
-            background: #e0e0e0;
-            color: #616161;
+        .proxy-address {
+            color: #1a1a1a;
+            font-family: monospace;
         }
         
         .proxy-location {
             color: #666;
-            font-size: 13px;
+            font-size: 12px;
         }
         
-        .no-data-message {
-            text-align: center;
-            padding: 40px;
-            color: #999;
+        .proxy-strategy-details {
+            margin-top: 12px;
+            padding: 12px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        /* 按钮样式 */
+        .btn.btn-primary {
+            background: #6c5ce7;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn.btn-primary:hover:not(:disabled) {
+            background: #5a4cdb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
+        }
+        
+        .btn.btn-primary:disabled {
+            background: #e9ecef;
+            color: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn.btn-secondary {
+            background: transparent;
+            color: #666;
+            border: 1px solid #dee2e6;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn.btn-secondary:hover {
+            border-color: #6c5ce7;
+            color: #6c5ce7;
+        }
+        
+        .btn.btn-danger {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn.btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
         }
     `;
     document.head.appendChild(styleElement);
+}
+
+/**
+ * 下载日志
+ */
+function downloadLogs() {
+    const logContainer = document.getElementById('taskLogContainer');
+    if (!logContainer) return;
+    
+    // 获取所有日志文本
+    const logEntries = logContainer.querySelectorAll('.log-entry');
+    let logText = '';
+    
+    logEntries.forEach(entry => {
+        const time = entry.querySelector('.log-time')?.textContent || '';
+        const message = entry.querySelector('.log-message')?.textContent || '';
+        logText += `${time} ${message}\n`;
+    });
+    
+    // 创建Blob并下载
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}${now.getSeconds().toString().padStart(2,'0')}`;
+    
+    a.href = url;
+    a.download = `batch_script_log_${timestamp}.txt`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
 } 
