@@ -1713,4 +1713,373 @@ input:checked + .slider:before {
     .assignment-arrow {
         transform: rotate(90deg);
     }
+}
+
+/* =============================================== */
+/* 脚本配置页面专用样式 - 钱包选择部分优化 */
+/* =============================================== */
+
+/* 钱包选择区域样式优化 */
+.wallet-selection-section {
+    background-color: #fff;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+/* 钱包操作区域 */
+.wallet-selection-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 25px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #e9ecef;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.wallet-selection-section .wallet-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.wallet-selection-section .wallet-actions .btn {
+    font-size: 13px;
+    padding: 8px 16px;
+    color: #6c5ce7;
+    font-weight: 600;
+    border: 2px solid #6c5ce7;
+    border-radius: 8px;
+    background-color: #fff;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(108, 92, 231, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.wallet-selection-section .wallet-actions .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(108, 92, 231, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.wallet-selection-section .wallet-actions .btn:hover {
+    background-color: #6c5ce7;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(108, 92, 231, 0.3);
+}
+
+.wallet-selection-section .wallet-actions .btn:hover::before {
+    left: 100%;
+}
+
+/* 搜索框样式 */
+.wallet-search-box {
+    position: relative;
+    padding: 15px 25px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.wallet-search-box input {
+    width: 100%;
+    padding: 12px 20px 12px 45px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 14px;
+    background-color: #fff;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.wallet-search-box input:focus {
+    outline: none;
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.wallet-search-box input::placeholder {
+    color: #adb5bd;
+    font-style: italic;
+}
+
+.wallet-search-box i {
+    position: absolute;
+    left: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    font-size: 16px;
+    transition: color 0.2s ease;
+}
+
+.wallet-search-box input:focus + i {
+    color: #6c5ce7;
+}
+
+/* 钱包列表容器 */
+.wallet-list {
+    max-height: 420px;
+    overflow-y: auto;
+    background-color: #fff;
+    position: relative;
+}
+
+.wallet-list::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #6c5ce7, transparent);
+    opacity: 0.6;
+    z-index: 10;
+}
+
+/* 钱包分组样式 */
+.wallet-group {
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.wallet-group:last-child {
+    border-bottom: none;
+}
+
+.wallet-group-header {
+    padding: 16px 25px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.wallet-group-header:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-group-header.collapsed {
+    border-bottom: none;
+}
+
+.wallet-group-header.collapsed:hover {
+    background: linear-gradient(135deg, #f0ebff 0%, #e9ecef 100%);
+}
+
+/* 分组标题 */
+.group-title {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 15px;
+    color: #2c3e50;
+}
+
+.group-title i {
+    margin-right: 12px;
+    color: #6c5ce7;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.wallet-group-header.collapsed .group-title i {
+    transform: rotate(-90deg);
+    color: #adb5bd;
+}
+
+.wallet-group-header:hover .group-title i {
+    color: #5a4cdb;
+    transform: scale(1.1);
+}
+
+/* 分组内容 */
+.wallet-group-content {
+    padding: 0;
+    background-color: #fff;
+    max-height: 350px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+.wallet-group-content.collapsed {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+
+/* 钱包项目样式 */
+.wallet-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 25px;
+    border-bottom: 1px solid #f8f9fa;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.wallet-item:last-child {
+    border-bottom: none;
+}
+
+.wallet-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.wallet-item.selected {
+    background: linear-gradient(135deg, #f0ebff, #faf7ff);
+    border-left: 4px solid #6c5ce7;
+    transform: translateX(4px);
+}
+
+.wallet-item.selected::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, #6c5ce7, #a29bfe);
+}
+
+/* 复选框样式 */
+.wallet-item input[type="checkbox"] {
+    margin-right: 15px;
+    width: 18px;
+    height: 18px;
+    accent-color: #6c5ce7;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.wallet-item input[type="checkbox"]:hover {
+    transform: scale(1.1);
+}
+
+.wallet-item input[type="checkbox"]:checked {
+    transform: scale(1.05);
+}
+
+/* 钱包信息 */
+.wallet-item label {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    cursor: pointer;
+    gap: 6px;
+}
+
+.wallet-item .wallet-name {
+    font-size: 14px;
+    color: #2c3e50;
+    font-weight: 600;
+    margin: 0;
+}
+
+.wallet-item .wallet-address {
+    font-size: 12px;
+    color: #6c757d;
+    font-family: 'Courier New', monospace;
+    margin: 0;
+    opacity: 0.8;
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    max-width: fit-content;
+}
+
+/* 已选择统计显示 */
+.wallet-selection-section #selected-wallet-count-1 {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2c3e50;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #f0ebff, #faf7ff);
+    border-radius: 10px;
+    border: 2px solid #6c5ce7;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2);
+}
+
+/* 自定义滚动条 */
+.wallet-list::-webkit-scrollbar,
+.wallet-group-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.wallet-list::-webkit-scrollbar-track,
+.wallet-group-content::-webkit-scrollbar-track {
+    background: #f1f3f4;
+    border-radius: 4px;
+}
+
+.wallet-list::-webkit-scrollbar-thumb,
+.wallet-group-content::-webkit-scrollbar-thumb {
+    background: #c1c8cd;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.wallet-list::-webkit-scrollbar-thumb:hover,
+.wallet-group-content::-webkit-scrollbar-thumb:hover {
+    background: #a8b2ba;
+}
+
+.wallet-list::-webkit-scrollbar-thumb:active,
+.wallet-group-content::-webkit-scrollbar-thumb:active {
+    background: #6c5ce7;
+}
+
+/* 修复按钮重叠问题 */
+.module-content-display {
+    padding-bottom: 100px; /* 增加底部间距避免重叠 */
+}
+
+.modular-footer-actions {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    background-color: #fff;
+    border-top: 2px solid #e9ecef;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+    .wallet-selection-section .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .wallet-selection-section .wallet-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .wallet-list {
+        max-height: 300px;
+    }
 } 

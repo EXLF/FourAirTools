@@ -130,7 +130,7 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/batchScripts/index.js';
             initFunctionName = 'initBatchScriptsPage';
             break;
-        // 网络工具页面
+        // IP代理页面
         case 'tool-network':
             modulePath = '../pages/network/index.js';
             initFunctionName = 'initNetworkPage';
