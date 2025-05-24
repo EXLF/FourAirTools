@@ -9,6 +9,20 @@ const sidebarLinks = document.querySelectorAll('.sidebar nav ul li a');
 
 let currentPage = 'dashboard'; // 跟踪当前页面 ID
 
+// 页面卸载处理函数映射
+const pageUnloadHandlers = {
+    'batch-scripts': async () => {
+        try {
+            const module = await import('../pages/batchScripts/index.js');
+            if (module.onBatchScriptsPageUnload) {
+                module.onBatchScriptsPageUnload();
+            }
+        } catch (error) {
+            console.warn('[导航] 脚本插件页面卸载处理失败:', error);
+        }
+    }
+};
+
 /**
  * 为侧边栏导航链接设置事件监听器
  */
@@ -31,6 +45,12 @@ export function setupSidebarNavigation() {
  */
 export async function loadPage(pageId) {
     console.log(`正在加载页面: ${pageId}`);
+
+    // 在加载新页面前，先处理当前页面的卸载
+    if (currentPage && pageUnloadHandlers[currentPage]) {
+        console.log(`[导航] 执行页面卸载处理: ${currentPage}`);
+        await pageUnloadHandlers[currentPage]();
+    }
 
     // 更新侧边栏活动状态
     updateSidebarActiveState(pageId);

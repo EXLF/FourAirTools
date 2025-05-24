@@ -32,12 +32,15 @@ const pageState = {
     proxyManager: new ProxyManager()
 };
 
-// 后台任务管理
-const backgroundTasks = new Map(); // 存储后台运行的任务
+// 后台任务管理 - 使用全局对象确保不会被重新初始化
+if (!window.__FABackgroundTasks) {
+    window.__FABackgroundTasks = new Map();
+}
+const backgroundTasks = window.__FABackgroundTasks; // 引用全局的 Map
 const BACKGROUND_TASKS_STORAGE_KEY = 'fa_background_tasks';
 
 // 添加调试标志和强制显示功能
-const DEBUG_BACKGROUND_TASKS = true; // 开发调试模式
+const DEBUG_BACKGROUND_TASKS = false; // 关闭调试模式
 
 /**
  * 保存后台任务到localStorage
@@ -50,7 +53,9 @@ function saveBackgroundTasksToStorage() {
             executionId: task.executionId,
             scriptType: task.scriptType,
             startTime: task.startTime,
-            status: task.status
+            status: task.status,
+            // 保存日志历史（限制大小以避免超出localStorage限制）
+            logHistory: task.logHistory ? task.logHistory.slice(-100) : [] // 只保存最近100条
         }));
         localStorage.setItem(BACKGROUND_TASKS_STORAGE_KEY, JSON.stringify(tasksArray));
         console.log('[后台任务] 已保存到localStorage:', tasksArray.length, '个任务');
@@ -77,7 +82,9 @@ function loadBackgroundTasksFromStorage() {
                     logCleanup: null,
                     timer: null,
                     startTime: taskData.startTime,
-                    status: taskData.status
+                    status: taskData.status,
+                    // 恢复日志历史
+                    logHistory: taskData.logHistory || []
                 };
                 backgroundTasks.set(taskData.taskId, task);
             });
@@ -228,7 +235,11 @@ if (typeof window !== 'undefined') {
  */
 export function initBatchScriptsPage(contentArea) {
     console.log("初始化脚本插件管理页面...");
+    console.log("[后台任务] 初始化时的后台任务数量:", backgroundTasks.size);
     pageState.contentAreaRef = contentArea;
+    
+    // 设置页面标志
+    window.__isBatchScriptsPageActive = true;
     
     // 确保全局后台任务管理器已初始化
     initGlobalBackgroundTaskManager();
@@ -240,6 +251,7 @@ export function initBatchScriptsPage(contentArea) {
     if (window.FABackgroundTaskManager) {
         window.FABackgroundTaskManager.loadFromStorage();
         console.log('[后台任务] 从全局管理器恢复任务状态');
+        console.log('[后台任务] 恢复后的任务数量:', backgroundTasks.size);
     }
     
     renderBatchScriptCardsView(contentArea);
@@ -248,6 +260,7 @@ export function initBatchScriptsPage(contentArea) {
     setTimeout(() => {
         updateBackgroundTaskIndicator();
         console.log('[后台任务] 页面初始化完成，更新指示器');
+        console.log('[后台任务] 最终的后台任务数量:', backgroundTasks.size);
     }, 100);
     
     // 额外的延迟确保DOM完全加载
@@ -262,6 +275,9 @@ export function initBatchScriptsPage(contentArea) {
  * @param {HTMLElement} contentArea - 内容区域元素
  */
 function renderBatchScriptCardsView(contentArea) {
+    console.log('[调试] renderBatchScriptCardsView 开始，当前后台任务数量:', backgroundTasks.size);
+    console.log('[调试] 后台任务详情:', Array.from(backgroundTasks.entries()));
+    
     pageState.currentView = VIEW_MODES.CARDS;
     
     const cardViewHtml = `
@@ -325,8 +341,22 @@ function renderBatchScriptCardsView(contentArea) {
     
     // 确保DOM渲染完成后再更新后台任务指示器
     setTimeout(() => {
+        console.log('[后台任务] DOM渲染完成，更新指示器');
+        console.log('[后台任务] 当前后台任务数量:', backgroundTasks.size);
+        console.log('[后台任务] 后台任务详情:', Array.from(backgroundTasks.entries()));
         updateBackgroundTaskIndicator();
-        console.log('[后台任务] DOM渲染完成，强制更新指示器');
+        
+        // 如果有后台任务但按钮没显示，强制更新
+        if (backgroundTasks.size > 0) {
+            const btn = document.getElementById('background-tasks-btn');
+            const count = document.getElementById('background-task-count');
+            if (btn && count) {
+                btn.style.display = 'inline-flex';
+                btn.classList.add('has-background-tasks');
+                count.textContent = backgroundTasks.size;
+                console.log('[后台任务] 强制显示后台任务按钮');
+            }
+        }
     }, 500);
 }
 
@@ -397,8 +427,11 @@ function navigateToModularTaskManager(taskInstanceId) {
     console.log("脚本requires.wallets:", pageState.currentBatchScriptType?.requires?.wallets);
     pageState.currentView = VIEW_MODES.MANAGER;
     
-    // 清理可能存在的旧资源
-    cleanupResources();
+    // 保存任务实例ID到全局变量
+    window.__currentTaskInstanceId = taskInstanceId;
+    
+    // 清理可能存在的旧资源，但保留任务实例ID
+    cleanupResources(true);
     
     if (!pageState.contentAreaRef || !pageState.currentBatchScriptType) {
         console.error("contentAreaRef或currentBatchScriptType未定义");
@@ -519,18 +552,30 @@ function bindModularManagerEvents(taskInstanceId) {
             
             // 检查是否有正在运行的任务
             const currentExecutionId = window.__currentExecutionId;
-            const isTaskRunning = currentExecutionId && window.__executionTimer;
+            // 修复：只要有执行ID就认为任务在运行，不需要检查计时器
+            const isTaskRunning = !!currentExecutionId;
+            
+            console.log('[脚本插件] 返回按钮点击，任务状态检查:', {
+                currentExecutionId,
+                isTaskRunning,
+                executionTimer: !!window.__executionTimer,
+                taskInstanceId
+            });
             
             if (isTaskRunning) {
                 // 如果有正在运行的任务，保存到后台而不是清理
                 moveTaskToBackground(taskInstanceId);
                 console.log('[脚本插件] 任务已移至后台运行');
+                
+                // 添加小延迟，确保后台任务保存完成
+                setTimeout(() => {
+                    renderBatchScriptCardsView(pageState.contentAreaRef);
+                }, 100);
             } else {
                 // 没有运行中的任务，正常清理
                 cleanupResources();
+                renderBatchScriptCardsView(pageState.contentAreaRef);
             }
-            
-            renderBatchScriptCardsView(pageState.contentAreaRef);
         });
     }
 
@@ -677,6 +722,11 @@ function bindModularManagerEvents(taskInstanceId) {
                     // 处理模拟执行的停止
                     TaskLogger.logWarning('正在停止模拟执行...');
                     
+                    // 清理模拟任务函数
+                    if (window[`__mockTask_${taskInstanceId}`]) {
+                        delete window[`__mockTask_${taskInstanceId}`];
+                    }
+                    
                     // 清空执行ID（这会触发模拟执行检查并停止）
                     window.__currentExecutionId = null;
                     
@@ -737,6 +787,13 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         console.log('任务正在执行中，请勿重复点击');
         return;
     }
+    
+    // 保存任务实例ID到全局变量
+    window.__currentTaskInstanceId = taskInstanceId;
+    console.log('[脚本插件] 开始执行任务，任务实例ID:', taskInstanceId);
+    
+    // 记录开始时间（立即记录，不等待计时器）
+    window.__startTime = Date.now();
     
     // 检查是否已有相同脚本的后台任务在运行
     const scriptId = pageState.currentBatchScriptType?.id;
@@ -812,8 +869,8 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
     // 切换到执行阶段界面
     switchToExecutionStage(taskConfig);
     
-    // 清理旧的监听器和日志
-    cleanupResources();
+    // 清理旧的监听器和日志，但保留任务实例ID
+    cleanupResources(true);
     
     // 初始化日志
     const logContainer = document.getElementById('taskLogContainer');
@@ -911,7 +968,7 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         TaskLogger.logWarning('脚本执行接口未定义，将模拟执行过程');
         
         // 在模拟模式下也生成执行ID
-        window.__currentExecutionId = 'mock_exec_' + Date.now();
+        window.__currentExecutionId = 'mock_exec_' + taskInstanceId.split('_').pop();
         console.log('[脚本插件] 模拟执行ID已生成:', window.__currentExecutionId);
         
         // 显示停止按钮
@@ -931,115 +988,112 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
             let completed = 0;
             const total = requiresWallets ? taskConfig.accounts.length : 1; // 不需要钱包的脚本只执行一次
             
-            const simulateInterval = setInterval(() => {
-                // 检查是否被移至后台（通过检查window.__currentExecutionId是否为null）
-                if (!window.__currentExecutionId && !backgroundTasks.has(taskInstanceId)) {
-                    // 执行ID被清空且不在后台，说明任务被停止
-                    clearInterval(simulateInterval);
+            // 创建独立的模拟执行函数，不依赖DOM
+            const simulateTask = () => {
+                // 检查任务是否还在运行（通过检查后台任务或当前执行ID）
+                const isInBackground = backgroundTasks.has(taskInstanceId);
+                const isInForeground = window.__currentExecutionId === 'mock_exec_' + taskInstanceId.split('_').pop();
+                
+                if (!isInBackground && !isInForeground) {
+                    // 任务被停止
                     console.log('[脚本插件] 模拟执行被停止');
                     return;
                 }
                 
                 if (completed < total) {
                     completed++;
-                    if (requiresWallets) {
-                        TaskLogger.logSuccess(`账户 ${completed}/${total} 执行成功`);
+                    const logMsg = requiresWallets 
+                        ? `账户 ${completed}/${total} 执行成功`
+                        : `脚本执行成功`;
+                    
+                    // 如果在前台，使用TaskLogger
+                    if (isInForeground && typeof TaskLogger !== 'undefined' && TaskLogger.logSuccess) {
+                        TaskLogger.logSuccess(logMsg);
                     } else {
-                        TaskLogger.logSuccess(`脚本执行成功`);
+                        // 在后台，只记录日志
+                        console.log('[后台执行]', logMsg);
                     }
                     
                     // 只有在前台执行时才更新UI
-                    const successCountElement = document.getElementById('successCount');
-                    if (successCountElement) {
-                        successCountElement.textContent = completed;
-                    }
-                } else {
-                    clearInterval(simulateInterval);
-                    
-                    // 手动触发完成处理
-                    TaskLogger.logSuccess('✅ 脚本插件执行完成！');
-                    TaskLogger.logInfo(`📊 执行总结:`);
-                    if (requiresWallets) {
-                        TaskLogger.logInfo(`   - 总账户数: ${total}`);
-                    } else {
-                        TaskLogger.logInfo(`   - 脚本类型: 通用工具脚本`);
-                    }
-                    TaskLogger.logInfo(`   - 成功: ${completed}`);
-                    TaskLogger.logInfo(`   - 失败: 0`);
-                    TaskLogger.logInfo(`   - 耗时: 模拟执行`);
-                    
-                    // 手动触发脚本完成事件（模拟后端的完成事件）
-                    const mockCompletedEvent = {
-                        executionId: window.__currentExecutionId,
-                        summary: {
-                            totalAccounts: total,
-                            successCount: completed,
-                            failedCount: 0,
-                            duration: '模拟执行'
+                    if (isInForeground) {
+                        const successCountElement = document.getElementById('successCount');
+                        if (successCountElement) {
+                            successCountElement.textContent = completed;
                         }
-                    };
+                    }
                     
-                    // 调用脚本完成处理函数
-                    if (window.__currentLogUnsubscribers) {
-                        // 找到scriptCompletedHandler并调用
-                        const handlers = window.__currentLogUnsubscribers;
-                        // 模拟触发完成事件
-                        setTimeout(() => {
-                            // 直接调用清理逻辑
-                            // 停止计时器
-                            if (window.__executionTimer) {
-                                clearInterval(window.__executionTimer);
-                                window.__executionTimer = null;
-                            }
-                            
-                            // 更新状态
-                            const statusText = document.getElementById('statusText');
-                            if (statusText) {
-                                statusText.textContent = '已完成';
-                                statusText.style.color = '#27ae60';
-                            }
-                            
-                            // 隐藏停止按钮
-                            const stopBtnElement = document.getElementById('stop-btn');
-                            if (stopBtnElement) {
-                                stopBtnElement.style.display = 'none';
-                            }
-                            
-                            // 重置开始按钮状态
-                            if (startTaskButton) {
-                                startTaskButton.disabled = false;
-                                startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                            }
-                            
-                            // 清理后台任务（如果存在）
-                            const currentExecutionId = window.__currentExecutionId || data?.executionId;
-                            if (currentExecutionId) {
-                                // 查找并移除对应的后台任务
-                                for (const [taskId, task] of backgroundTasks.entries()) {
-                                    if (task.executionId === currentExecutionId) {
-                                        backgroundTasks.delete(taskId);
-                                        // 更新localStorage
-                                        saveBackgroundTasksToStorage();
-                                        updateBackgroundTaskIndicator();
-                                        console.log(`[后台任务] 任务 ${taskId} 执行完成，已从后台任务列表移除`);
-                                        break;
-                                    }
+                    // 继续下一次执行
+                    setTimeout(simulateTask, 1000);
+                } else {
+                    // 执行完成
+                    console.log('[脚本插件] 模拟执行完成');
+                    
+                    // 如果在前台，显示完成信息
+                    if (isInForeground && typeof TaskLogger !== 'undefined') {
+                        TaskLogger.logSuccess('✅ 脚本插件执行完成！');
+                        TaskLogger.logInfo(`📊 执行总结:`);
+                        if (requiresWallets) {
+                            TaskLogger.logInfo(`   - 总账户数: ${total}`);
+                        } else {
+                            TaskLogger.logInfo(`   - 脚本类型: 通用工具脚本`);
+                        }
+                        TaskLogger.logInfo(`   - 成功: ${completed}`);
+                        TaskLogger.logInfo(`   - 失败: 0`);
+                        TaskLogger.logInfo(`   - 耗时: 模拟执行`);
+                    }
+                    
+                    // 清理后台任务
+                    if (isInBackground) {
+                        backgroundTasks.delete(taskInstanceId);
+                        saveBackgroundTasksToStorage();
+                        updateBackgroundTaskIndicator();
+                    }
+                    
+                    // 清理前台资源
+                    if (isInForeground) {
+                        // 停止计时器
+                        if (window.__executionTimer) {
+                            clearInterval(window.__executionTimer);
+                            window.__executionTimer = null;
+                        }
+                        
+                        // 更新状态
+                        const statusText = document.getElementById('statusText');
+                        if (statusText) {
+                            statusText.textContent = '已完成';
+                            statusText.style.color = '#27ae60';
+                        }
+                        
+                        // 隐藏停止按钮
+                        const stopBtnElement = document.getElementById('stop-btn');
+                        if (stopBtnElement) {
+                            stopBtnElement.style.display = 'none';
+                        }
+                        
+                        // 重置开始按钮状态
+                        if (startTaskButton) {
+                            startTaskButton.disabled = false;
+                            startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
+                        }
+                        
+                        // 清理监听器
+                        if (window.__currentLogUnsubscribers) {
+                            window.__currentLogUnsubscribers.forEach(unsubscribe => {
+                                if (typeof unsubscribe === 'function') {
+                                    unsubscribe();
                                 }
-                            }
-                            
-                            // 清理监听器
-                            if (window.__currentLogUnsubscribers) {
-                                window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                                    if (typeof unsubscribe === 'function') {
-                                        unsubscribe();
-                                    }
-                                });
-                                window.__currentLogUnsubscribers = null;
-                            }
-                        }, 100);
+                            });
+                            window.__currentLogUnsubscribers = null;
+                        }
                     }
                 }
-            }, 1000);
+            };
+            
+            // 保存模拟任务引用，以便后台运行
+            window[`__mockTask_${taskInstanceId}`] = simulateTask;
+            
+            // 开始执行
+            simulateTask();
         }, 1000);
     }
 }
@@ -1695,8 +1749,9 @@ function startExecutionTimer() {
 
 /**
  * 清理资源
+ * @param {boolean} preserveTaskInstanceId - 是否保留任务实例ID
  */
-function cleanupResources() {
+function cleanupResources(preserveTaskInstanceId) {
     // 清理定时器
     if (window.__executionTimer) {
         clearInterval(window.__executionTimer);
@@ -1733,6 +1788,14 @@ function cleanupResources() {
     // 清理批量任务日志
     if (window.batchTaskLogs) {
         window.batchTaskLogs = {};
+    }
+    
+    // 根据参数决定是否清理任务实例ID
+    if (!preserveTaskInstanceId && window.__currentTaskInstanceId) {
+        console.log('[脚本插件] 清理任务实例ID:', window.__currentTaskInstanceId);
+        window.__currentTaskInstanceId = null;
+    } else if (preserveTaskInstanceId && window.__currentTaskInstanceId) {
+        console.log('[脚本插件] 保留任务实例ID:', window.__currentTaskInstanceId);
     }
     
     console.log('[脚本插件] 资源清理完成');
@@ -2665,6 +2728,31 @@ function moveTaskToBackground(taskInstanceId) {
         return;
     }
     
+    // 收集当前日志历史
+    const logContainer = document.getElementById('taskLogContainer');
+    let logHistory = [];
+    if (logContainer) {
+        const logEntries = logContainer.querySelectorAll('.log-entry');
+        logEntries.forEach(entry => {
+            const timeElement = entry.querySelector('.log-time');
+            const messageElement = entry.querySelector('.log-message');
+            if (timeElement && messageElement) {
+                // 从class中提取日志类型
+                const classList = Array.from(entry.classList);
+                const logTypeClass = classList.find(cls => cls.startsWith('log-type-'));
+                const logType = logTypeClass ? logTypeClass.replace('log-type-', '') : 'info';
+                
+                logHistory.push({
+                    type: logType,
+                    time: timeElement.textContent,
+                    message: messageElement.textContent,
+                    html: entry.outerHTML
+                });
+            }
+        });
+        console.log('[后台任务] 保存了', logHistory.length, '条日志记录');
+    }
+    
     // 保存当前任务的运行状态
     const backgroundTask = {
         taskInstanceId,
@@ -2674,7 +2762,11 @@ function moveTaskToBackground(taskInstanceId) {
         logCleanup: window.__currentLogCleanup,
         timer: window.__executionTimer,
         startTime: window.__startTime || Date.now(), // 使用记录的开始时间或当前时间
-        status: 'running'
+        status: 'running',
+        // 保存模拟任务函数引用（如果存在）
+        mockTaskFunction: window[`__mockTask_${taskInstanceId}`] || null,
+        // 保存日志历史
+        logHistory: logHistory
     };
     
     console.log('[后台任务] 保存的任务数据:', backgroundTask);
@@ -2690,12 +2782,15 @@ function moveTaskToBackground(taskInstanceId) {
     updateBackgroundTaskIndicator();
     updateGlobalBackgroundTaskStatus();
     
-    // 不清理资源，让任务在后台继续运行
-    // 只清理当前前端的引用
+    // 清理前台引用，但后台任务仍持有这些资源的引用
+    // 这样可以避免新任务覆盖正在运行的任务资源
     window.__currentExecutionId = null;
     window.__currentLogUnsubscribers = null;
     window.__currentLogCleanup = null;
     window.__executionTimer = null;
+    window.__currentTaskInstanceId = null;
+    // 不清理模拟任务函数，让它继续运行
+    // window[`__mockTask_${taskInstanceId}`] = null;
     
     console.log(`[后台任务] 任务 ${taskInstanceId} 已移至后台运行`);
     
@@ -2720,8 +2815,16 @@ function restoreTaskFromBackground(taskInstanceId) {
     window.__executionTimer = backgroundTask.timer;
     window.__startTime = backgroundTask.startTime;
     
+    // 恢复模拟任务函数引用（如果存在）
+    if (backgroundTask.mockTaskFunction) {
+        window[`__mockTask_${taskInstanceId}`] = backgroundTask.mockTaskFunction;
+    }
+    
     // 设置当前脚本类型
     pageState.currentBatchScriptType = backgroundTask.scriptType;
+    
+    // 保存日志历史到全局变量，供后续使用
+    window.__restoredLogHistory = backgroundTask.logHistory || [];
     
     // 从后台任务列表中移除
     backgroundTasks.delete(taskInstanceId);
@@ -2763,8 +2866,11 @@ async function stopBackgroundTask(taskInstanceId) {
                 // 真实脚本执行
                 await window.scriptAPI.stopScript(backgroundTask.executionId);
             } else if (backgroundTask.executionId.startsWith('mock_exec_')) {
-                // 模拟执行 - 通过清理标记来停止
+                // 模拟执行 - 清理模拟任务函数
                 console.log('[后台任务] 停止模拟执行:', backgroundTask.executionId);
+                if (window[`__mockTask_${taskInstanceId}`]) {
+                    delete window[`__mockTask_${taskInstanceId}`];
+                }
             }
         }
         
@@ -2952,6 +3058,131 @@ function resumeBackgroundTask(taskInstanceId) {
             const taskConfig = batchTaskConfigs[taskInstanceId];
             if (taskConfig) {
                 switchToExecutionStage(taskConfig);
+                
+                // 重新初始化日志渲染器和监听器
+                setTimeout(() => {
+                    const logContainer = document.getElementById('taskLogContainer');
+                    if (logContainer) {
+                        // 清理旧的日志清理函数
+                        if (window.__currentLogCleanup && typeof window.__currentLogCleanup === 'function') {
+                            window.__currentLogCleanup();
+                        }
+                        
+                        // 先创建新的日志渲染器（这会清空容器）
+                        const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
+                        window.__currentLogCleanup = cleanupLogRender;
+                        
+                        console.log('[后台任务] 已重新初始化日志渲染器');
+                        
+                        // 然后恢复日志历史（在容器被清空后）
+                        const restoredLogHistory = window.__restoredLogHistory || [];
+                        if (restoredLogHistory.length > 0) {
+                            console.log('[后台任务] 恢复', restoredLogHistory.length, '条日志记录');
+                            
+                            // 移除初始化消息（如果有的话）
+                            const initMessage = logContainer.querySelector('.log-entry');
+                            if (initMessage && initMessage.textContent.includes('日志系统已初始化')) {
+                                logContainer.removeChild(initMessage);
+                            }
+                            
+                            // 重新添加历史日志
+                            restoredLogHistory.forEach(log => {
+                                const logElement = document.createElement('div');
+                                logElement.innerHTML = log.html;
+                                const restoredElement = logElement.firstChild;
+                                if (restoredElement) {
+                                    logContainer.appendChild(restoredElement);
+                                }
+                            });
+                            
+                            // 滚动到底部
+                            logContainer.scrollTop = logContainer.scrollHeight;
+                        }
+                        
+                        // 如果有执行ID，说明任务应该还在运行
+                        if (window.__currentExecutionId) {
+                            TaskLogger.logInfo('📋 已恢复后台运行的任务，正在重新连接...');
+                            
+                            // 重新设置日志监听器
+                            console.log('[后台任务] 重新设置日志监听器，执行ID:', window.__currentExecutionId);
+                            
+                            // 先移除可能存在的旧监听器
+                            if (window.__currentLogUnsubscribers) {
+                                window.__currentLogUnsubscribers.forEach(unsubscribe => {
+                                    if (typeof unsubscribe === 'function') {
+                                        unsubscribe();
+                                    }
+                                });
+                            }
+                            
+                            // 创建新的监听器
+                            window.__currentLogUnsubscribers = [];
+                            
+                            // 重新设置日志事件监听器
+                            const logEventHandler = (event, data) => {
+                                // 检查是否是当前任务的日志
+                                if (data && data.executionId === window.__currentExecutionId) {
+                                    if (!data) return;
+                                    
+                                    try {
+                                        const message = typeof data.message === 'string' ? data.message : 
+                                                      (typeof data === 'string' ? data : JSON.stringify(data));
+                                        const level = data.level?.toLowerCase() || 'info';
+                                        
+                                        // 根据日志级别调用相应的方法
+                                        switch (level) {
+                                            case 'success':
+                                                TaskLogger.logSuccess(message);
+                                                break;
+                                            case 'warning':
+                                            case 'warn':
+                                                TaskLogger.logWarning(message);
+                                                break;
+                                            case 'error':
+                                                TaskLogger.logError(message);
+                                                break;
+                                            default:
+                                                TaskLogger.logInfo(message);
+                                        }
+                                    } catch (e) {
+                                        console.error('[脚本插件日志] 处理日志失败:', e);
+                                    }
+                                }
+                            };
+                            
+                            // 使用IPC监听器
+                            if (window.electron && window.electron.ipcRenderer) {
+                                // 注册新的监听器
+                                window.electron.ipcRenderer.on('script-log', logEventHandler);
+                                
+                                // 保存移除函数
+                                window.__currentLogUnsubscribers.push(() => {
+                                    window.electron.ipcRenderer.removeListener('script-log', logEventHandler);
+                                });
+                                
+                                console.log('[后台任务] 已重新注册日志监听器');
+                                
+                                // 向主进程请求重新连接到正在运行的脚本
+                                if (window.electron.ipcRenderer.send) {
+                                    window.electron.ipcRenderer.send('reconnect-to-script', {
+                                        executionId: window.__currentExecutionId,
+                                        taskInstanceId: taskInstanceId
+                                    });
+                                    TaskLogger.logInfo('🔄 正在尝试重新连接到运行中的脚本...');
+                                }
+                            } else if (window.scriptAPI && window.scriptAPI.onLog) {
+                                // 使用scriptAPI的监听方法
+                                const unsubscribe = window.scriptAPI.onLog((data) => {
+                                    logEventHandler(null, data);
+                                });
+                                window.__currentLogUnsubscribers.push(unsubscribe);
+                            }
+                        }
+                        
+                        // 清理全局日志历史变量
+                        window.__restoredLogHistory = null;
+                    }
+                }, 200);
             }
         }, 100);
     }
@@ -3040,6 +3271,9 @@ function clearAllTestTasks() {
         }
     }
     
+    console.log('[测试] 准备清理测试任务，找到:', testTaskIds.length, '个');
+    console.log('[测试] 清理前后台任务总数:', backgroundTasks.size);
+    
     testTaskIds.forEach(taskId => {
         backgroundTasks.delete(taskId);
     });
@@ -3047,6 +3281,7 @@ function clearAllTestTasks() {
     saveBackgroundTasksToStorage();
     updateBackgroundTaskIndicator();
     console.log('[测试] 已清理', testTaskIds.length, '个测试任务');
+    console.log('[测试] 清理后后台任务总数:', backgroundTasks.size);
 }
 
 /**
@@ -3184,4 +3419,44 @@ function testBackgroundTasksPanel() {
         console.log('❌ 面板测试失败:', error);
         return false;
     }
+}
+
+/**
+ * 页面卸载处理（供导航系统调用）
+ * 在页面切换时自动保存运行中的任务到后台
+ */
+export function onBatchScriptsPageUnload() {
+    console.log('[脚本插件] 页面即将卸载，检查运行中的任务...');
+    
+    // 设置页面标志
+    window.__isBatchScriptsPageActive = false;
+    
+    // 检查是否有正在运行的任务
+    const currentExecutionId = window.__currentExecutionId;
+    const currentTaskInstanceId = window.__currentTaskInstanceId;
+    
+    console.log('[脚本插件] 页面卸载检查:', {
+        currentExecutionId,
+        currentTaskInstanceId,
+        executionTimer: !!window.__executionTimer
+    });
+    
+    // 修复：只要有执行ID就认为任务在运行
+    if (currentExecutionId && currentTaskInstanceId) {
+        console.log('[脚本插件] 检测到运行中的任务，自动移至后台');
+        
+        // 使用已保存的任务实例ID
+        if (currentTaskInstanceId) {
+            // 将任务移至后台
+            moveTaskToBackground(currentTaskInstanceId);
+            console.log(`[脚本插件] 任务 ${currentTaskInstanceId} 已自动移至后台运行`);
+        } else {
+            console.warn('[脚本插件] 无法获取任务实例ID，任务可能会丢失');
+        }
+    }
+    
+    // 清理页面引用，但不清理全局任务相关变量
+    pageState.contentAreaRef = null;
+    pageState.currentView = VIEW_MODES.CARDS;
+    pageState.currentBatchScriptType = null;
 }
