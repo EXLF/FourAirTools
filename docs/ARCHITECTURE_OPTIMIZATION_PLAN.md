@@ -45,7 +45,8 @@ src/
 │   │   ├── BaseStore.js ✅
 │   │   ├── appStore.js ✅
 │   │   ├── walletStore.js ✅
-│   │   └── scriptStore.js ✅
+│   │   ├── scriptStore.js ✅
+│   │   └── socialStore.js ✅
 │   └── utils/             # 前端工具
 │
 └── shared/                # 共享代码（新增）✅
@@ -184,7 +185,8 @@ const ErrorCodes = {
 - [x] 实现应用Store
 - [x] 实现钱包Store
 - [x] 实现脚本Store
-- [x] 集成到现有页面（部分完成）
+- [x] 实现社交账户Store ✅
+- [x] 集成到现有页面（75%完成）
 
 ### Day 4: 模块重构
 - [ ] 拆分大文件
@@ -246,6 +248,7 @@ const ErrorCodes = {
    - ✅ appStore - 应用全局Store
    - ✅ walletStore - 钱包Store
    - ✅ scriptStore - 脚本Store
+   - ✅ socialStore - 社交账户Store
 
 3. **错误处理** (100%)
    - ✅ AppError - 统一错误类
@@ -257,15 +260,17 @@ const ErrorCodes = {
    - ✅ dataHandlers - 数据处理器
    - ✅ scriptHandlers - 脚本处理器
 
-5. **状态管理集成** (50%)
+5. **状态管理集成** (75%)
    - ✅ 钱包页面集成 (walletManager, index-v2.js)
    - ✅ 脚本页面集成 (scriptManager, index-v2.js)
+   - ✅ 社交账户页面集成 (socialManager, index-v2.js) ✅
    - ✅ 创建集成指南文档
-   - ⏳ 社交账户页面集成 (待实现)
+   - ⏳ 项目页面集成 (待实现)
+   - ⏳ 设置页面集成 (待实现)
    - ⏳ 其他页面集成 (待实现)
 
 ### 下一步任务
-1. 继续将状态管理集成到其他页面（社交账户等）
+1. 继续将状态管理集成到其他页面（项目、设置等）
 2. 开始模块重构，拆分大文件（social/table.js）
 3. 提取公共组件（表格、表单、对话框）
 4. 完善迁移指南和示例代码
@@ -275,4 +280,4 @@ const ErrorCodes = {
 
 **创建时间**: 2024-12-27  
 **最后更新**: 2024-12-27  
-**状态**: 进行中 (80% 完成) 
+**状态**: 进行中 (85% 完成) 

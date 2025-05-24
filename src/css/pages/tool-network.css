@@ -1,0 +1,214 @@
+/* 网络工具页面样式 */
+
+.network-page {
+    padding: 20px;
+}
+
+.network-header {
+    margin-bottom: 30px;
+}
+
+.network-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 28px;
+    font-weight: 500;
+}
+
+.network-header p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* 代理工具栏 */
+.proxy-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.toolbar-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.stat-value {
+    font-weight: 500;
+}
+
+/* 代理表格 */
+.proxy-table {
+    width: 100%;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.proxy-table th {
+    background: var(--bg-tertiary);
+    padding: 12px;
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.proxy-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.proxy-table tr:last-child td {
+    border-bottom: none;
+}
+
+.proxy-table tr:hover {
+    background: var(--bg-hover);
+}
+
+/* 代理状态样式 */
+.proxy-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.proxy-status.active {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
+}
+
+.proxy-status.inactive {
+    background: rgba(158, 158, 158, 0.1);
+    color: #9E9E9E;
+}
+
+.proxy-status.error {
+    background: rgba(244, 67, 54, 0.1);
+    color: #F44336;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* 代理类型标签 */
+.proxy-type {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    text-transform: uppercase;
+}
+
+/* 测试按钮样式 */
+.test-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.test-btn.testing {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+/* 批量操作区域 */
+.bulk-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* 添加代理表单 */
+.add-proxy-form {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+}
+
+/* 测试结果样式 */
+.test-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.test-result.success {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.test-result.error {
+    background: rgba(244, 67, 54, 0.1);
+    color: #F44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+/* 导入导出区域 */
+.import-export-section {
+    margin-top: 30px;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.import-export-section h3 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.import-export-buttons {
+    display: flex;
+    gap: 10px;
+} 

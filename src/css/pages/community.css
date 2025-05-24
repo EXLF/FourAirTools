@@ -1,0 +1,156 @@
+/* 社区页面样式 */
+
+.community-page {
+    padding: 20px;
+}
+
+.community-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.community-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 32px;
+    font-weight: 500;
+}
+
+.community-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
+/* 社区卡片网格 */
+.community-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.community-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.community-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.community-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    font-size: 28px;
+}
+
+.community-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.community-card p {
+    margin: 0 0 16px 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.community-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.community-link:hover {
+    text-decoration: underline;
+}
+
+/* 资源区域 */
+.resources-section {
+    margin-top: 40px;
+}
+
+.resources-section h2 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+.resources-list {
+    display: grid;
+    gap: 15px;
+}
+
+.resource-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s;
+}
+
+.resource-item:hover {
+    background: var(--bg-hover);
+}
+
+.resource-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    color: var(--primary-color);
+}
+
+.resource-content h4 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.resource-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* 公告栏样式 */
+.announcement-banner {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.announcement-banner h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.announcement-banner p {
+    margin: 0;
+    opacity: 0.9;
+} 
