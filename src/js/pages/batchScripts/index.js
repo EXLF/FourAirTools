@@ -99,10 +99,18 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
             const result = await window.scriptAPI.getAllScripts();
             if (result.success && Array.isArray(result.data)) {
                 scriptsList = result.data.map(s => ({
-                    ...s,
+                    ...s,  // 保留所有原始字段，包括requires
                     status: s.status || 'active',
                     category: s.category || ''
                 }));
+                
+                // 添加调试日志
+                console.log('[批量脚本] 加载的脚本数据:', scriptsList);
+                const httpScript = scriptsList.find(script => script.id === 'http_request_test');
+                if (httpScript) {
+                    console.log('[批量脚本] HTTP请求测试脚本数据:', httpScript);
+                    console.log('[批量脚本] HTTP脚本requires字段:', httpScript.requires);
+                }
             } else {
                 console.error('获取脚本列表失败:', result.error);
             }
@@ -130,6 +138,9 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
  */
 function navigateToModularTaskManager(taskInstanceId) {
     console.log("导航到模块化任务管理器...");
+    console.log("当前脚本数据:", pageState.currentBatchScriptType);
+    console.log("脚本requires字段:", pageState.currentBatchScriptType?.requires);
+    console.log("脚本requires.wallets:", pageState.currentBatchScriptType?.requires?.wallets);
     pageState.currentView = VIEW_MODES.MANAGER;
     
     // 清理可能存在的旧资源
@@ -150,8 +161,20 @@ function navigateToModularTaskManager(taskInstanceId) {
                 <h3>${pageState.currentBatchScriptType.name}</h3>
             </div>
             <div class="header-status">
-                <span class="status-text" id="statusText">配置中</span>
-                <span class="timer" id="timer" style="display: none;">00:00</span>
+                <div class="status-info">
+                    <span class="status-text" id="statusText">配置中</span>
+                    <span class="timer" id="timer" style="display: none;">00:00</span>
+                </div>
+                <div class="header-controls" id="headerControls" style="display: none;">
+                    <button id="back-to-config-btn" class="control-btn btn-secondary" title="返回配置">
+                        <i class="fas fa-cog"></i>
+                        <span>配置</span>
+                    </button>
+                    <button id="stop-btn" class="control-btn btn-danger" style="display: none;" title="停止执行">
+                        <i class="fas fa-stop"></i>
+                        <span>停止</span>
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -193,14 +216,6 @@ function navigateToModularTaskManager(taskInstanceId) {
                 </div>
                 <div class="log-container" id="taskLogContainer">
                     <!-- 日志内容 -->
-                </div>
-                <div class="log-footer">
-                    <button id="back-to-config-btn" class="btn btn-secondary">
-                        <i class="fas fa-chevron-left"></i> 返回配置
-                    </button>
-                    <button id="stop-btn" class="btn btn-danger" style="display: none;">
-                        <i class="fas fa-stop"></i> 停止执行
-                    </button>
                 </div>
             </div>
         </div>
@@ -260,15 +275,40 @@ function bindModularManagerEvents(taskInstanceId) {
             const selectedWallets = document.querySelectorAll('input[name="selected-wallets"]:checked');
             const walletCount = selectedWallets.length;
             
-            if (walletCount > 0) {
-                startTaskButton.disabled = false;
+            // 检查当前脚本是否需要钱包
+            const scriptRequires = pageState.currentBatchScriptType?.requires;
+            const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
+            
+            console.log('[批量脚本] 按钮状态检查:', {
+                requiresWallets,
+                walletCount,
+                scriptName: pageState.currentBatchScriptType?.name,
+                scriptRequires: pageState.currentBatchScriptType?.requires,
+                scriptRequiresWallets: scriptRequires?.wallets,
+                buttonElement: startTaskButton
+            });
+            
+            if (requiresWallets) {
+                // 需要钱包的脚本，必须选择至少一个钱包
+                if (walletCount > 0) {
+                    startTaskButton.disabled = false;
+                    console.log('[批量脚本] 已选择钱包，启用执行按钮');
+                } else {
+                    startTaskButton.disabled = true;
+                    console.log('[批量脚本] 未选择钱包，禁用执行按钮');
+                }
             } else {
-                startTaskButton.disabled = true;
+                // 不需要钱包的脚本，直接启用按钮
+                startTaskButton.disabled = false;
+                console.log('[批量脚本] 不需要钱包，启用执行按钮');
             }
         };
         
         // 初始检查
-        setTimeout(updateStartButtonState, 100);
+        setTimeout(() => {
+            updateStartButtonState();
+            console.log('[批量脚本] 执行按钮状态初始检查完成');
+        }, 200);
         
         // 监听钱包选择变化
         document.addEventListener('change', (e) => {
@@ -306,7 +346,7 @@ function bindModularManagerEvents(taskInstanceId) {
             try {
                 // 禁用按钮防止重复点击
                 stopTaskButton.disabled = true;
-                stopTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 停止中...';
+                stopTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>停止中</span>';
                 
                 // 停止执行计时器
                 if (window.__executionTimer) {
@@ -344,7 +384,7 @@ function bindModularManagerEvents(taskInstanceId) {
                         stopTaskButton.style.display = 'none';
                         
                         // 重置开始按钮
-                        const startButton = managerPage.querySelector('.start-task-button');
+                        const startButton = managerPage.querySelector('#start-execution-btn');
                         if (startButton) {
                             startButton.disabled = false;
                             startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
@@ -353,13 +393,13 @@ function bindModularManagerEvents(taskInstanceId) {
                         TaskLogger.logError(`停止脚本失败: ${result.error || '未知错误'}`);
                         // 恢复按钮状态
                         stopTaskButton.disabled = false;
-                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
                     }
                 } else {
                     TaskLogger.logError('无法停止脚本：执行ID不存在或停止接口不可用');
                     // 恢复按钮状态
                     stopTaskButton.disabled = false;
-                    stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+                    stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
                 }
             } catch (error) {
                 console.error('停止脚本执行失败:', error);
@@ -367,7 +407,7 @@ function bindModularManagerEvents(taskInstanceId) {
                 
                 // 恢复按钮状态
                 stopTaskButton.disabled = false;
-                stopTaskButton.innerHTML = '<i class="fas fa-stop"></i> 停止执行';
+                stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
             }
         });
     }
@@ -393,8 +433,12 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
     
     const taskConfig = batchTaskConfigs[taskInstanceId];
     
+    // 检查当前脚本是否需要钱包
+    const scriptRequires = pageState.currentBatchScriptType?.requires;
+    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
+    
     // 验证配置
-    if (taskConfig.accounts.length === 0) {
+    if (requiresWallets && taskConfig.accounts.length === 0) {
         alert('请至少选择一个钱包账户');
         startTaskButton.disabled = false;
         startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
@@ -433,7 +477,12 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         
         TaskLogger.logInfo('🚀 批量脚本执行系统已初始化');
         TaskLogger.logInfo(`📋 任务名称: ${pageState.currentBatchScriptType.name}`);
-        TaskLogger.logInfo(`👥 选择的钱包数量: ${taskConfig.accounts.length}`);
+        
+        if (requiresWallets) {
+            TaskLogger.logInfo(`👥 选择的钱包数量: ${taskConfig.accounts.length}`);
+        } else {
+            TaskLogger.logInfo(`🔧 脚本类型: 通用工具脚本（无需钱包）`);
+        }
         
         if (taskConfig.proxyConfig.enabled) {
             TaskLogger.logInfo(`🌐 代理配置: ${taskConfig.proxyConfig.strategy} 策略，共 ${taskConfig.proxyConfig.proxies.length} 个代理`);
@@ -500,7 +549,7 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
                 // 显示停止按钮
                 const stopBtn = document.getElementById('stop-btn');
                 if (stopBtn) {
-                    stopBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'inline-flex';
                 }
             }
         } catch (err) {
@@ -517,13 +566,22 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
         // 模拟执行过程
         setTimeout(() => {
             TaskLogger.logInfo('开始模拟执行...');
+            
+            // 检查当前脚本是否需要钱包
+            const scriptRequires = pageState.currentBatchScriptType?.requires;
+            const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
+            
             let completed = 0;
-            const total = taskConfig.accounts.length;
+            const total = requiresWallets ? taskConfig.accounts.length : 1; // 不需要钱包的脚本只执行一次
             
             const simulateInterval = setInterval(() => {
                 if (completed < total) {
                     completed++;
-                    TaskLogger.logSuccess(`账户 ${completed}/${total} 执行成功`);
+                    if (requiresWallets) {
+                        TaskLogger.logSuccess(`账户 ${completed}/${total} 执行成功`);
+                    } else {
+                        TaskLogger.logSuccess(`脚本执行成功`);
+                    }
                     document.getElementById('successCount').textContent = completed;
                 } else {
                     clearInterval(simulateInterval);
@@ -531,7 +589,11 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
                     // 手动触发完成处理
                     TaskLogger.logSuccess('✅ 批量脚本执行完成！');
                     TaskLogger.logInfo(`📊 执行总结:`);
-                    TaskLogger.logInfo(`   - 总账户数: ${total}`);
+                    if (requiresWallets) {
+                        TaskLogger.logInfo(`   - 总账户数: ${total}`);
+                    } else {
+                        TaskLogger.logInfo(`   - 脚本类型: 通用工具脚本`);
+                    }
                     TaskLogger.logInfo(`   - 成功: ${completed}`);
                     TaskLogger.logInfo(`   - 失败: 0`);
                     TaskLogger.logInfo(`   - 耗时: 模拟执行`);
@@ -564,8 +626,28 @@ async function handleStartExecution(taskInstanceId, startTaskButton) {
  */
 function switchToExecutionStage(taskConfig) {
     // 隐藏配置区域，显示日志区域
-    document.getElementById('configSection').style.display = 'none';
-    document.getElementById('logSection').style.display = 'block';
+    const configSection = document.getElementById('configSection');
+    const logSection = document.getElementById('logSection');
+    
+    if (configSection) {
+        configSection.style.display = 'none';
+    }
+    
+    if (logSection) {
+        logSection.style.display = 'flex'; // 日志区域也使用flex布局
+    }
+    
+    // 显示头部控制按钮
+    const headerControls = document.getElementById('headerControls');
+    if (headerControls) {
+        headerControls.style.display = 'flex';
+    }
+    
+    // 显示停止按钮
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.style.display = 'inline-flex';
+    }
     
     // 更新状态
     const statusText = document.getElementById('statusText');
@@ -575,10 +657,17 @@ function switchToExecutionStage(taskConfig) {
     }
     
     // 显示计时器
-    document.getElementById('timer').style.display = 'inline';
+    const timerElement = document.getElementById('timer');
+    if (timerElement) {
+        timerElement.style.display = 'inline';
+    }
     
     // 更新统计信息
-    document.getElementById('totalCount').textContent = taskConfig.accounts.length;
+    const scriptRequires = pageState.currentBatchScriptType?.requires;
+    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
+    const totalCount = requiresWallets ? taskConfig.accounts.length : 1; // 不需要钱包的脚本显示1个任务
+    
+    document.getElementById('totalCount').textContent = totalCount;
     document.getElementById('successCount').textContent = '0';
     document.getElementById('failCount').textContent = '0';
     
@@ -591,8 +680,25 @@ function switchToExecutionStage(taskConfig) {
  */
 function switchToConfigStage() {
     // 显示配置区域，隐藏日志区域
-    document.getElementById('configSection').style.display = 'block';
-    document.getElementById('logSection').style.display = 'none';
+    const configSection = document.getElementById('configSection');
+    const logSection = document.getElementById('logSection');
+    
+    if (configSection) {
+        // 确保配置区域使用正确的flex布局
+        configSection.style.display = 'flex';
+        configSection.style.flexDirection = 'column';
+        configSection.style.height = '100%';
+    }
+    
+    if (logSection) {
+        logSection.style.display = 'none';
+    }
+    
+    // 隐藏头部控制按钮
+    const headerControls = document.getElementById('headerControls');
+    if (headerControls) {
+        headerControls.style.display = 'none';
+    }
     
     // 更新状态
     const statusText = document.getElementById('statusText');
@@ -602,13 +708,43 @@ function switchToConfigStage() {
     }
     
     // 隐藏计时器
-    document.getElementById('timer').style.display = 'none';
+    const timerElement = document.getElementById('timer');
+    if (timerElement) {
+        timerElement.style.display = 'none';
+    }
     
     // 停止计时器
     if (window.__executionTimer) {
         clearInterval(window.__executionTimer);
         window.__executionTimer = null;
     }
+    
+    // 确保配置内容区域恢复正确的样式
+    const configContent = document.getElementById('moduleContentDisplay');
+    if (configContent) {
+        // 确保内容区域有正确的flex属性
+        configContent.style.flex = '1';
+        configContent.style.overflowY = 'auto';
+        configContent.style.padding = '20px';
+    }
+    
+    // 确保操作栏恢复正确的样式
+    const actionBar = document.querySelector('.action-bar');
+    if (actionBar) {
+        actionBar.style.display = 'block';
+        actionBar.style.padding = '16px 20px';
+        actionBar.style.background = '#fff';
+        actionBar.style.borderTop = '1px solid #e9ecef';
+        actionBar.style.textAlign = 'center';
+    }
+    
+    // 强制重新渲染，确保布局正确
+    setTimeout(() => {
+        if (configSection) {
+            // 触发重新布局
+            configSection.offsetHeight;
+        }
+    }, 10);
 }
 
 /**
@@ -699,7 +835,7 @@ function setupScriptLogListeners(taskInstanceId, startTaskButton) {
             statusText.style.color = '#27ae60';
         }
         
-        // 显示停止按钮
+        // 隐藏停止按钮
         document.getElementById('stop-btn').style.display = 'none';
         
         // 重置开始按钮状态
@@ -768,34 +904,69 @@ async function loadModuleContent(moduleId, taskInstanceId) {
             console.log('预填充代理列表:', taskConfig.proxyConfig.proxies);
         }
         
-        // 生成模块内容HTML
-        const walletGroups = pageState.walletGroupManager.groupWallets(availableWallets);
-        const walletGroupsHtml = pageState.walletGroupManager.generateWalletGroupsHTML(walletGroups, taskInstanceId);
-        const proxyConfigHtml = pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
+        // 检查当前脚本是否需要钱包
+        const scriptRequires = pageState.currentBatchScriptType?.requires;
+        const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
         
-        moduleContentDisplay.innerHTML = `
-            <div class="module-section">
-                <h2><i class="fas fa-wallet"></i> 选择钱包账户</h2>
-                <div class="wallet-selection-section">
-                    <div class="section-header">
-                        <span id="selected-wallet-count-${taskInstanceId}">已选择 0 个钱包</span>
-                        <div class="wallet-actions">
-                            <button class="btn btn-sm" id="select-all-wallets-${taskInstanceId}">全选</button>
-                            <button class="btn btn-sm" id="deselect-all-wallets-${taskInstanceId}">取消全选</button>
+        // 生成模块内容HTML
+        let moduleHtml = '';
+        
+        if (requiresWallets) {
+            // 需要钱包的脚本显示完整配置
+            const walletGroups = pageState.walletGroupManager.groupWallets(availableWallets);
+            const walletGroupsHtml = pageState.walletGroupManager.generateWalletGroupsHTML(walletGroups, taskInstanceId);
+            const proxyConfigHtml = pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
+            
+            moduleHtml = `
+                <div class="module-section">
+                    <h2><i class="fas fa-wallet"></i> 选择钱包账户</h2>
+                    <div class="wallet-selection-section">
+                        <div class="section-header">
+                            <span id="selected-wallet-count-${taskInstanceId}">已选择 0 个钱包</span>
+                            <div class="wallet-actions">
+                                <button class="btn btn-sm" id="select-all-wallets-${taskInstanceId}">全选</button>
+                                <button class="btn btn-sm" id="deselect-all-wallets-${taskInstanceId}">取消全选</button>
+                            </div>
+                        </div>
+                        <div class="wallet-search-box">
+                            <input type="text" id="wallet-search-${taskInstanceId}" placeholder="搜索钱包...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div id="wallet-list-${taskInstanceId}" class="wallet-list">
+                            ${walletGroupsHtml}
                         </div>
                     </div>
-                    <div class="wallet-search-box">
-                        <input type="text" id="wallet-search-${taskInstanceId}" placeholder="搜索钱包...">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <div id="wallet-list-${taskInstanceId}" class="wallet-list">
-                        ${walletGroupsHtml}
-                    </div>
+                    
+                    ${proxyConfigHtml}
                 </div>
-                
-                ${proxyConfigHtml}
-            </div>
-        `;
+            `;
+        } else {
+            // 不需要钱包的脚本显示简化配置
+            const proxyConfigHtml = pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
+            
+            moduleHtml = `
+                <div class="module-section">
+                    <h2><i class="fas fa-cog"></i> 脚本配置</h2>
+                    <div class="script-info-section">
+                        <div class="info-card">
+                            <div class="info-header">
+                                <i class="fas fa-info-circle"></i>
+                                <span>脚本信息</span>
+                            </div>
+                            <div class="info-content">
+                                <p><strong>脚本名称：</strong>${pageState.currentBatchScriptType.name}</p>
+                                <p><strong>脚本类型：</strong>通用工具脚本</p>
+                                <p><strong>说明：</strong>此脚本不需要钱包账户，可直接执行</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${proxyConfigHtml}
+                </div>
+            `;
+        }
+        
+        moduleContentDisplay.innerHTML = moduleHtml;
         
         // 初始化钱包分组折叠功能
         pageState.walletGroupManager.initWalletGroupCollapse();
@@ -816,6 +987,17 @@ async function loadModuleContent(moduleId, taskInstanceId) {
             moduleContentDisplay.insertBefore(warningDiv, moduleContentDisplay.firstChild);
         }
         
+        // 对于不需要钱包的脚本，手动触发按钮状态更新
+        if (!requiresWallets) {
+            setTimeout(() => {
+                const startTaskButton = document.getElementById('start-execution-btn');
+                if (startTaskButton) {
+                    startTaskButton.disabled = false;
+                    console.log('[批量脚本] 不需要钱包的脚本，已启用执行按钮');
+                }
+            }, 100);
+        }
+        
     } catch (error) {
         console.error('加载模块内容失败:', error);
         moduleContentDisplay.innerHTML = '<div class="error-message">加载配置失败，请刷新页面重试</div>';
@@ -830,86 +1012,91 @@ async function loadModuleContent(moduleId, taskInstanceId) {
  */
 function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies) {
     const taskConfig = batchTaskConfigs[taskInstanceId];
-    const walletsListDiv = document.getElementById(`wallet-list-${taskInstanceId}`);
+    const scriptRequires = pageState.currentBatchScriptType?.requires;
+    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
     
-    // 钱包选择相关事件
-    if (walletsListDiv) {
-        // 更新选中计数的函数
-        const updateSelectedCount = () => {
-            const selectedWallets = walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked');
-            const countElement = document.getElementById(`selected-wallet-count-${taskInstanceId}`);
-            if (countElement) {
-                countElement.textContent = `已选择 ${selectedWallets.length} 个钱包`;
-            }
-            
-            // 更新任务配置
-            taskConfig.accounts = Array.from(selectedWallets).map(cb => cb.value);
-            
-            // 更新代理策略详情
-            pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
-        };
+    // 钱包选择相关事件（仅对需要钱包的脚本）
+    if (requiresWallets) {
+        const walletsListDiv = document.getElementById(`wallet-list-${taskInstanceId}`);
         
-        // 钱包复选框变化事件
-        walletsListDiv.addEventListener('change', (e) => {
-            if (e.target.name === 'selected-wallets') {
-                updateSelectedCount();
-                
-                // 更新分组复选框状态
-                const group = e.target.dataset.group;
-                if (group) {
-                    pageState.walletGroupManager.updateGroupCheckboxState(group, walletsListDiv);
+        if (walletsListDiv) {
+            // 更新选中计数的函数
+            const updateSelectedCount = () => {
+                const selectedWallets = walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked');
+                const countElement = document.getElementById(`selected-wallet-count-${taskInstanceId}`);
+                if (countElement) {
+                    countElement.textContent = `已选择 ${selectedWallets.length} 个钱包`;
                 }
+                
+                // 更新任务配置
+                taskConfig.accounts = Array.from(selectedWallets).map(cb => cb.value);
+                
+                // 更新代理策略详情
+                pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
+            };
+            
+            // 钱包复选框变化事件
+            walletsListDiv.addEventListener('change', (e) => {
+                if (e.target.name === 'selected-wallets') {
+                    updateSelectedCount();
+                    
+                    // 更新分组复选框状态
+                    const group = e.target.dataset.group;
+                    if (group) {
+                        pageState.walletGroupManager.updateGroupCheckboxState(group, walletsListDiv);
+                    }
+                }
+                
+                // 分组复选框
+                if (e.target.classList.contains('group-checkbox')) {
+                    const group = e.target.dataset.group;
+                    pageState.walletGroupManager.handleGroupCheckboxChange(group, e.target.checked, walletsListDiv);
+                    updateSelectedCount(); // 更新总计数
+                }
+            });
+            
+            // 全选/取消全选按钮
+            const selectAllBtn = document.getElementById(`select-all-wallets-${taskInstanceId}`);
+            const deselectAllBtn = document.getElementById(`deselect-all-wallets-${taskInstanceId}`);
+            
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', () => {
+                    walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
             }
             
-            // 分组复选框
-            if (e.target.classList.contains('group-checkbox')) {
-                const group = e.target.dataset.group;
-                pageState.walletGroupManager.handleGroupCheckboxChange(group, e.target.checked, walletsListDiv);
-                updateSelectedCount(); // 更新总计数
+            if (deselectAllBtn) {
+                deselectAllBtn.addEventListener('click', () => {
+                    walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
+                        cb.checked = false;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
             }
-        });
-        
-        // 全选/取消全选按钮
-        const selectAllBtn = document.getElementById(`select-all-wallets-${taskInstanceId}`);
-        const deselectAllBtn = document.getElementById(`deselect-all-wallets-${taskInstanceId}`);
-        
-        if (selectAllBtn) {
-            selectAllBtn.addEventListener('click', () => {
-                walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
-                    cb.checked = true;
-                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // 钱包搜索功能
+            const walletSearchInput = document.getElementById(`wallet-search-${taskInstanceId}`);
+            if (walletSearchInput) {
+                walletSearchInput.addEventListener('input', (e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const walletItems = walletsListDiv.querySelectorAll('.wallet-item');
+                    
+                    walletItems.forEach(item => {
+                        const label = item.querySelector('label').textContent.toLowerCase();
+                        item.style.display = label.includes(searchTerm) ? '' : 'none';
+                    });
+                    
+                    // 更新分组显示
+                    const walletGroups = walletsListDiv.querySelectorAll('.wallet-group');
+                    walletGroups.forEach(group => {
+                        const visibleItems = group.querySelectorAll('.wallet-item:not([style*="display: none"])');
+                        group.style.display = visibleItems.length > 0 ? '' : 'none';
+                    });
                 });
-            });
-        }
-        
-        if (deselectAllBtn) {
-            deselectAllBtn.addEventListener('click', () => {
-                walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
-                    cb.checked = false;
-                    cb.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-            });
-        }
-        
-        // 钱包搜索功能
-        const walletSearchInput = document.getElementById(`wallet-search-${taskInstanceId}`);
-        if (walletSearchInput) {
-            walletSearchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                const walletItems = walletsListDiv.querySelectorAll('.wallet-item');
-                
-                walletItems.forEach(item => {
-                    const label = item.querySelector('label').textContent.toLowerCase();
-                    item.style.display = label.includes(searchTerm) ? '' : 'none';
-                });
-                
-                // 更新分组显示
-                const walletGroups = walletsListDiv.querySelectorAll('.wallet-group');
-                walletGroups.forEach(group => {
-                    const visibleItems = group.querySelectorAll('.wallet-item:not([style*="display: none"])');
-                    group.style.display = visibleItems.length > 0 ? '' : 'none';
-                });
-            });
+            }
         }
     }
     
@@ -1068,12 +1255,12 @@ function cleanupResources() {
     
     // 清理日志监听器
     if (window.__currentLogUnsubscribers) {
-        window.__currentLogUnsubscribers.forEach(unsubscribe => {
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            }
-        });
-        window.__currentLogUnsubscribers = null;
+            window.__currentLogUnsubscribers.forEach(unsubscribe => {
+                if (typeof unsubscribe === 'function') {
+                    unsubscribe();
+                }
+            });
+            window.__currentLogUnsubscribers = null;
     }
     
     // 清理日志渲染器
@@ -1164,6 +1351,12 @@ function addCompactTaskStyles() {
             font-size: 14px;
         }
         
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
         .status-text {
             color: #666;
         }
@@ -1171,6 +1364,58 @@ function addCompactTaskStyles() {
         .timer {
             font-family: monospace;
             color: #666;
+        }
+        
+        /* 头部控制按钮 */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            color: #666;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        .control-btn:hover {
+            border-color: #bbb;
+            color: #333;
+            background: #f8f9fa;
+        }
+        
+        .control-btn.btn-secondary {
+            border-color: #6c757d;
+            color: #6c757d;
+        }
+        
+        .control-btn.btn-secondary:hover {
+            background: #6c757d;
+            color: #fff;
+        }
+        
+        .control-btn.btn-danger {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+        
+        .control-btn.btn-danger:hover {
+            background: #dc3545;
+            color: #fff;
+        }
+        
+        .control-btn i {
+            font-size: 12px;
         }
         
         /* 主体区域 */
@@ -1326,6 +1571,52 @@ function addCompactTaskStyles() {
             border: 1px solid #e9ecef;
             border-radius: 6px;
             overflow: hidden;
+        }
+        
+        /* 脚本信息卡片 */
+        .script-info-section {
+            margin-bottom: 20px;
+        }
+        
+        .info-card {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+        }
+        
+        .info-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .info-header i {
+            color: #6c757d;
+        }
+        
+        .info-content {
+            padding: 16px;
+        }
+        
+        .info-content p {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .info-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-content strong {
+            color: #495057;
         }
         
         .section-header {

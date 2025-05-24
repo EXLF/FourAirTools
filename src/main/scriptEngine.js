@@ -195,6 +195,9 @@ class ScriptEngine {
                   category: safeMetadata.category || '未分类',
                   icon: safeMetadata.icon || 'code',
                   imageUrl: safeMetadata.imageUrl || null,
+                  // 将重要字段提升到根级别
+                  requires: safeMetadata.requires || { wallets: true }, // 默认需要钱包
+                  requiredModules: safeMetadata.requiredModules || [],
                   metadata: safeMetadata
                 });
               } else {

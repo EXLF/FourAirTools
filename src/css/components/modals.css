@@ -1254,7 +1254,8 @@
     background: #1e1e1e;
     border-radius: 6px;
     padding: 15px;
-    max-height: 300px;
+    min-height: 300px;
+    max-height: 700px; /* 增加最大高度，让容器可以在300px-700px之间自适应 */
     overflow-y: auto;
     font-family: 'Consolas', 'Monaco', monospace;
 }

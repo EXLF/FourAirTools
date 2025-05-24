@@ -928,10 +928,10 @@ function closeWebview(webviewContainer, listContainer) {
  */
 function getIconForCategory(category) {
     switch (category) {
-        case '项目教程':
-            return 'fas fa-project-diagram'; // Font Awesome 图标
+        case '空投教程':
+            return 'fas fa-rocket'; // Font Awesome 图标
         case '新手入门':
-            return 'fas fa-rocket';
+            return 'fas fa-star';
         case '工具技巧':
             return 'fas fa-tools';
         case '安全知识':

@@ -42,7 +42,7 @@ async function loadDashboardStats(contentArea) {
         const socialCount = await getSocialAccountCount();
         updateStatElement(contentArea, 'social-count', socialCount);
 
-        // 3. 获取教程项目总数
+        // 3. 获取教程总数
         const tutorialCount = await getTutorialCount();
         updateStatElement(contentArea, 'tutorial-count', tutorialCount);
 
@@ -99,7 +99,7 @@ async function getSocialAccountCount() {
 }
 
 /**
- * 获取教程项目总数
+ * 获取教程总数
  * @returns {Promise<number>} 教程总数
  */
 async function getTutorialCount() {
@@ -117,26 +117,20 @@ async function getTutorialCount() {
         // 从响应中获取教程数组
         const tutorials = data.tutorials || [];
         
-        // 仅计算"项目教程"类别的教程
+        // 计算所有教程
         if (Array.isArray(tutorials)) {
-            const projectTutorials = tutorials.filter(tutorial => 
-                tutorial.category === '项目教程'
-            );
-            console.log('项目教程数量:', projectTutorials.length);
-            return projectTutorials.length;
+            console.log('教程总数量:', tutorials.length);
+            return tutorials.length;
         }
         return 0;
     } catch (error) {
-        console.error('获取教程项目总数失败:', error);
+        console.error('获取教程总数失败:', error);
         // 出错时回退到本地数据
         try {
             const tutorials = await window.tutorialAPI.loadTutorials();
             if (tutorials && Array.isArray(tutorials)) {
-                const projectTutorials = tutorials.filter(tutorial => 
-                    tutorial.category === '项目教程'
-                );
-                console.log('(本地)项目教程数量:', projectTutorials.length);
-                return projectTutorials.length;
+                console.log('(本地)教程总数量:', tutorials.length);
+                return tutorials.length;
             }
         } catch (localError) {
             console.error('获取本地教程数据也失败:', localError);

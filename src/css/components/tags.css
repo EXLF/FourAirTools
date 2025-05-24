@@ -58,13 +58,13 @@
 .status.status-cultivation-new { color: #1890ff; /* Example info color */ }
 .status.status-cultivation-banned { color: #e63946; }
 
-/* Activity List Statuses (Projects) */
+/* Activity List Statuses */
 .activity-list .status-new { color: #6c5ce7; /* Use primary color */ }
 .activity-list .status-pending { color: #fab005; }
 .activity-list .status-done { color: #20c997; }
 .activity-list .status-ignored { color: #adb5bd; }
 
-/* General Tags (Projects, Plugins) */
+/* General Tags */
 .tag {
     display: inline-block;
     background-color: #f1f3f5;

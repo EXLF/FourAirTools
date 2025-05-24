@@ -126,10 +126,6 @@ async function collectExportableData() {
         const socialGroups = await window.electronAPI.social.getGroups();
         exportData.data.socialGroups = socialGroups;
         
-        // 导出项目信息
-        const projects = await window.electronAPI.projects.getAll();
-        exportData.data.projects = projects;
-        
         // 导出任务记录（如果有）
         try {
             const taskRecords = await window.electronAPI.tasks.getRecords();

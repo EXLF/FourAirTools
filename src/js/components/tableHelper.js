@@ -35,7 +35,7 @@ export function setupTableActions(contentArea, tableSelector, actionHandler) {
  * 为项目列表设置筛选控件和搜索输入的通用逻辑。
  * @param {HTMLElement} contentArea - 筛选器和项目所在的父容器。
  * @param {string} filtersBarSelector - 筛选控件容器的 CSS 选择器。
- * @param {string} itemSelector - 需要筛选的项目的 CSS 选择器 (例如, 'tbody tr', '.project-card')。
+ * @param {string} itemSelector - 需要筛选的项目的 CSS 选择器 (例如, 'tbody tr', '.card')。
  * @param {function} filterFunction - 用于确定是否显示项目的函数。接收 (itemElement, filterValues)。返回 true 显示，false 隐藏。
  */
 export function setupFilteringAndSearch(contentArea, filtersBarSelector, itemSelector, filterFunction) {

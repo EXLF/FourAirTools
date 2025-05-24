@@ -20,12 +20,11 @@
 @import url('pages/social.css');
 @import url('pages/settings.css');
 @import url('pages/tutorials.css');
-@import url('pages/projects.css');
-@import url('pages/tools.css'); /* Add import for tools page styles */
 @import url('pages/wallets.css');
 @import url('pages/batch-scripts.css');
 @import url('pages/community.css');
 @import url('pages/tool-network.css');
+@import url('pages/tools.css');
 /* @import url('pages/plugins.css'); -- Minimal specific styles, included in cards.css */
 /* @import url('pages/community.css'); -- Currently no specific styles */
 

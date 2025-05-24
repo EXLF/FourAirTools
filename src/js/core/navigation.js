@@ -110,22 +110,17 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/dashboard/index.js';
             initFunctionName = 'initDashboardPage';
             break;
-        // 钱包管理页面 - 暂时使用旧版本
+        // 钱包管理页面
         case 'wallets':
             modulePath = '../pages/wallets/index.js';
             initFunctionName = 'initWalletsPage';
             break;
-        // 项目跟踪页面 - 暂时使用旧版本
-        case 'projects':
-            modulePath = '../pages/projects/index.js';
-            initFunctionName = 'initProjectsPage';
-            break;
-        // 社交账户管理页面 - 暂时使用旧版本
+        // 社交账户管理页面
         case 'social':
             modulePath = '../pages/social/index.js';
             initFunctionName = 'initSocialPage';
             break;
-        // 批量脚本管理页面 - 暂时使用旧版本
+        // 批量脚本管理页面
         case 'batch-scripts':
             modulePath = '../pages/batchScripts/index.js';
             initFunctionName = 'initBatchScriptsPage';

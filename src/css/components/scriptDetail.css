@@ -551,7 +551,8 @@
 }
 
 .log-container {
-    height: 300px;
+    min-height: 300px;
+    max-height: 700px;
     overflow-y: auto;
     background-color: #1e1e1e;
     color: #d4d4d4;
