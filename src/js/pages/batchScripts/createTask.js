@@ -1,6 +1,6 @@
 /**
- * 批量脚本任务创建模块
- * 负责创建批量脚本任务的表单和逻辑
+ * 脚本插件任务创建模块
+ * 负责创建脚本插件任务的表单和逻辑
  */
 
 import { showModal, closeModal } from '../../components/modal.js';

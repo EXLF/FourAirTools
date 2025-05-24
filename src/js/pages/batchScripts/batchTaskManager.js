@@ -1,6 +1,6 @@
 /**
  * 批量任务管理器
- * 管理批量脚本任务的创建、执行、状态跟踪等功能
+ * 管理脚本插件任务的创建、执行、状态跟踪等功能
  */
 
 import { ScriptExecutionManager } from './scriptExecutionManager.js';

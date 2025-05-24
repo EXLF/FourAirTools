@@ -1,5 +1,5 @@
 /**
- * 批量脚本管理页面 - 主模块
+ * 脚本插件管理页面 - 主模块
  * 负责初始化页面、加载批量任务列表和基本交互
  */
 
@@ -13,10 +13,10 @@ import { TaskLogger } from './logger.js';
 let contentAreaRef = null;
 // 当前视图模式：'cards'(卡片列表) 或 'manager'(管理界面)
 let currentView = 'cards';
-// 当前选择的批量脚本类型信息 (从卡片传递)
+// 当前选择的脚本插件类型信息 (从卡片传递)
 let currentBatchScriptType = null; // 这个变量将保存被点击卡片的完整 scriptData
 
-// 预定义的批量脚本卡片数据 - 保持不变
+// 预定义的脚本插件卡片数据 - 保持不变
 const batchScriptTypes = [
     {
         id: 'multi-account-batch',
@@ -43,17 +43,17 @@ const moduleOrder = [
 const batchTaskConfigs = {};
 
 /**
- * 初始化批量脚本管理页面
+ * 初始化脚本插件管理页面
  * @param {HTMLElement} contentArea - 内容区域元素
  */
 export function initBatchScriptsPage(contentArea) {
-    console.log("初始化批量脚本管理页面...");
+    console.log("初始化脚本插件管理页面...");
     contentAreaRef = contentArea;
     renderBatchScriptCardsView(contentArea); // 默认显示卡片入口
 }
 
 /**
- * 渲染批量脚本卡片视图
+ * 渲染脚本插件卡片视图
  * @param {HTMLElement} contentArea - 内容区域元素
  */
 function renderBatchScriptCardsView(contentArea) {
@@ -62,7 +62,7 @@ function renderBatchScriptCardsView(contentArea) {
     // 安全起见，直接使用模板定义的 HTML 结构，避免依赖主 index.html 已有结构
     const cardViewHtml = `
     <div class="page-header">
-        <h1>批量脚本</h1>
+        <h1>脚本插件</h1>
         <p>高效管理多账户脚本执行，批量处理多任务</p>
         <div class="header-actions">
             <button id="refresh-batch-scripts-btn" class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新列表</button>
@@ -70,7 +70,7 @@ function renderBatchScriptCardsView(contentArea) {
     </div>
     <div class="scripts-filter-bar">
         <div class="search-box">
-            <input type="text" id="batchScriptSearchInput" placeholder="搜索批量脚本...">
+            <input type="text" id="batchScriptSearchInput" placeholder="搜索脚本插件...">
             <i class="fas fa-search"></i>
         </div>
         <div class="filter-actions">
@@ -101,7 +101,7 @@ function renderBatchScriptCardsView(contentArea) {
 
 
 /**
- * 加载并渲染批量脚本卡片
+ * 加载并渲染脚本插件卡片
  * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
  */
 async function loadAndRenderBatchScriptCards(pageContentArea) {
@@ -150,7 +150,7 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
 }
 
 /**
- * 创建批量脚本卡片 - 保持不变
+ * 创建脚本插件卡片 - 保持不变
  * @param {Object} scriptData - 脚本数据
  * @returns {HTMLElement} 脚本卡片元素
  */
@@ -422,7 +422,7 @@ function bindModularManagerEvents(taskInstanceId) {
                 try {
                     window.__currentLogListenerRemover();
                     window.__currentLogListenerRemover = null;
-                    console.log('[批量脚本] 返回卡片页面时清理了日志监听器');
+                    console.log('[脚本插件] 返回卡片页面时清理了日志监听器');
                 } catch (e) {
                     console.warn('清理日志监听器失败:', e);
                 }
@@ -504,9 +504,9 @@ function bindModularManagerEvents(taskInstanceId) {
                         try {
                             window.__currentLogCleanup();
                             window.__currentLogCleanup = null;
-                            console.log('[批量脚本] 已清理旧的日志渲染器');
+                            console.log('[脚本插件] 已清理旧的日志渲染器');
                         } catch (e) {
-                            console.warn('[批量脚本] 清理旧日志渲染器失败:', e);
+                            console.warn('[脚本插件] 清理旧日志渲染器失败:', e);
                         }
                     }
                     
@@ -516,9 +516,9 @@ function bindModularManagerEvents(taskInstanceId) {
                     // 每次执行都重新初始化日志渲染器，确保日志能正常显示
                     const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
                     window.__currentLogCleanup = cleanupLogRender;
-                    console.log('[批量脚本] 日志渲染器已初始化');
+                    console.log('[脚本插件] 日志渲染器已初始化');
                     
-                    TaskLogger.logInfo('🚀 批量脚本执行系统已初始化');
+                    TaskLogger.logInfo('🚀 脚本插件执行系统已初始化');
                     TaskLogger.logInfo(`📋 任务名称: ${currentBatchScriptType.name}`);
                     TaskLogger.logInfo(`👥 选择的钱包数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
                     
@@ -636,10 +636,10 @@ function bindModularManagerEvents(taskInstanceId) {
                 const logEventHandler = (data) => {
                     // 注意：preload.js中的on函数只传递data，不传递event
                     // 添加详细的调试信息
-                    console.log('[批量脚本日志] 收到日志事件:', data);
+                    console.log('[脚本插件日志] 收到日志事件:', data);
                     
                     if (!data) {
-                        console.warn('[批量脚本日志] 收到空的日志数据');
+                        console.warn('[脚本插件日志] 收到空的日志数据');
                         return;
                     }
                     
@@ -837,9 +837,9 @@ function bindModularManagerEvents(taskInstanceId) {
                     try {
                         window.__currentLogListenerRemover();
                         window.__currentLogListenerRemover = null;
-                        console.log('[批量脚本] 已清理旧的日志监听器');
+                        console.log('[脚本插件] 已清理旧的日志监听器');
                     } catch (e) {
-                        console.warn('[批量脚本] 清理旧日志监听器失败:', e);
+                        console.warn('[脚本插件] 清理旧日志监听器失败:', e);
                     }
                 }
                 
@@ -857,7 +857,7 @@ function bindModularManagerEvents(taskInstanceId) {
                     
                     logListenerRemover = () => {
                         window.electron.ipcRenderer.removeListener('script-log', logEventHandler);
-                        console.log('[批量脚本] 日志监听器已移除');
+                        console.log('[脚本插件] 日志监听器已移除');
                     };
                     
                     // 保存到全局变量，以便下次执行时清理
@@ -882,7 +882,7 @@ function bindModularManagerEvents(taskInstanceId) {
                     
                     // 检查执行结果
                     if (result && result.success) {
-                        TaskLogger.logSuccess(`批量脚本已成功启动`);
+                        TaskLogger.logSuccess(`脚本插件已成功启动`);
                         TaskLogger.logInfo(`任务ID: ${taskInstanceId || result.executionId || '未知'}`);
                         TaskLogger.logInfo(`账户数量: ${batchTaskConfigs[taskInstanceId].accounts.length}`);
                         
@@ -944,7 +944,7 @@ function bindModularManagerEvents(taskInstanceId) {
                     // 注意：日志监听器现在不会在这里自动移除
                     // 而是在下次执行前或页面切换时清理
                     // 这样可以确保重新执行时日志仍能正常显示
-                    console.log('[批量脚本] 脚本执行完成，日志监听器保持活动状态');
+                    console.log('[脚本插件] 脚本执行完成，日志监听器保持活动状态');
                 }
             } else {
                 console.error('scriptAPI.executeScript 未定义');

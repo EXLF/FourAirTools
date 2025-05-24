@@ -1,13 +1,13 @@
 /**
  * 日志测试脚本
- * 用于测试批量脚本模块的日志系统
+ * 用于测试脚本插件模块的日志系统
  */
 
 exports.getConfig = function() {
     return {
         id: 'test-batch-logging',
         name: '日志系统测试脚本',
-        description: '测试批量脚本模块的日志显示功能',
+        description: '测试脚本插件模块的日志显示功能',
         icon: 'fas fa-vial',
         category: '测试工具',
         requiredModules: []

@@ -14,7 +14,7 @@ export function createFilterPanelHTML(options = {}) {
         showSearch = true,
         showTypeFilter = true,
         showStatusFilter = true,
-        searchPlaceholder = '搜索批量脚本...'
+        searchPlaceholder = '搜索脚本插件...'
     } = options;
     
     return `

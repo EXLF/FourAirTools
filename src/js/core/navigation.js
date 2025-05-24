@@ -120,7 +120,7 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/social/index.js';
             initFunctionName = 'initSocialPage';
             break;
-        // 批量脚本管理页面
+        // 脚本插件管理页面
         case 'batch-scripts':
             modulePath = '../pages/batchScripts/index.js';
             initFunctionName = 'initBatchScriptsPage';
