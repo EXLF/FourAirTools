@@ -1748,15 +1748,14 @@ input:checked + .slider:before {
 
 .wallet-selection-section .wallet-actions .btn {
     font-size: 13px;
-    padding: 8px 16px;
-    color: #6c5ce7;
-    font-weight: 600;
-    border: 2px solid #6c5ce7;
-    border-radius: 8px;
+    padding: 4px 9px;
+    color: #495057;
+    font-weight: 400;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
     background-color: #fff;
     text-decoration: none;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(108, 92, 231, 0.1);
+    transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
 }
@@ -1773,10 +1772,9 @@ input:checked + .slider:before {
 }
 
 .wallet-selection-section .wallet-actions .btn:hover {
-    background-color: #6c5ce7;
-    color: #fff;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(108, 92, 231, 0.3);
+    background-color: #f8f9fa;
+    color: #495057;
+    border-color: #adb5bd;
 }
 
 .wallet-selection-section .wallet-actions .btn:hover::before {
@@ -1888,7 +1886,7 @@ input:checked + .slider:before {
 
 /* 分组图标和标题 */
 .wallet-group-header i {
-    color: #6c5ce7;
+    color: #6c757d;
     font-size: 16px;
     transition: all 0.3s ease;
 }
@@ -1900,7 +1898,7 @@ input:checked + .slider:before {
 .wallet-group-header .group-checkbox {
     width: 16px;
     height: 16px;
-    accent-color: #6c5ce7;
+    accent-color: #007bff;
     cursor: pointer;
 }
 
@@ -1944,15 +1942,15 @@ input:checked + .slider:before {
 }
 
 .wallet-item input[type="checkbox"]:checked + label {
-    color: #6c5ce7;
-    font-weight: 600;
+    color: #007bff;
+    font-weight: 500;
 }
 
 .wallet-item.selected,
 .wallet-item:has(input[type="checkbox"]:checked) {
-    background: linear-gradient(135deg, #f0ebff, #faf7ff);
-    border-left: 4px solid #6c5ce7;
-    transform: translateX(4px);
+    background: #f8f9fa;
+    border-left: 3px solid #007bff;
+    transform: translateX(2px);
 }
 
 .wallet-item.selected::before,
@@ -1962,15 +1960,15 @@ input:checked + .slider:before {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    background: linear-gradient(to bottom, #6c5ce7, #a29bfe);
+    width: 3px;
+    background: #007bff;
 }
 
 /* 复选框样式 */
 .wallet-item input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: #6c5ce7;
+    accent-color: #007bff;
     cursor: pointer;
     transition: transform 0.2s ease;
     margin-top: 2px; /* 与文本对齐 */
@@ -2003,15 +2001,13 @@ input:checked + .slider:before {
 /* 已选择统计显示 */
 .wallet-selection-section #selected-wallet-count-1,
 .wallet-selection-section [id^="selected-wallet-count-"] {
-    font-weight: 600;
-    font-size: 16px;
-    color: #2c3e50;
-    padding: 8px 16px;
-    background: linear-gradient(135deg, #f0ebff, #faf7ff);
-    border-radius: 10px;
-    border: 2px solid #6c5ce7;
-    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2);
-    animation: pulse 2s infinite;
+    font-weight: 500;
+    font-size: 14px;
+    color: #495057;
+    padding: 4px 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
 }
 
 @keyframes pulse {

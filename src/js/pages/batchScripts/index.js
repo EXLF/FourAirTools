@@ -243,7 +243,6 @@ function renderBatchScriptCardsView(contentArea) {
     const cardViewHtml = `
     <div class="page-header">
         <h1>脚本插件</h1>
-        <p>高效管理多账户脚本执行，批量处理多任务</p>
         <div class="header-actions">
             <button id="background-tasks-btn" class="btn btn-secondary" style="display: none;">
                 <i class="fas fa-tasks"></i> 后台任务 (<span id="background-task-count">0</span>)
@@ -326,7 +325,6 @@ function renderBatchScriptCardsView(contentArea) {
  */
 async function loadAndRenderBatchScriptCards(pageContentArea) {
     const cardsContainer = pageContentArea.querySelector('#batchScriptCardsContainer');
-    const typeFilterElement = pageContentArea.querySelector('#batchScriptTypeFilter');
     const statusFilterElement = pageContentArea.querySelector('#batchScriptStatusFilter');
     
     if (!cardsContainer) {
@@ -374,7 +372,7 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
     });
     
     // 更新筛选器选项
-    populateFilters(typeFilterElement, statusFilterElement, scriptsList);
+    populateFilters(statusFilterElement, scriptsList);
 }
 
 /**
@@ -1843,7 +1841,7 @@ function addCompactTaskStyles() {
             align-items: center;
         }
         
-        .btn {
+        .batch-task-container .btn {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -1858,17 +1856,17 @@ function addCompactTaskStyles() {
             transition: all 0.2s ease;
         }
         
-        .btn:hover {
+        .batch-task-container .btn:hover {
             border-color: #6c5ce7;
             color: #6c5ce7;
         }
         
-        .btn.btn-secondary {
+        .batch-task-container .btn.btn-secondary {
             border-color: #6c757d;
             color: #6c757d;
         }
         
-        .btn.btn-secondary:hover {
+        .batch-task-container .btn.btn-secondary:hover {
             background: #6c757d;
             color: #fff;
         }
@@ -2469,7 +2467,8 @@ function addCompactTaskStyles() {
         }
         
         /* 按钮样式 */
-        .btn.btn-primary {
+        .batch-task-container .btn.btn-primary,
+        .background-tasks-panel .btn.btn-primary {
             background: #6c5ce7;
             color: #fff;
             border: none;
@@ -2480,13 +2479,15 @@ function addCompactTaskStyles() {
             transition: all 0.2s;
         }
         
-        .btn.btn-primary:hover:not(:disabled) {
+        .batch-task-container .btn.btn-primary:hover:not(:disabled),
+        .background-tasks-panel .btn.btn-primary:hover:not(:disabled) {
             background: #5a4cdb;
             transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
         }
         
-        .btn.btn-primary:disabled {
+        .batch-task-container .btn.btn-primary:disabled,
+        .background-tasks-panel .btn.btn-primary:disabled {
             background: #e9ecef;
             color: #adb5bd;
             cursor: not-allowed;
@@ -2494,7 +2495,8 @@ function addCompactTaskStyles() {
             box-shadow: none;
         }
         
-        .btn.btn-secondary {
+        .batch-task-container .btn.btn-secondary,
+        .background-tasks-panel .btn.btn-secondary {
             background: transparent;
             color: #666;
             border: 1px solid #dee2e6;
@@ -2505,12 +2507,14 @@ function addCompactTaskStyles() {
             transition: all 0.2s;
         }
         
-        .btn.btn-secondary:hover {
+        .batch-task-container .btn.btn-secondary:hover,
+        .background-tasks-panel .btn.btn-secondary:hover {
             border-color: #6c5ce7;
             color: #6c5ce7;
         }
         
-        .btn.btn-danger {
+        .batch-task-container .btn.btn-danger,
+        .background-tasks-panel .btn.btn-danger {
             background: #dc3545;
             color: #fff;
             border: none;
@@ -2521,7 +2525,8 @@ function addCompactTaskStyles() {
             transition: all 0.2s;
         }
         
-        .btn.btn-danger:hover {
+        .batch-task-container .btn.btn-danger:hover,
+        .background-tasks-panel .btn.btn-danger:hover {
             background: #c82333;
         }
         

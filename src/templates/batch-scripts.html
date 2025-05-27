@@ -3,7 +3,6 @@
     
     <div class="page-header">
         <h1>脚本插件</h1>
-        <p>高效管理多账户脚本执行，批量处理多任务</p>
         <div class="header-actions">
             <button id="refresh-batch-scripts-btn" class="btn btn-secondary"><i class="fas fa-sync-alt"></i> 刷新列表</button>
         </div>
@@ -11,15 +10,11 @@
 
     <div class="scripts-filter-bar">
         <div class="search-box">
-            <input type="text" id="batchScriptSearchInput" placeholder="搜索脚本插件...">
+            <input type="text" id="batchScriptSearchInput" class="table-search-input" placeholder="搜索脚本插件...">
             <i class="fas fa-search"></i>
         </div>
         <div class="filter-actions">
-            <select id="batchScriptTypeFilter">
-                <option value="">全部分类</option>
-                <!-- 类型/分类选项将由JavaScript动态生成 -->
-            </select>
-            <select id="batchScriptStatusFilter">
+            <select id="batchScriptStatusFilter" class="select-filter">
                 <option value="">全部状态</option>
                 <option value="active">可用</option>
                 <!-- 如有需要，其他状态选项可由JS动态生成或在此硬编码 -->

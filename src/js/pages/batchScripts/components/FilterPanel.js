@@ -12,7 +12,6 @@ import { setupFilteringAndSearch } from '../../../components/tableHelper.js';
 export function createFilterPanelHTML(options = {}) {
     const {
         showSearch = true,
-        showTypeFilter = true,
         showStatusFilter = true,
         searchPlaceholder = '搜索脚本插件...'
     } = options;
@@ -21,16 +20,11 @@ export function createFilterPanelHTML(options = {}) {
         <div class="scripts-filter-bar">
             ${showSearch ? `
                 <div class="search-box">
-                    <input type="text" id="batchScriptSearchInput" placeholder="${searchPlaceholder}">
+                    <input type="text" id="batchScriptSearchInput" class="table-search-input" placeholder="${searchPlaceholder}">
                     <i class="fas fa-search"></i>
                 </div>
             ` : ''}
             <div class="filter-actions">
-                ${showTypeFilter ? `
-                    <select id="batchScriptTypeFilter" class="select-filter">
-                        <option value="">全部分类</option>
-                    </select>
-                ` : ''}
                 ${showStatusFilter ? `
                     <select id="batchScriptStatusFilter" class="select-filter">
                         <option value="">全部状态</option>
@@ -48,11 +42,10 @@ export function createFilterPanelHTML(options = {}) {
  */
 export function setupFilteringFunction(contentArea) {
     const searchInput = contentArea.querySelector('#batchScriptSearchInput');
-    const typeFilter = contentArea.querySelector('#batchScriptTypeFilter');
     const statusFilter = contentArea.querySelector('#batchScriptStatusFilter');
     const cardsGrid = contentArea.querySelector('#batchScriptCardsContainer');
     
-    if (!searchInput || !typeFilter || !statusFilter || !cardsGrid) return;
+    if (!searchInput || !statusFilter || !cardsGrid) return;
     
     setupFilteringAndSearch(
         contentArea,
@@ -61,12 +54,10 @@ export function setupFilteringFunction(contentArea) {
         (card, filters) => {
             const title = card.querySelector('.card-title')?.textContent.toLowerCase() || '';
             const description = card.querySelector('.card-description')?.textContent.toLowerCase() || '';
-            const category = card.dataset.category?.toLowerCase() || '';
             const status = card.dataset.status?.toLowerCase() || '';
             
             const searchTerm = filters.search || '';
             if (searchTerm && !title.includes(searchTerm) && !description.includes(searchTerm)) return false;
-            if (filters.batchScriptTypeFilter && filters.batchScriptTypeFilter !== '' && category !== filters.batchScriptTypeFilter) return false;
             if (filters.batchScriptStatusFilter && filters.batchScriptStatusFilter !== '' && status !== filters.batchScriptStatusFilter) return false;
             return true;
         }
@@ -75,26 +66,15 @@ export function setupFilteringFunction(contentArea) {
 
 /**
  * 填充筛选器选项
- * @param {HTMLSelectElement} typeFilterElement - 类型筛选下拉框
  * @param {HTMLSelectElement} statusFilterElement - 状态筛选下拉框
  * @param {Array} scriptData - 脚本数据数组
  */
-export function populateFilters(typeFilterElement, statusFilterElement, scriptData) {
-    if (!typeFilterElement || !statusFilterElement) return;
+export function populateFilters(statusFilterElement, scriptData) {
+    if (!statusFilterElement) return;
     
-    const categories = new Set();
     const statuses = new Set();
     scriptData.forEach(script => {
-        if (script.category) categories.add(script.category);
         if (script.status) statuses.add(script.status);
-    });
-    
-    typeFilterElement.innerHTML = '<option value="">全部分类</option>';
-    categories.forEach(category => {
-        const option = document.createElement('option');
-        option.value = category.toLowerCase();
-        option.textContent = category;
-        typeFilterElement.appendChild(option);
     });
     
     statusFilterElement.innerHTML = '<option value="">全部状态</option>';

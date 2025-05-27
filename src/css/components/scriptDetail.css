@@ -1033,7 +1033,7 @@ input[placeholder="搜索钱包..."] {
 i.fa-search, 
 i.fas.fa-search {
     position: absolute !important;
-    left: 10px !important;
+    left: 20px !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
     color: #adb5bd !important;
