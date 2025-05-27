@@ -66,12 +66,48 @@ function saveBackgroundTasksToStorage() {
 
 /**
  * 从localStorage恢复后台任务
+ * 注意：应用重启后，所有脚本执行都已停止，因此应该清理所有"僵尸"任务
  */
 function loadBackgroundTasksFromStorage() {
     try {
         const stored = localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY);
         if (stored) {
             const tasksArray = JSON.parse(stored);
+            
+            // 检查是否是应用重启（通过sessionStorage检测）
+            // sessionStorage在应用关闭时会被清理，所以可以用来检测应用重启
+            const sessionKey = 'fa_app_session_active';
+            const isAppRestart = !sessionStorage.getItem(sessionKey);
+            
+            console.log('[后台任务] 会话检测:', {
+                sessionExists: !!sessionStorage.getItem(sessionKey),
+                isAppRestart,
+                tasksFound: tasksArray.length
+            });
+            
+            if (isAppRestart) {
+                console.log('[后台任务] 检测到应用重启，清理所有僵尸任务');
+                console.log('[后台任务] 发现', tasksArray.length, '个僵尸任务，将被清理');
+                
+                // 清理localStorage中的僵尸任务
+                localStorage.removeItem(BACKGROUND_TASKS_STORAGE_KEY);
+                
+                // 显示清理信息
+                if (tasksArray.length > 0) {
+                    console.log('[后台任务] 已清理以下僵尸任务:');
+                    tasksArray.forEach(task => {
+                        console.log(`  - ${task.scriptType?.name || '未知脚本'} (${task.taskId})`);
+                    });
+                }
+                
+                // 设置会话标志（只在确认是新会话时设置）
+                sessionStorage.setItem(sessionKey, 'true');
+                console.log('[后台任务] 已设置新会话标志');
+                
+                return; // 不恢复任何任务
+            }
+            
+            // 如果不是应用重启，正常恢复任务（这种情况很少见）
             tasksArray.forEach(taskData => {
                 // 创建简化的任务对象（不包含函数引用）
                 const task = {
@@ -89,9 +125,24 @@ function loadBackgroundTasksFromStorage() {
                 backgroundTasks.set(taskData.taskId, task);
             });
             console.log('[后台任务] 从localStorage恢复:', tasksArray.length, '个任务');
+        } else {
+            // 没有存储的任务，但仍需要设置会话标志
+            const sessionKey = 'fa_app_session_active';
+            if (!sessionStorage.getItem(sessionKey)) {
+                sessionStorage.setItem(sessionKey, 'true');
+                console.log('[后台任务] 新会话开始，无后台任务需要清理');
+            }
         }
     } catch (error) {
         console.error('[后台任务] 从localStorage恢复失败:', error);
+        // 如果解析失败，清理localStorage
+        localStorage.removeItem(BACKGROUND_TASKS_STORAGE_KEY);
+        
+        // 设置会话标志
+        const sessionKey = 'fa_app_session_active';
+        if (!sessionStorage.getItem(sessionKey)) {
+            sessionStorage.setItem(sessionKey, 'true');
+        }
     }
 }
 
@@ -113,7 +164,8 @@ function initGlobalBackgroundTaskManager() {
             debug: debugBackgroundTasks,
             createTest: createTestBackgroundTask,
             clearTests: clearAllTestTasks,
-            forceUpdate: forceUpdateIndicator
+            forceUpdate: forceUpdateIndicator,
+            clearZombies: clearZombieTasks
         };
         
         // 恢复后台任务
@@ -121,112 +173,17 @@ function initGlobalBackgroundTaskManager() {
         
         console.log('[全局后台任务] 管理器已初始化，恢复任务数量:', backgroundTasks.size);
         
-        // 创建全局后台任务状态指示器（在任何页面都可见）
-        createGlobalBackgroundTaskIndicator();
-        
-        // 每5秒检查一次后台任务状态
-        setInterval(() => {
-            updateGlobalBackgroundTaskStatus();
-        }, 5000);
+
     }
 }
 
-/**
- * 创建全局后台任务指示器（在页面右上角）
- */
-function createGlobalBackgroundTaskIndicator() {
-    // 检查是否已存在
-    if (document.getElementById('global-background-indicator')) {
-        return;
-    }
-    
-    const indicator = document.createElement('div');
-    indicator.id = 'global-background-indicator';
-    indicator.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 10000;
-        background: #27ae60;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        display: none;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.3s ease;
-        animation: pulse 2s infinite;
-    `;
-    
-    indicator.innerHTML = `
-        <i class="fas fa-tasks"></i>
-        <span id="global-task-count">0</span> 个后台任务
-    `;
-    
-    // 点击切换到脚本插件页面
-    indicator.addEventListener('click', () => {
-        console.log('[全局指示器] 切换到脚本插件页面');
-        // 这里需要触发导航到脚本插件页面的逻辑
-        // 具体实现依赖于你的路由系统
-        if (window.navigateTo) {
-            window.navigateTo('batchScripts');
-        }
-    });
-    
-    document.body.appendChild(indicator);
-    console.log('[全局指示器] 已创建全局后台任务指示器');
-}
 
-/**
- * 更新全局后台任务状态
- */
-function updateGlobalBackgroundTaskStatus() {
-    const indicator = document.getElementById('global-background-indicator');
-    const countElement = document.getElementById('global-task-count');
-    
-    if (!indicator || !countElement) {
-        return;
-    }
-    
-    const taskCount = backgroundTasks.size;
-    
-    if (taskCount > 0) {
-        indicator.style.display = 'flex';
-        countElement.textContent = taskCount;
-        console.log(`[全局指示器] 显示 ${taskCount} 个后台任务`);
-    } else {
-        indicator.style.display = 'none';
-        console.log('[全局指示器] 隐藏指示器，无后台任务');
-    }
-}
 
 // 页面加载时立即初始化全局管理器
 if (typeof window !== 'undefined') {
     // 立即执行，不等待页面加载
     console.log('[全局后台任务] 开始初始化...');
     initGlobalBackgroundTaskManager();
-    
-    // 确保DOM加载完成后再次检查
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('[全局后台任务] DOM加载完成，再次初始化');
-            initGlobalBackgroundTaskManager();
-            setTimeout(() => {
-                updateGlobalBackgroundTaskStatus();
-            }, 1000);
-        });
-    } else {
-        // DOM已经加载完成
-        setTimeout(() => {
-            console.log('[全局后台任务] DOM已加载，延迟初始化');
-            initGlobalBackgroundTaskManager();
-            updateGlobalBackgroundTaskStatus();
-        }, 500);
-    }
 }
 
 /**
@@ -240,6 +197,9 @@ export function initBatchScriptsPage(contentArea) {
     
     // 设置页面标志
     window.__isBatchScriptsPageActive = true;
+    
+    // 立即加载样式，确保后台任务面板样式可用
+    addCompactTaskStyles();
     
     // 确保全局后台任务管理器已初始化
     initGlobalBackgroundTaskManager();
@@ -1867,6 +1827,52 @@ function addCompactTaskStyles() {
     const styleElement = document.createElement('style');
     styleElement.id = 'compact-task-styles';
     styleElement.textContent = `
+        /* 基础样式重置 */
+        * {
+            box-sizing: border-box;
+        }
+        
+        /* 页面基础样式 */
+        .page-header {
+            margin-bottom: 20px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #fff;
+            color: #495057;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            border-color: #6c5ce7;
+            color: #6c5ce7;
+        }
+        
+        .btn.btn-secondary {
+            border-color: #6c757d;
+            color: #6c757d;
+        }
+        
+        .btn.btn-secondary:hover {
+            background: #6c757d;
+            color: #fff;
+        }
+        
         /* 主容器 */
         .batch-task-container {
             display: flex;
@@ -2704,38 +2710,7 @@ function addCompactTaskStyles() {
             color: #27ae60 !important;
         }
         
-        /* 全局后台任务指示器样式 */
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        
-        #global-background-indicator {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 10000;
-            background: #27ae60;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            display: none;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.3s ease;
-            animation: pulse 2s infinite;
-        }
-        
-        #global-background-indicator:hover {
-            background: #2c3e50;
-            transform: scale(1.05);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+
     `;
     document.head.appendChild(styleElement);
 }
@@ -2881,7 +2856,6 @@ function moveTaskToBackground(taskInstanceId) {
     
     // 更新后台任务指示器
     updateBackgroundTaskIndicator();
-    updateGlobalBackgroundTaskStatus();
     
     // 清理前台引用，但后台任务仍持有这些资源的引用
     // 这样可以避免新任务覆盖正在运行的任务资源
@@ -3331,6 +3305,105 @@ function forceUpdateIndicator() {
 }
 
 /**
+ * 清理所有僵尸任务
+ * 用于手动清理localStorage中的无效后台任务
+ */
+function clearZombieTasks() {
+    console.log('[后台任务] 开始清理僵尸任务...');
+    
+    const stored = localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY);
+    if (stored) {
+        try {
+            const tasksArray = JSON.parse(stored);
+            console.log(`[后台任务] 发现 ${tasksArray.length} 个可能的僵尸任务`);
+            
+            if (tasksArray.length > 0) {
+                console.log('[后台任务] 清理的任务列表:');
+                tasksArray.forEach(task => {
+                    console.log(`  - ${task.scriptType?.name || '未知脚本'} (${task.taskId})`);
+                });
+                
+                // 清理localStorage
+                localStorage.removeItem(BACKGROUND_TASKS_STORAGE_KEY);
+                
+                // 清理内存中的任务
+                backgroundTasks.clear();
+                
+                // 更新UI
+                updateBackgroundTaskIndicator();
+                
+                console.log('[后台任务] ✅ 僵尸任务清理完成');
+            } else {
+                console.log('[后台任务] 没有发现僵尸任务');
+            }
+        } catch (error) {
+            console.error('[后台任务] 清理僵尸任务时出错:', error);
+            // 如果解析失败，直接清理
+            localStorage.removeItem(BACKGROUND_TASKS_STORAGE_KEY);
+            backgroundTasks.clear();
+            updateBackgroundTaskIndicator();
+        }
+    } else {
+        console.log('[后台任务] localStorage中没有后台任务数据');
+    }
+}
+
+/**
+ * 强制清理当前的僵尸任务（立即生效）
+ * 用于在应用运行时立即清理不应该存在的后台任务
+ */
+function forceCleanZombies() {
+    console.log('\n🧹 强制清理僵尸任务...');
+    
+    const beforeCount = backgroundTasks.size;
+    const stored = localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY);
+    
+    console.log('清理前状态:');
+    console.log(`  - 内存中的任务: ${beforeCount} 个`);
+    console.log(`  - localStorage: ${stored ? '有数据' : '无数据'}`);
+    
+    if (stored) {
+        try {
+            const tasksArray = JSON.parse(stored);
+            console.log(`  - localStorage中的任务: ${tasksArray.length} 个`);
+            
+            if (tasksArray.length > 0) {
+                console.log('\n清理的任务:');
+                tasksArray.forEach((task, index) => {
+                    console.log(`  ${index + 1}. ${task.scriptType?.name || '未知脚本'} (${task.taskId})`);
+                });
+            }
+        } catch (error) {
+            console.log('  - localStorage数据解析失败');
+        }
+    }
+    
+    // 强制清理所有
+    localStorage.removeItem(BACKGROUND_TASKS_STORAGE_KEY);
+    backgroundTasks.clear();
+    
+    // 重置会话标志，确保下次启动时不会再恢复
+    sessionStorage.setItem('fa_app_session_active', 'true');
+    
+    // 更新UI
+    updateBackgroundTaskIndicator();
+    
+    console.log('\n✅ 强制清理完成！');
+    console.log('清理后状态:');
+    console.log(`  - 内存中的任务: ${backgroundTasks.size} 个`);
+    console.log(`  - localStorage: ${localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY) ? '有数据' : '无数据'}`);
+    console.log(`  - 会话标志: ${sessionStorage.getItem('fa_app_session_active') ? '已设置' : '未设置'}`);
+    
+    // 检查UI状态
+    const btn = document.getElementById('background-tasks-btn');
+    if (btn) {
+        console.log(`  - 后台任务按钮: ${btn.style.display === 'none' ? '已隐藏' : '显示中'}`);
+    }
+    
+    console.log('\n🎉 僵尸任务已彻底清理，页面状态已重置！');
+}
+
+/**
  * 初始化调试工具
  */
 function initDebugTools() {
@@ -3340,13 +3413,12 @@ function initDebugTools() {
     window.clearAllTestTasks = clearAllTestTasks;
     window.forceUpdateIndicator = forceUpdateIndicator;
     window.testBackgroundTaskFlow = testBackgroundTaskFlow;
+    window.clearZombieTasks = clearZombieTasks;
+    window.forceCleanZombies = forceCleanZombies;
     
     // 异步加载调试工具
-    Promise.all([
-        import('./taskRestoreDebug.js'),
-        import('./logListenerTest.js')
-    ]).then(() => {
-        console.log('[调试工具] 任务恢复调试工具和监听器测试工具已加载');
+    import('./taskRestoreDebug.js').then(() => {
+        console.log('[调试工具] 任务恢复调试工具已加载');
     }).catch(error => {
         console.warn('[调试工具] 加载调试工具失败:', error);
     });
@@ -3357,11 +3429,30 @@ function initDebugTools() {
     console.log('  - clearAllTestTasks() : 清理测试任务');
     console.log('  - forceUpdateIndicator() : 强制刷新指示器');
     console.log('  - testBackgroundTaskFlow() : 完整流程测试');
+    console.log('  - clearZombieTasks() : 清理僵尸任务');
+    console.log('  - forceCleanZombies() : 强制清理当前僵尸任务');
     console.log('  - debugTaskRestore() : 检查任务恢复状态');
     console.log('  - quickFixTaskRestore() : 快速修复恢复问题');
     console.log('  - forceRestoreTaskUI() : 强制恢复任务UI');
     console.log('  - checkLogContainer() : 检查日志容器状态');
-    console.log('  - testLogListeners() : 测试日志监听器重复问题');
+
+    // 检查是否有僵尸任务需要立即清理
+    const stored = localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY);
+    if (stored) {
+        try {
+            const tasksArray = JSON.parse(stored);
+            if (tasksArray.length > 0) {
+                console.log('\n⚠️ 检测到可能的僵尸任务！');
+                console.log(`发现 ${tasksArray.length} 个后台任务，但应用刚启动`);
+                console.log('如果这些任务不应该存在，请运行: forceCleanZombies()');
+                tasksArray.forEach((task, index) => {
+                    console.log(`  ${index + 1}. ${task.scriptType?.name || '未知脚本'} (${task.taskId})`);
+                });
+            }
+        } catch (error) {
+            console.warn('检查僵尸任务时出错:', error);
+        }
+    }
     
     // 自动运行一次完整测试（仅在调试模式下）
     if (DEBUG_BACKGROUND_TASKS) {
@@ -3399,21 +3490,16 @@ function testBackgroundTaskFlow() {
         setTimeout(() => {
             console.log('5️⃣ 测试结果总结:');
             const btnElement = document.getElementById('background-tasks-btn');
-            const globalIndicator = document.getElementById('global-background-indicator');
-            
             console.log('✅ 测试完成！结果：');
             console.log('  📊 后台任务数量:', backgroundTasks.size);
             console.log('  🔘 脚本插件页面按钮:', btnElement ? '✅ 存在' : '❌ 缺失');
             console.log('  🔘 按钮显示状态:', btnElement?.style.display);
-            console.log('  🌐 全局指示器:', globalIndicator ? '✅ 存在' : '❌ 缺失');
-            console.log('  🌐 全局指示器显示:', globalIndicator?.style.display);
             console.log('  💾 localStorage数据:', localStorage.getItem(BACKGROUND_TASKS_STORAGE_KEY) ? '✅ 已保存' : '❌ 未保存');
             
             if (btnElement && btnElement.style.display !== 'none') {
                 console.log('🎉 后台任务系统工作正常！');
                 console.log('📝 用户可以：');
                 console.log('  - 点击绿色的"后台任务"按钮查看任务');
-                console.log('  - 在右上角看到全局任务指示器');
                 console.log('  - 切换到其他页面时任务继续运行');
             } else {
                 console.log('⚠️ 后台任务系统可能存在问题');
