@@ -608,5 +608,51 @@
     <script type="module" src="src/js/core/navigation.js"></script>
     <script type="module" src="src/js/components/modal.js"></script>
     <script src="src/js/updater-ui.js"></script> <!-- 新增：引入 updater UI 脚本 -->
+
+    <div id="modal-container"></div>
+
+    <!-- 应用启动入口点 -->
+    <script type="module">
+        // 导入必要模块
+        import { setupSidebarNavigation, loadPage } from './src/js/core/navigation.js';
+        
+        // 简单的应用启动
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM内容加载完成，开始初始化应用...');
+            
+            // 首先设置导航，这个操作很快
+            setupSidebarNavigation();
+            
+            // 尝试隐藏加载指示器
+            const appLoading = document.getElementById('appLoading');
+            if (appLoading) {
+                // 先显示"加载中"文本提示，让用户知道正在加载
+                const loadingText = appLoading.querySelector('p');
+                if (loadingText) {
+                    loadingText.textContent = '正在准备应用...';
+                }
+                
+                // 加载主页内容，完成后隐藏加载指示器
+                loadPage('dashboard').then(() => {
+                    appLoading.classList.add('hidden');
+                    setTimeout(() => {
+                        appLoading.style.display = 'none';
+                    }, 300);
+                }).catch(error => {
+                    console.error('加载主页失败:', error);
+                    // 即使出错也隐藏加载指示器
+                    appLoading.classList.add('hidden');
+                    setTimeout(() => {
+                        appLoading.style.display = 'none';
+                    }, 300);
+                });
+            } else {
+                // 如果找不到加载指示器，直接加载主页内容
+                loadPage('dashboard').catch(error => {
+                    console.error('加载主页失败:', error);
+                });
+            }
+        });
+    </script>
 </body>
 </html> 

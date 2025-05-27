@@ -9,8 +9,20 @@
  */
 export function initDashboardPage(contentArea) {
     console.log("Initializing Dashboard...");
-    updateDashboardDate(contentArea); // 更新日期显示
-    loadDashboardStats(contentArea); // 加载核心数据
+    
+    // 先更新日期，这个操作很快
+    updateDashboardDate(contentArea);
+    
+    // 设置默认值，这样用户先看到有内容
+    updateStatElement(contentArea, 'wallet-count', '加载中...');
+    updateStatElement(contentArea, 'social-count', '加载中...');
+    updateStatElement(contentArea, 'tutorial-count', '加载中...');
+    updateStatElement(contentArea, 'task-count', '0');
+    
+    // 使用setTimeout异步加载统计数据，避免阻塞UI
+    setTimeout(() => {
+        loadDashboardStats(contentArea);
+    }, 100);
 }
 
 /**
@@ -34,21 +46,24 @@ function updateDashboardDate(contentArea) {
  */
 async function loadDashboardStats(contentArea) {
     try {
-        // 1. 获取钱包总数
-        const walletCount = await getWalletCount();
-        updateStatElement(contentArea, 'wallet-count', walletCount);
-
-        // 2. 获取社交账户总数
-        const socialCount = await getSocialAccountCount();
-        updateStatElement(contentArea, 'social-count', socialCount);
-
-        // 3. 获取教程总数
-        const tutorialCount = await getTutorialCount();
-        updateStatElement(contentArea, 'tutorial-count', tutorialCount);
-
-        // 4. 默认待办任务为0（可以根据需要实现）
-        updateStatElement(contentArea, 'task-count', 0);
-
+        // 并行获取数据，加快加载速度
+        Promise.all([
+            getWalletCount(),
+            getSocialAccountCount(),
+            getTutorialCount()
+        ]).then(([walletCount, socialCount, tutorialCount]) => {
+            // 更新UI
+            updateStatElement(contentArea, 'wallet-count', walletCount);
+            updateStatElement(contentArea, 'social-count', socialCount);
+            updateStatElement(contentArea, 'tutorial-count', tutorialCount);
+            updateStatElement(contentArea, 'task-count', 0);
+        }).catch(error => {
+            console.error('获取数据失败:', error);
+            // 设置默认值
+            updateStatElement(contentArea, 'wallet-count', 0);
+            updateStatElement(contentArea, 'social-count', 0);
+            updateStatElement(contentArea, 'tutorial-count', 0);
+        });
     } catch (error) {
         console.error('加载仪表盘数据失败:', error);
         // 显示错误通知或处理异常
@@ -99,42 +114,49 @@ async function getSocialAccountCount() {
 }
 
 /**
- * 获取教程总数
+ * 获取教程总数 - 优化版，添加超时控制
  * @returns {Promise<number>} 教程总数
  */
 async function getTutorialCount() {
+    // 先尝试从本地获取
     try {
-        // 使用与教程页面相同的API数据源
-        const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; 
-        console.log('正在从API获取教程数据:', apiUrl);
+        const tutorials = await window.tutorialAPI.loadTutorials();
+        if (tutorials && Array.isArray(tutorials)) {
+            console.log('(本地)教程总数量:', tutorials.length);
+            return tutorials.length;
+        }
+    } catch (localError) {
+        console.log('本地教程数据获取失败，尝试远程API');
+    }
+    
+    // 本地失败后尝试远程API，添加超时控制
+    try {
+        const apiUrl = 'http://106.75.5.215:3001/api/tutorials';
         
-        const response = await fetch(apiUrl);
+        // 创建超时控制
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒超时
+        
+        const response = await fetch(apiUrl, {
+            signal: controller.signal,
+            cache: 'default'
+        });
+        
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
             throw new Error(`HTTP 错误! 状态: ${response.status}`);
         }
         
         const data = await response.json();
-        // 从响应中获取教程数组
         const tutorials = data.tutorials || [];
         
-        // 计算所有教程
         if (Array.isArray(tutorials)) {
-            console.log('教程总数量:', tutorials.length);
             return tutorials.length;
         }
         return 0;
     } catch (error) {
         console.error('获取教程总数失败:', error);
-        // 出错时回退到本地数据
-        try {
-            const tutorials = await window.tutorialAPI.loadTutorials();
-            if (tutorials && Array.isArray(tutorials)) {
-                console.log('(本地)教程总数量:', tutorials.length);
-                return tutorials.length;
-            }
-        } catch (localError) {
-            console.error('获取本地教程数据也失败:', localError);
-        }
         return 0;
     }
 } 
