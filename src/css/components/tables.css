@@ -65,6 +65,22 @@
     margin: 0 3px;
 }
 
+/* 操作按钮横向排列样式 */
+.actions-cell {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 5px !important;
+}
+
+.actions-cell .btn-icon,
+.actions-cell button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
 .wallet-address-cell span,
 .wallet-address-cell small {
     font-family: monospace;

@@ -1447,4 +1447,201 @@
 .format-help .btn-sm {
     padding: 3px 8px;
     font-size: 12px;
+}
+
+/* ===================== 代理配置模态框样式修复 ===================== */
+/* 参考社交账户模态框的样式，完全重写代理配置模态框样式，增加!important确保覆盖 */
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group,
+#proxy-form .form-group {
+    margin-bottom: 16px !important;
+    display: block !important; /* 覆盖全局的flex布局 */
+}
+
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group > label:first-child,
+#proxy-form .form-group > label:first-child {
+    display: block !important;
+    margin-bottom: 6px !important;
+    font-weight: 500 !important;
+    color: #343a40 !important;
+    font-size: 14px !important;
+    text-align: left !important;
+    width: 100% !important;
+    flex: 1 1 100% !important;
+}
+
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group > input,
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group > select,
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group > textarea,
+#proxy-form .form-group > input,
+#proxy-form .form-group > select,
+#proxy-form .form-group > textarea {
+    width: 100% !important;
+    height: 38px !important; /* 统一高度 */
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    background-color: #fff !important;
+    color: #495057 !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    box-sizing: border-box !important;
+    display: block !important;
+}
+
+/* 文本区域特殊处理 */
+.modal-overlay #tpl-modal-proxy-form .modal-box .form-group > textarea,
+#proxy-form .form-group > textarea {
+    height: auto !important;
+    min-height: 80px !important;
+    resize: vertical !important;
+}
+
+/* ===================== 新增钱包模态框样式修复 ===================== */
+/* 参考社交账户模态框的样式，完全重写新增钱包模态框样式，增加!important确保覆盖 */
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group,
+#add-wallet-manual-form-actual .form-group {
+    margin-bottom: 16px !important;
+    display: block !important; /* 覆盖全局的flex布局 */
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group > label:first-child,
+#add-wallet-manual-form-actual .form-group > label:first-child {
+    display: block !important;
+    margin-bottom: 6px !important;
+    font-weight: 500 !important;
+    color: #343a40 !important;
+    font-size: 14px !important;
+    text-align: left !important;
+    width: 100% !important;
+    flex: 1 1 100% !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group > input,
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group > select,
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group > textarea,
+#add-wallet-manual-form-actual .form-group > input,
+#add-wallet-manual-form-actual .form-group > select,
+#add-wallet-manual-form-actual .form-group > textarea {
+    width: 100% !important;
+    height: 38px !important; /* 统一高度 */
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    background-color: #fff !important;
+    color: #495057 !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    box-sizing: border-box !important;
+    display: block !important;
+}
+
+/* 文本区域特殊处理 */
+.modal-overlay #tpl-add-wallet-manual-form .modal-box .form-group > textarea,
+#add-wallet-manual-form-actual .form-group > textarea {
+    height: auto !important;
+    min-height: 80px !important;
+    resize: vertical !important;
+}
+
+/* 单选按钮组样式 */
+.modal-overlay #tpl-add-wallet-manual-form .radio-group,
+#add-wallet-manual-form-actual .radio-group {
+    display: flex !important;
+    gap: 20px !important;
+    margin-top: 8px !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .radio-group label,
+#add-wallet-manual-form-actual .radio-group label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-weight: normal !important;
+    margin-bottom: 0 !important;
+    cursor: pointer !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .radio-group input[type="radio"],
+#add-wallet-manual-form-actual .radio-group input[type="radio"] {
+    width: auto !important;
+    margin: 0 !important;
+    height: auto !important;
+    display: inline-block !important;
+}
+
+/* 输入字段组样式（带切换按钮） */
+.modal-overlay #tpl-add-wallet-manual-form .input-field-group,
+#add-wallet-manual-form-actual .input-field-group {
+    position: relative !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .input-field-group .toggle-visibility-btn,
+#add-wallet-manual-form-actual .input-field-group .toggle-visibility-btn {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: none !important;
+    border: none !important;
+    color: #6c757d !important;
+    cursor: pointer !important;
+    padding: 4px !important;
+    border-radius: 3px !important;
+    transition: color 0.2s !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .input-field-group .toggle-visibility-btn:hover,
+#add-wallet-manual-form-actual .input-field-group .toggle-visibility-btn:hover {
+    color: #495057 !important;
+    background-color: #f8f9fa !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .input-field-group input,
+.modal-overlay #tpl-add-wallet-manual-form .input-field-group textarea,
+#add-wallet-manual-form-actual .input-field-group input,
+#add-wallet-manual-form-actual .input-field-group textarea {
+    padding-right: 40px !important; /* 为切换按钮留出空间 */
+}
+
+/* 派生地址显示区域 */
+.modal-overlay #tpl-add-wallet-manual-form .derived-address-group,
+#add-wallet-manual-form-actual .derived-address-group {
+    background-color: #f8f9fa !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    border: 1px solid #e9ecef !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .derived-address-display,
+#add-wallet-manual-form-actual .derived-address-display {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-family: monospace !important;
+    font-size: 13px !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .address-text,
+#add-wallet-manual-form-actual .address-text {
+    color: #495057 !important;
+    word-break: break-all !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .address-error-text,
+#add-wallet-manual-form-actual .address-error-text {
+    color: #dc3545 !important;
+    font-size: 12px !important;
+}
+
+/* 分组选择区域 */
+.modal-overlay #tpl-add-wallet-manual-form .form-group div[style*="display: flex"],
+#add-wallet-manual-form-actual .form-group div[style*="display: flex"] {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.modal-overlay #tpl-add-wallet-manual-form .form-group div[style*="display: flex"] > *,
+#add-wallet-manual-form-actual .form-group div[style*="display: flex"] > * {
+    flex: 1 !important;
 } 

@@ -84,6 +84,11 @@
 /* 操作按钮样式 */
 .proxies-table .actions-cell {
     white-space: nowrap;    /* 防止按钮换行 */
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 5px !important;
 }
 
 .proxies-table .btn-icon {
@@ -95,6 +100,9 @@
     cursor: pointer;
     color: #6B7280;
     transition: color 0.2s, background-color 0.2s;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .proxies-table .btn-icon:hover {
