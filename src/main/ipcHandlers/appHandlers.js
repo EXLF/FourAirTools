@@ -485,7 +485,7 @@ function setupSettingsIpcHandlers() {
                 method: 'GET',
                 protocol: 'https:',
                 hostname: 'api.github.com',
-                path: '/repos/fourair/toolbox/releases/latest',
+                path: '/repos/EXLF/uploadPackage/releases/latest',
                 headers: {
                     'User-Agent': 'FourAir-Toolbox-Updater',
                     'Accept': 'application/vnd.github.v3+json'

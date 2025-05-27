@@ -532,11 +532,43 @@ app.whenReady().then(async () => {
     // 例如: dialog.showMessageBox... 然后 autoUpdater.quitAndInstall();
   });
   
-  // 应用程序启动后，检查更新 (可以根据你的偏好调整检查时机)
-  // 例如，你可以只在用户明确点击"检查更新"按钮时才调用
-  autoUpdater.checkForUpdates(); 
-  // 如果你想更积极地检查，也可以使用 autoUpdater.checkForUpdatesAndNotify();
-  // 它会在有可用更新时显示一个系统通知 (macOS & Windows)
+  // 应用程序启动后，检查更新
+  // 读取设置，确定是否自动检查更新
+  let autoCheckUpdate = true; // 默认为true
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+      const settings = JSON.parse(settingsData);
+      autoCheckUpdate = settings.autoCheckUpdate !== false; // 如果设置存在且为false，则不自动检查
+    }
+  } catch (error) {
+    console.error('[Update] 读取自动更新设置失败:', error);
+    // 出错时保持默认值true
+  }
+
+  if (autoCheckUpdate) {
+    console.log('[Update] 根据设置自动检查更新');
+    // 在开发环境中也强制检查更新，方便测试
+    if (process.env.NODE_ENV === 'development') {
+      // 开发环境中强制检查更新
+      console.log('[Update] 在开发环境中强制检查更新');
+      try {
+        // 设置开发环境的更新源
+        autoUpdater.updateConfigPath = path.join(__dirname, '../../dev-app-update.yml');
+        autoUpdater.forceDevUpdateConfig = true;
+        autoUpdater.checkForUpdates();
+      } catch (error) {
+        console.error('[Update] 开发环境检查更新失败:', error);
+      }
+    } else {
+      // 生产环境正常检查更新
+      console.log('[Update] 在生产环境中检查更新');
+      autoUpdater.checkForUpdates();
+    }
+  } else {
+    console.log('[Update] 根据用户设置，跳过自动检查更新');
+  }
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建一个窗口。
