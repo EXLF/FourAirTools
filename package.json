@@ -1,6 +1,6 @@
 {
   "name": "fouair-toolbox",
-  "version": "1.0.8",
+  "version": "1.1.1",
   "description": "FourAir社区撸毛工具箱桌面版",
   "main": "src/main/index.js",
   "scripts": {
@@ -59,7 +59,14 @@
       "!.github/",
       "!dist/",
       "!dist_electron/",
-      "!release-builds/"
+      "!release-builds/",
+      "!.cursorignore",
+      "!node_modules/.cache/",
+      "!user_scripts/scripts/test_*.js",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/tsconfig.json",
+      "!**/.vscode/"
     ],
     "extraResources": [
       {
