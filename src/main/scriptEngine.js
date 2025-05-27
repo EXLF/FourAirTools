@@ -51,8 +51,9 @@ class ScriptEngine {
    * 向渲染进程发送日志信息
    * @param {string} level - 日志级别
    * @param {string} message - 日志消息
+   * @param {string} executionId - 执行ID（可选）
    */
-  sendLogToRenderer(level, message) {
+  sendLogToRenderer(level, message, executionId = null) {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     
     try {
@@ -69,11 +70,12 @@ class ScriptEngine {
           }) : 
           String(message));
       
-      // 日志信息需要安全序列化后发送
+      // 日志信息需要安全序列化后发送，包含执行ID
       mainWindow.webContents.send('script-log', { 
         level, 
         message: safeMessage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        executionId: executionId // 添加执行ID
       });
     } catch (error) {
       console.error('向渲染进程发送日志失败:', error);
@@ -243,6 +245,7 @@ class ScriptEngine {
   async runScript(scriptId, executionParams = {}) {
     const { selectedWallets: originalSelectedWallets, config, proxyConfig } = executionParams;
     let processedWallets = [];
+    let executionId = null; // 声明executionId变量
 
     try {
       const scripts = await this.getAvailableScripts();
@@ -268,7 +271,10 @@ class ScriptEngine {
         }).filter(id => id !== null);
 
         if (walletIds.length > 0) {
-          this.sendLogToRenderer('info', `脚本 ${scriptId} 正在为钱包ID列表 [${walletIds.join(', ')}] 获取详细信息并解密私钥...`);
+          // 先生成执行ID，这样后续的日志都能包含执行ID
+          executionId = Date.now().toString();
+          
+          this.sendLogToRenderer('info', `脚本 ${scriptId} 正在为钱包ID列表 [${walletIds.join(', ')}] 获取详细信息并解密私钥...`, executionId);
           // 从数据库获取完整的钱包信息
           const walletsFromDb = await db.getWalletsByIds(db.db, walletIds);
 
@@ -279,15 +285,15 @@ class ScriptEngine {
                 if (cryptoService.isUnlocked()) {
                   try {
                     decryptedPrivateKey = cryptoService.decryptWithSessionKey(wallet.encryptedPrivateKey);
-                    this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥已解密。`);
+                    this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥已解密。`, executionId);
                   } catch (decryptError) {
-                    this.sendLogToRenderer('error', `解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥失败: ${decryptError.message}`);
+                    this.sendLogToRenderer('error', `解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥失败: ${decryptError.message}`, executionId);
                   }
                 } else {
-                  this.sendLogToRenderer('warning', `应用未解锁，无法解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥。`);
+                  this.sendLogToRenderer('warning', `应用未解锁，无法解密钱包 ${wallet.address} (ID: ${wallet.id}) 的私钥。`, executionId);
                 }
               } else {
-                this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 没有存储加密私钥。`);
+                this.sendLogToRenderer('info', `钱包 ${wallet.address} (ID: ${wallet.id}) 没有存储加密私钥。`, executionId);
               }
               // 构建传递给脚本的钱包对象
               processedWallets.push({
@@ -307,19 +313,28 @@ class ScriptEngine {
                 safeWallet.privateKey = safeWallet.privateKey.substring(0, 8) + '...[隐藏]';
               }
               return safeWallet;
-            }))}`);
+            }))}`, executionId);
 
           } else {
-            this.sendLogToRenderer('warning', `未能从数据库为ID列表 [${walletIds.join(', ')}] 获取到任何钱包信息。`);
+            this.sendLogToRenderer('warning', `未能从数据库为ID列表 [${walletIds.join(', ')}] 获取到任何钱包信息。`, executionId);
           }
-        } else {
-           this.sendLogToRenderer('warning', `脚本 ${scriptId} 的 selectedWallets 处理后得到空的ID列表。`);
+                } else {
+            // 如果没有有效的钱包ID，生成执行ID
+            if (!executionId) {
+              executionId = Date.now().toString();
+            }
+            this.sendLogToRenderer('warning', `脚本 ${scriptId} 的 selectedWallets 处理后得到空的ID列表。`, executionId);
         }
       } else {
-        this.sendLogToRenderer('info', `脚本 ${scriptId} 执行时未选择任何钱包，或者 selectedWallets 为空。`);
+        // 如果没有选择钱包，生成执行ID
+        executionId = Date.now().toString();
+        this.sendLogToRenderer('info', `脚本 ${scriptId} 执行时未选择任何钱包，或者 selectedWallets 为空。`, executionId);
       }
       
-      const executionId = Date.now().toString();
+      // 确保executionId存在
+      if (!executionId) {
+        executionId = Date.now().toString();
+      }
 
       // --- 新增：获取完整的代理信息 ---
       let fullProxyInfo = null;
@@ -331,7 +346,7 @@ class ScriptEngine {
             strategy: proxyConfig.strategy,
             proxies: proxyConfig.proxies
           };
-          this.sendLogToRenderer('info', `脚本 ${scriptId} 使用批量代理配置: ${proxyConfig.strategy} 策略，${proxyConfig.proxies.length} 个代理`);
+          this.sendLogToRenderer('info', `脚本 ${scriptId} 使用批量代理配置: ${proxyConfig.strategy} 策略，${proxyConfig.proxies.length} 个代理`, executionId);
         } else if (typeof proxyConfig === 'string' || typeof proxyConfig === 'number') {
           // 单个代理ID
           try {
@@ -409,15 +424,15 @@ class ScriptEngine {
       // 本次执行允许的模块 = 核心模块 + 脚本声明的模块
       const allowedModulesForThisScript = [...new Set([...coreAllowedModules, ...declaredModules])];
       
-      this.sendLogToRenderer('info', `脚本 ${scriptId} 允许加载的模块: ${allowedModulesForThisScript.join(', ')}`);
+      this.sendLogToRenderer('info', `脚本 ${scriptId} 允许加载的模块: ${allowedModulesForThisScript.join(', ')}`, executionId);
 
       const sandbox = {
         console: {
-          log: (...args) => this.sendLogToRenderer('info', util.format(...args)),
-          info: (...args) => this.sendLogToRenderer('info', util.format(...args)),
-          warn: (...args) => this.sendLogToRenderer('warning', util.format(...args)),
-          error: (...args) => this.sendLogToRenderer('error', util.format(...args)),
-          success: (...args) => this.sendLogToRenderer('success', util.format(...args)),
+          log: (...args) => this.sendLogToRenderer('info', util.format(...args), executionId),
+          info: (...args) => this.sendLogToRenderer('info', util.format(...args), executionId),
+          warn: (...args) => this.sendLogToRenderer('warning', util.format(...args), executionId),
+          error: (...args) => this.sendLogToRenderer('error', util.format(...args), executionId),
+          success: (...args) => this.sendLogToRenderer('success', util.format(...args), executionId),
         },
         require: (moduleName) => {
           if (allowedModulesForThisScript.includes(moduleName)) {

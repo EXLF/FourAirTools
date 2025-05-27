@@ -304,13 +304,13 @@ export class TaskRestoreManager {
             return;
         }
 
-        console.log('[任务恢复] 温和地重新连接到脚本执行（保持现有连接）...');
+        console.log('[任务恢复] 温和地重新连接到脚本执行（避免重复监听器）...');
         this.restoreState = RESTORE_STATES.CONNECTING;
 
-        // 不清理旧的监听器，避免中断脚本执行
-        // this._cleanupOldListeners();
+        // 清理旧的监听器，避免重复监听
+        this._cleanupOldListeners();
 
-        // 设置新的日志监听器（与现有监听器共存）
+        // 设置新的日志监听器
         await this._setupLogListeners(backgroundTask.executionId);
 
         // 检查主进程连接状态（不发送重连请求）
@@ -346,7 +346,11 @@ export class TaskRestoreManager {
      * @private
      */
     _cleanupOldListeners() {
+        console.log('[任务恢复] 开始清理旧的日志监听器...');
+        
+        // 清理前端日志监听器
         if (window.__currentLogUnsubscribers && Array.isArray(window.__currentLogUnsubscribers)) {
+            console.log(`[任务恢复] 清理 ${window.__currentLogUnsubscribers.length} 个前端监听器`);
             window.__currentLogUnsubscribers.forEach(unsubscribe => {
                 if (typeof unsubscribe === 'function') {
                     try {
@@ -358,12 +362,27 @@ export class TaskRestoreManager {
             });
         }
         
-        // 确保数组存在
+        // 清理IPC日志监听器（只清理script-log，保留其他监听器）
+        if (window.electron && window.electron.ipcRenderer) {
+            try {
+                // 获取当前监听器数量
+                const beforeCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+                console.log(`[任务恢复] 清理前script-log监听器数量: ${beforeCount}`);
+                
+                // 移除所有script-log监听器
+                window.electron.ipcRenderer.removeAllListeners('script-log');
+                
+                const afterCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+                console.log(`[任务恢复] 清理后script-log监听器数量: ${afterCount}`);
+            } catch (error) {
+                console.warn('[任务恢复] 清理IPC监听器失败:', error);
+            }
+        }
+        
+        // 重新初始化监听器数组
         window.__currentLogUnsubscribers = [];
         
-        // 注意：不要清理所有IPC监听器，这可能会中断正在运行的脚本
-        // 只清理特定的日志监听器，保留脚本执行相关的监听器
-        console.log('[任务恢复] 已清理旧的日志监听器（保留脚本执行监听器）');
+        console.log('[任务恢复] 已清理旧的日志监听器（保留脚本执行相关监听器）');
     }
 
     /**
@@ -388,16 +407,19 @@ export class TaskRestoreManager {
             }
         };
 
-        // 注册IPC监听器（不清理现有监听器，避免中断脚本执行）
+        // 注册IPC监听器（确保只有一个监听器）
         if (window.electron && window.electron.ipcRenderer) {
-            // 检查是否已经有相同的监听器
-            const existingListeners = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
-            console.log(`[任务恢复] 当前script-log监听器数量: ${existingListeners}`);
+            // 检查监听器数量
+            const beforeCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+            console.log(`[任务恢复] 注册前script-log监听器数量: ${beforeCount}`);
             
-            // 注册新的监听器（允许多个监听器共存）
+            // 注册新的监听器
             window.electron.ipcRenderer.on('script-log', logEventHandler);
             
-            // 保存清理函数（只清理我们添加的这个监听器）
+            const afterCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+            console.log(`[任务恢复] 注册后script-log监听器数量: ${afterCount}`);
+            
+            // 保存清理函数
             window.__currentLogUnsubscribers.push(() => {
                 try {
                     if (window.electron && window.electron.ipcRenderer) {
@@ -411,7 +433,7 @@ export class TaskRestoreManager {
                 }
             });
             
-            console.log('[任务恢复] IPC日志监听器已注册（保留现有监听器）');
+            console.log('[任务恢复] IPC日志监听器已注册');
         }
 
         // 注册scriptAPI监听器（如果可用）

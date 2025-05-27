@@ -1256,12 +1256,35 @@ function setupScriptLogListeners(taskInstanceId, startTaskButton) {
         }
     }
     
+    // 清理现有的IPC监听器，避免日志混乱
+    if (window.electron && window.electron.ipcRenderer) {
+        // 获取清理前的监听器数量
+        const beforeLogCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+        const beforeCompletedCount = window.electron.ipcRenderer.listenerCount?.('script-completed') || 0;
+        console.log(`[脚本插件] 清理前监听器数量 - script-log: ${beforeLogCount}, script-completed: ${beforeCompletedCount}`);
+        
+        window.electron.ipcRenderer.removeAllListeners('script-log');
+        window.electron.ipcRenderer.removeAllListeners('script-completed');
+        
+        const afterLogCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+        const afterCompletedCount = window.electron.ipcRenderer.listenerCount?.('script-completed') || 0;
+        console.log(`[脚本插件] 清理后监听器数量 - script-log: ${afterLogCount}, script-completed: ${afterCompletedCount}`);
+    }
+    
     // 创建新的取消订阅函数数组
     window.__currentLogUnsubscribers = [];
     
-    // 日志事件处理
+    // 日志事件处理 - 使用执行ID过滤
     const logEventHandler = (data) => {
         if (!data) return;
+        
+        // 检查日志是否属于当前执行的脚本
+        const currentExecutionId = window.__currentExecutionId;
+        if (data.executionId && currentExecutionId && data.executionId !== currentExecutionId) {
+            // 这条日志不属于当前脚本，忽略
+            console.log(`[脚本插件] 忽略其他脚本的日志: ${data.executionId} != ${currentExecutionId}`);
+            return;
+        }
         
         try {
             const message = typeof data.message === 'string' ? data.message : 
@@ -1288,9 +1311,17 @@ function setupScriptLogListeners(taskInstanceId, startTaskButton) {
         }
     };
     
-    // 脚本完成事件处理
+    // 脚本完成事件处理 - 使用执行ID过滤
     const scriptCompletedHandler = (data) => {
         console.log('[脚本插件] 收到脚本完成事件:', data);
+        
+        // 检查完成事件是否属于当前执行的脚本
+        const currentExecId = window.__currentExecutionId;
+        if (data?.executionId && currentExecId && data.executionId !== currentExecId) {
+            console.log(`[脚本插件] 忽略其他脚本的完成事件: ${data.executionId} != ${currentExecId}`);
+            return;
+        }
+        
         TaskLogger.logSuccess('✅ 脚本插件执行完成！');
         
         if (data && data.summary) {
@@ -1378,17 +1409,30 @@ function setupScriptLogListeners(taskInstanceId, startTaskButton) {
         window.__currentLogUnsubscribers.push(completedUnsubscribe);
     } else if (window.electron && window.electron.ipcRenderer) {
         // 备用方案：直接使用 ipcRenderer
-        // 移除所有现有的同类监听器
-        window.electron.ipcRenderer.removeAllListeners('script-log');
-        window.electron.ipcRenderer.removeAllListeners('script-completed');
+        console.log('[脚本插件] 使用 ipcRenderer 注册监听器');
         
         // 注册新的监听器
-        const logUnsubscribe = window.electron.ipcRenderer.on('script-log', logEventHandler);
-        const completedUnsubscribe = window.electron.ipcRenderer.on('script-completed', scriptCompletedHandler);
+        window.electron.ipcRenderer.on('script-log', logEventHandler);
+        window.electron.ipcRenderer.on('script-completed', scriptCompletedHandler);
         
-        // 保存取消订阅函数
-        window.__currentLogUnsubscribers.push(logUnsubscribe);
-        window.__currentLogUnsubscribers.push(completedUnsubscribe);
+        // 检查注册后的监听器数量
+        const logCount = window.electron.ipcRenderer.listenerCount?.('script-log') || 0;
+        const completedCount = window.electron.ipcRenderer.listenerCount?.('script-completed') || 0;
+        console.log(`[脚本插件] 注册后监听器数量 - script-log: ${logCount}, script-completed: ${completedCount}`);
+        
+        // 保存清理函数
+        window.__currentLogUnsubscribers.push(() => {
+            if (window.electron && window.electron.ipcRenderer) {
+                window.electron.ipcRenderer.off('script-log', logEventHandler);
+                console.log('[脚本插件] 已移除script-log监听器');
+            }
+        });
+        window.__currentLogUnsubscribers.push(() => {
+            if (window.electron && window.electron.ipcRenderer) {
+                window.electron.ipcRenderer.off('script-completed', scriptCompletedHandler);
+                console.log('[脚本插件] 已移除script-completed监听器');
+            }
+        });
     }
 }
 
@@ -3297,11 +3341,14 @@ function initDebugTools() {
     window.forceUpdateIndicator = forceUpdateIndicator;
     window.testBackgroundTaskFlow = testBackgroundTaskFlow;
     
-    // 异步加载任务恢复调试工具
-    import('./taskRestoreDebug.js').then(() => {
-        console.log('[调试工具] 任务恢复调试工具已加载');
+    // 异步加载调试工具
+    Promise.all([
+        import('./taskRestoreDebug.js'),
+        import('./logListenerTest.js')
+    ]).then(() => {
+        console.log('[调试工具] 任务恢复调试工具和监听器测试工具已加载');
     }).catch(error => {
-        console.warn('[调试工具] 加载任务恢复调试工具失败:', error);
+        console.warn('[调试工具] 加载调试工具失败:', error);
     });
     
     console.log('[调试工具] 已初始化，可用函数:');
@@ -3314,6 +3361,7 @@ function initDebugTools() {
     console.log('  - quickFixTaskRestore() : 快速修复恢复问题');
     console.log('  - forceRestoreTaskUI() : 强制恢复任务UI');
     console.log('  - checkLogContainer() : 检查日志容器状态');
+    console.log('  - testLogListeners() : 测试日志监听器重复问题');
     
     // 自动运行一次完整测试（仅在调试模式下）
     if (DEBUG_BACKGROUND_TASKS) {
