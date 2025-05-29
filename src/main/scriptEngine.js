@@ -490,6 +490,11 @@ class ScriptEngine {
           },
           utils: {
             delay: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+            logToUI: (message, level = 'info') => {
+              const validLevels = ['info', 'success', 'warning', 'error'];
+              const normalizedLevel = validLevels.includes(String(level).toLowerCase()) ? String(level).toLowerCase() : 'info';
+              this.sendLogToRenderer(normalizedLevel, message, sandbox.context.executionId);
+            },
           },
           http: require('axios'),
           onStop: null,

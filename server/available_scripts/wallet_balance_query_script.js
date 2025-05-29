@@ -306,26 +306,31 @@ function outputResults(results, format, logger) {
 function outputConsole(results, logger) {
   results.forEach(wallet => {
     const walletHeader = `\n💼 钱包: ${wallet.name} (${wallet.address})`;
+    logger.info(`[DEBUG_CONSOLE] walletHeader: ${walletHeader}`);
     logger.info(walletHeader);
     
     Object.entries(wallet.chains).forEach(([chainName, chainData]) => {
       const chainHeader = `  🔗 ${chainName}:`;
+      logger.info(`[DEBUG_CONSOLE] chainHeader: ${chainHeader}`);
       logger.info(chainHeader);
       
       if (chainData.error) {
         const errorMsg = `    ❌ 错误: ${chainData.error}`;
+        logger.error(`[DEBUG_CONSOLE] errorMsg: ${errorMsg}`);
         logger.error(errorMsg);
         return;
       }
       
       if (chainData.nativeBalance) {
         const nativeMsg = chainData.nativeBalance.error ? `    ❌ 原生代币: ${chainData.nativeBalance.error}` : `    💰 ${chainData.nativeBalance.symbol}: ${chainData.nativeBalance.formatted}`;
+        logger.info(`[DEBUG_CONSOLE] nativeMsg: ${nativeMsg}`);
         (chainData.nativeBalance.error ? logger.error : logger.info)(nativeMsg);
       }
       
       if (chainData.tokens && chainData.tokens.length > 0) {
         for (const token of chainData.tokens) {
           const tokenMsg = token.error ? `    ❌ ${token.symbol}: ${token.error}` : `    🪙 ${token.symbol}: ${token.balance.formatted}`;
+          logger.info(`[DEBUG_CONSOLE] tokenMsg: ${tokenMsg}`);
           (token.error ? logger.error : logger.info)(tokenMsg);
         }
       }
@@ -335,6 +340,7 @@ function outputConsole(results, logger) {
 
 function outputCSV(results, logger) {
   const header = "钱包地址,钱包名称,链名称,代币符号,余额,合约地址";
+  logger.info(`[DEBUG_CSV] header: ${header}`);
   logger.info(header);
   
   results.forEach(wallet => {
@@ -343,6 +349,7 @@ function outputCSV(results, logger) {
       
       if (chainData.nativeBalance && !chainData.nativeBalance.error) {
         const line = `${wallet.address},${wallet.name},${chainName},${chainData.nativeBalance.symbol},${chainData.nativeBalance.formatted},原生代币`;
+        logger.info(`[DEBUG_CSV] native line: ${line}`);
         logger.info(line);
       }
       
@@ -350,6 +357,7 @@ function outputCSV(results, logger) {
         for (const token of chainData.tokens) {
           if (!token.error) {
             const line = `${wallet.address},${wallet.name},${chainName},${token.symbol},${token.balance.formatted},${token.address}`;
+            logger.info(`[DEBUG_CSV] token line: ${line}`);
             logger.info(line);
           }
         }

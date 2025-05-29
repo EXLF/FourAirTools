@@ -337,7 +337,7 @@ export async function initTutorialsPage(contentArea) {
 
     // 3. 关闭 WebView 按钮
     closeWebviewBtn.addEventListener('click', () => {
-        closeWebview(webviewContainer, tutorialListContainer);
+        closeWebview(webviewContainer, tutorialListContainer, contentArea);
     });
 
     // 4. 刷新 WebView 按钮 (事件监听在 showTutorialInWebview 中动态添加)
@@ -642,7 +642,7 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
     console.log(`切换分类: 从 "${previousCategory}" 到 "${currentCategory}"`);
 
     // 关闭WebView（如果打开）
-    closeWebview(webviewContainer, listContainer); 
+    closeWebview(webviewContainer, listContainer, contentArea); 
     
     // 重置搜索和页码
     currentSearchTerm = '';
@@ -860,6 +860,13 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         
         // 切换视图
         listContainer.style.display = 'none';
+
+        // 新增：隐藏分页控件
+        const paginationContainer = listContainer.parentNode.querySelector('.pagination-container');
+        if (paginationContainer) {
+            paginationContainer.style.display = 'none';
+        }
+
         webviewContainer.style.display = 'flex'; // 使用 flex 布局
         
         // 更新标题
@@ -871,53 +878,55 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
  * 关闭 WebView 并返回列表视图。
  * 确保彻底清理webview及相关资源
  */
-function closeWebview(webviewContainer, listContainer) {
+function closeWebview(webviewContainer, listContainer, contentArea) {
     if (webviewContainer.style.display !== 'none') {
         console.log("正在关闭webview...");
         
-        // 1. 先隐藏webview容器，显示列表容器
+        // 1. 先隐藏webview容器
         webviewContainer.style.display = 'none';
-        listContainer.style.display = 'block';
         
-        // 2. 清理webview内容
         const webviewContentArea = webviewContainer.querySelector('#webview-content');
         if (webviewContentArea) {
-            // 清空前先获取所有webview元素并逐个停止和移除
             const webviews = webviewContentArea.querySelectorAll('webview');
             webviews.forEach(wv => {
-                try {
-                    wv.stop();
-                } catch (e) { 
+                try { wv.stop(); } catch (e) { 
                     console.warn(`停止webview失败: ${e.message}`); 
                 }
-                
                 try {
-                    // 移除所有事件监听器
-                    wv.getWebContents()?.removeAllListeners();
+                    const wc = wv.getWebContents ? wv.getWebContents() : null;
+                    if (wc && typeof wc.removeAllListeners === 'function') {
+                        wc.removeAllListeners();
+                    }
                 } catch (e) { 
                     console.warn(`移除webview事件监听器失败: ${e.message}`);
                 }
-                
-                wv.remove();
+                if (typeof wv.remove === 'function') {
+                    wv.remove();
+                }
             });
-            
-            // 清空内容区域
             webviewContentArea.innerHTML = '';
         }
         
-        // 3. 停止并清理当前webview引用
         if (currentWebview) {
             try {
-                currentWebview.stop();
+                 if (typeof currentWebview.stop === 'function') currentWebview.stop();
             } catch (e) {
                 console.warn(`停止当前webview失败: ${e.message}`);
             }
-            
             currentWebview = null;
         }
         
-        // 4. 执行一些清理操作，防止内存泄漏
-        // 尝试执行垃圾回收以释放资源
+        // 2. 显示列表容器
+        listContainer.style.display = 'block';
+
+        // 3. 重新加载当前页的列表和分页
+        if (contentArea) {
+             console.log(`关闭WebView后，重新加载页面: 页码=${currentPage}, 分类=${currentCategory}`);
+             loadPage(contentArea, listContainer, currentPage);
+        } else {
+            console.error("closeWebview: contentArea 未提供或无效，无法刷新分页");
+        }
+        
         if (global.gc) {
             try {
                 global.gc();
@@ -926,7 +935,7 @@ function closeWebview(webviewContainer, listContainer) {
             }
         }
         
-        console.log("Webview已关闭并清理完毕");
+        console.log("Webview已关闭并清理完毕，列表和分页已刷新。");
     }
 }
 
@@ -948,4 +957,5 @@ function getIconForCategory(category) {
     }
 }
 
+// --- Wrappers and old internal functions are no longer needed and will be removed below --- 
 // --- Wrappers and old internal functions are no longer needed and will be removed below --- 
