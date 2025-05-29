@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
     url: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    imageUrl: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     timestamps: true,
@@ -32,6 +36,10 @@ module.exports = (sequelize, DataTypes) => {
       {
         name: 'category_index',
         fields: ['category']
+      },
+      {
+        name: 'updated_at_index',
+        fields: ['updated_at']
       }
     ]
   });

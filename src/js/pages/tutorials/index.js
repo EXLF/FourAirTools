@@ -63,9 +63,15 @@ const tutorialsCache = {
     }
 };
 
+// 根据环境确定 API 地址
+// const IS_DEV = process.env.NODE_ENV === 'development'; // 旧方式，将被替换
+const IS_DEV = window.electronEnvironment && window.electronEnvironment.isDev;
+const API_HOST = IS_DEV ? 'http://localhost:3001' : 'http://106.75.5.215:3001';
+const apiUrl = `${API_HOST}/api/tutorials`; // 服务器API地址，这是我们将使用的
+
 // 从服务器获取教程数据的函数
 async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, category = currentCategory, searchTerm = '', fetchAll = false) {
-    const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; // 服务器API地址
+    // const apiUrl = 'http://106.75.5.215:3001/api/tutorials'; // 服务器API地址 -->> 移除这一行，使用外部定义的 apiUrl
     
     // 构建查询参数
     const params = new URLSearchParams();
@@ -88,8 +94,9 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, category
         params.append('search', searchTerm);
     }
     
+    // 使用外部 apiUrl
     const fullApiUrl = `${apiUrl}?${params.toString()}`;
-    console.log(`获取教程数据: ${fullApiUrl} (fetchAll: ${fetchAll}, 当前分类: ${currentCategory})`);
+    console.log(`获取教程数据: ${fullApiUrl} (fetchAll: ${fetchAll}, 当前分类: ${currentCategory}, IS_DEV: ${IS_DEV})`);
     
     try {
         // 添加超时控制

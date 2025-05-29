@@ -131,7 +131,10 @@ async function getTutorialCount() {
     
     // 本地失败后尝试远程API，添加超时控制
     try {
-        const apiUrl = 'http://106.75.5.215:3001/api/tutorials';
+        // const IS_DEV = process.env.NODE_ENV === 'development'; // 旧方式
+        const IS_DEV = window.electronEnvironment && window.electronEnvironment.isDev;
+        const API_HOST = IS_DEV ? 'http://localhost:3001' : 'http://106.75.5.215:3001';
+        const apiUrl = `${API_HOST}/api/tutorials`;
         
         // 创建超时控制
         const controller = new AbortController();

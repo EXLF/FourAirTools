@@ -396,6 +396,12 @@ contextBridge.exposeInMainWorld('dataAPI', {
 
 console.log('[Preload] Preload script executed successfully.');
 
+// 暴露环境变量，用于判断开发或生产环境
+contextBridge.exposeInMainWorld('electronEnvironment', {
+  isDev: process.env.NODE_ENV === 'development',
+  nodeEnv: process.env.NODE_ENV // 也可以直接暴露 NODE_ENV 的值
+});
+
 window.addEventListener('DOMContentLoaded', () => {
     console.log('[Preload] DOMContentLoaded event fired.');
 }); 
