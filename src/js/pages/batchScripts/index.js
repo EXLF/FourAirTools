@@ -292,8 +292,39 @@ function renderBatchScriptCardsView(contentArea) {
     // 绑定刷新按钮事件
     const refreshBtn = contentArea.querySelector('#refresh-batch-scripts-btn');
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            loadAndRenderBatchScriptCards(contentArea);
+        refreshBtn.addEventListener('click', async () => {
+            // 更改按钮状态以指示正在同步
+            refreshBtn.disabled = true;
+            const originalText = refreshBtn.innerHTML;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
+            
+            try {
+                // 先执行脚本同步（如果可用）
+                if (window.scriptAPI && typeof window.scriptAPI.syncScripts === 'function') {
+                    const syncResult = await window.scriptAPI.syncScripts();
+                    console.log('[脚本插件] 脚本同步结果:', syncResult);
+                    
+                    // 如果同步了删除的脚本，显示提示
+                    if (syncResult.success && syncResult.result && syncResult.result.processedScripts) {
+                        const deletedScripts = syncResult.result.processedScripts.filter(s => s.status === 'deleted');
+                        if (deletedScripts.length > 0) {
+                            console.log('[脚本插件] 已删除的脚本:', deletedScripts);
+                            // 可以在这里添加用户通知
+                        }
+                    }
+                }
+            } catch (syncError) {
+                console.error('[脚本插件] 同步脚本时出错:', syncError);
+            } finally {
+                // 然后加载脚本列表
+                loadAndRenderBatchScriptCards(contentArea);
+                
+                // 恢复按钮状态
+                setTimeout(() => {
+                    refreshBtn.innerHTML = originalText;
+                    refreshBtn.disabled = false;
+                }, 500);
+            }
         });
     }
     

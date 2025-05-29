@@ -145,6 +145,47 @@ async function checkForUpdates() {
     const downloadPromises = [];
     let manifestChanged = false;
 
+    // 处理已删除的脚本
+    if (remoteManifestData.deletedScripts && Array.isArray(remoteManifestData.deletedScripts)) {
+      console.log(`[ScriptUpdater] Found ${remoteManifestData.deletedScripts.length} deleted scripts to process`);
+      for (const deletedScript of remoteManifestData.deletedScripts) {
+        if (!deletedScript.id || !deletedScript.filename || !deletedScript.isDeleted) {
+          continue; // 跳过无效的删除记录
+        }
+        
+        // 检查这个脚本是否存在于本地清单中
+        if (localManifest[deletedScript.id]) {
+          const scriptFilePath = path.join(USER_SCRIPTS_DIR, deletedScript.filename);
+          
+          // 删除本地脚本文件
+          try {
+            if (fsSync.existsSync(scriptFilePath)) {
+              await fs.unlink(scriptFilePath);
+              console.log(`[ScriptUpdater] Deleted local script file: ${deletedScript.filename}`);
+              updatedScriptsInfo.push({ 
+                name: deletedScript.name || deletedScript.id, 
+                status: 'deleted',
+                deletedAt: deletedScript.deletedAt 
+              });
+            }
+            
+            // 从本地清单中移除记录
+            delete localManifest[deletedScript.id];
+            manifestChanged = true;
+            console.log(`[ScriptUpdater] Removed deleted script from local manifest: ${deletedScript.name || deletedScript.id}`);
+          } catch (deleteError) {
+            console.error(`[ScriptUpdater] Error deleting local script ${deletedScript.filename}:`, deleteError);
+            updatedScriptsInfo.push({ 
+              name: deletedScript.name || deletedScript.id, 
+              status: 'delete_error', 
+              error: deleteError.message 
+            });
+          }
+        }
+      }
+    }
+
+    // 原有的下载/更新逻辑继续
     for (const remoteScript of remoteScripts) {
       if (!remoteScript || !remoteScript.id || !remoteScript.filename || !remoteScript.checksum) {
         console.warn('[ScriptUpdater] Skipping invalid remote script entry:', remoteScript);
@@ -211,9 +252,6 @@ async function checkForUpdates() {
       }
     }
     
-    // Optional: Handling for scripts in local manifest but not in remote (deletion logic)
-    // ... (code from previous version if needed) ...
-
     await Promise.all(downloadPromises);
 
     if (manifestChanged) {
@@ -236,4 +274,5 @@ async function checkForUpdates() {
 
 module.exports = {
   checkForUpdates,
+  syncScripts: checkForUpdates // 导出另一个名称以便更语义化的调用
 }; 

@@ -45,6 +45,9 @@
         .toast.show { opacity: 1; }
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
+        .toast.wide { width: 400px; max-width: 90%; }
+        .toast p { margin: 8px 0; }
+        .toast ol { margin: 0; padding-left: 20px; }
     </style>
 </head>
 <body>
@@ -144,6 +147,31 @@
                     <button type="submit" class="submit-btn">保存元数据</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="delete-confirmation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">确认删除脚本</h2>
+                <button type="button" class="close-btn" id="close-delete-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除脚本 <strong id="delete-script-name"></strong> 吗？</p>
+                <p><strong>警告：</strong> 此操作将：</p>
+                <ul>
+                    <li>从服务器中删除脚本文件</li>
+                    <li>从脚本清单中移除此脚本</li>
+                    <li>标记此脚本为已删除，以便客户端同步时清理本地文件</li>
+                </ul>
+                <p>此操作不可撤销！</p>
+                <p><small>注意：客户端本地脚本文件将在下次应用启动并同步脚本时被清理。</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="confirm-delete-btn" class="delete-btn">确认删除</button>
+                <button type="button" id="cancel-delete-btn" class="button cancel-btn">取消</button>
+            </div>
         </div>
     </div>
 

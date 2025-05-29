@@ -1,39 +1,6 @@
 {
   "scripts": [
     {
-      "id": "sample_script",
-      "name": "示例脚本V1",
-      "version": "1.0.0",
-      "description": "一个简单的示例脚本，演示基本功能。",
-      "author": "TestUser",
-      "category": "示例",
-      "filename": "sample_script_v1.js",
-      "checksum": "4e18266e43aad8a77a2ceb3f1963170e1484b7aae843df3c9e7468dd62fe2c0c",
-      "lastModified": "2024-05-29T12:00:00Z"
-    },
-    {
-      "id": "another_script",
-      "name": "另一个脚本V2",
-      "version": "2.0.0",
-      "description": "展示不同高级功能的另一个脚本。",
-      "author": "DevTeam",
-      "category": "高级",
-      "filename": "another_script_v2.js",
-      "checksum": "cce395ffefa02db23930773020207f35894d2569e19d72a656588d2a63b89f57",
-      "lastModified": "2024-05-29T12:05:00Z"
-    },
-    {
-      "id": "camp_network",
-      "name": "Camp Network",
-      "version": "1.0.0",
-      "description": "自动化与Camp Network项目交互",
-      "author": "FourAir",
-      "category": "社区",
-      "filename": "camp_network_script.js",
-      "checksum": "b81ab18f8347b62552d7a4b01db7e6db6655aaa81cfa311e5ad3286526598081",
-      "lastModified": "2024-05-29T15:00:00Z"
-    },
-    {
       "id": "wallet_balance_query_script",
       "name": "Wallet Balance Query Script",
       "version": "1.0.0",
@@ -43,6 +10,21 @@
       "filename": "wallet_balance_query_script.js",
       "checksum": "4b9a51a6f7cc467c265ccc7ad387378f5f3a7e749edc4eb12306bef5ca521b68",
       "lastModified": "2025-05-29T10:44:14.479Z"
+    }
+  ],
+  "deletedScripts": [
+    {
+      "id": "camp_network",
+      "name": "Camp Network",
+      "version": "1.0.0",
+      "description": "自动化与Camp Network项目交互",
+      "author": "FourAir",
+      "category": "社区",
+      "filename": "camp_network_script.js",
+      "checksum": "b81ab18f8347b62552d7a4b01db7e6db6655aaa81cfa311e5ad3286526598081",
+      "lastModified": "2024-05-29T15:00:00Z",
+      "isDeleted": true,
+      "deletedAt": "2025-05-29T16:42:39.545Z"
     }
   ]
 }

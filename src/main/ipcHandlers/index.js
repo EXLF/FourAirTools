@@ -64,6 +64,9 @@ ipcMain.on('open-external-url', (event, url) => {
 // 导入脚本引擎
 const scriptEngine = require('../scriptEngine');
 
+// 添加脚本更新服务导入
+const scriptUpdaterService = require('../services/scriptUpdaterService');
+
 // 脚本相关IPC事件处理
 function setupScriptHandlers(ipcMain) {
   // 获取所有可用脚本
@@ -208,6 +211,25 @@ function setupHandlers(ipcMain) {
   
   // 添加脚本相关处理器
   setupScriptHandlers(ipcMain);
+  
+  // 添加脚本同步的 IPC 处理程序
+  ipcMain.handle('sync-scripts', async () => {
+    console.log('[IPC] Received sync-scripts request');
+    try {
+      const result = await scriptUpdaterService.syncScripts();
+      return {
+        success: true,
+        message: '脚本同步完成',
+        result
+      };
+    } catch (error) {
+      console.error('[IPC] Error syncing scripts:', error);
+      return {
+        success: false,
+        error: error.message || '脚本同步失败'
+      };
+    }
+  });
   
   // ... existing code ...
 } 

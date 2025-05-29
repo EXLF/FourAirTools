@@ -362,6 +362,87 @@ app.post('/api/scripts/update_manifest', async (req, res) => {
     }
 });
 
+// DELETE /api/scripts/:id: 删除脚本文件和manifest中的记录
+app.delete('/api/scripts/:id', async (req, res) => {
+    const scriptId = req.params.id;
+    const manifestPath = path.join(__dirname, 'data', 'script_manifest.json');
+
+    try {
+        // 读取manifest文件
+        const manifestData = JSON.parse(await fs.promises.readFile(manifestPath, 'utf8'));
+        
+        if (!Array.isArray(manifestData.scripts)) {
+            return res.status(500).json({ error: 'Manifest格式错误：scripts不是数组' });
+        }
+        
+        // 查找要删除的脚本
+        const scriptIndex = manifestData.scripts.findIndex(s => s.id === scriptId);
+        if (scriptIndex === -1) {
+            return res.status(404).json({ error: `未找到ID为 ${scriptId} 的脚本` });
+        }
+        
+        const scriptToDelete = manifestData.scripts[scriptIndex];
+        const scriptFilePath = path.join(__dirname, 'available_scripts', scriptToDelete.filename);
+        
+        // 在删除前，将脚本标记为已删除并保留在列表中一段时间
+        // 这让客户端知道需要删除本地文件
+        const deletedScriptManifest = { ...scriptToDelete };
+        deletedScriptManifest.isDeleted = true;  // 标记为删除
+        deletedScriptManifest.deletedAt = new Date().toISOString(); // 删除时间戳
+        
+        // 在一个特殊的"已删除脚本"数组中保存一份副本
+        // 以便在将来的同步中客户端知道要删除这些脚本
+        if (!manifestData.deletedScripts) {
+            manifestData.deletedScripts = [];
+        }
+        manifestData.deletedScripts.push(deletedScriptManifest);
+        
+        // 仅保留最近30天的删除记录
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        manifestData.deletedScripts = manifestData.deletedScripts.filter(script => {
+            if (!script.deletedAt) return true;
+            return new Date(script.deletedAt) > thirtyDaysAgo;
+        });
+        
+        // 从活动脚本列表中移除脚本
+        manifestData.scripts.splice(scriptIndex, 1);
+        
+        // 保存更新后的manifest
+        await fs.promises.writeFile(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');
+        
+        // 尝试删除服务器上的脚本文件
+        try {
+            if (fs.existsSync(scriptFilePath)) {
+                await fs.promises.unlink(scriptFilePath);
+                console.log(`[Server] Script file deleted from server: ${scriptToDelete.filename}`);
+            } else {
+                console.warn(`[Server] Script file not found for deletion: ${scriptToDelete.filename}`);
+            }
+        } catch (fileError) {
+            console.error(`[Server] Error deleting script file: ${fileError.message}`);
+            // 即使文件删除失败，我们仍然已从manifest中移除了记录
+            return res.status(207).json({ 
+                message: '脚本从manifest中移除，但服务器端文件删除失败',
+                error: fileError.message,
+                script: scriptToDelete,
+                deletedScriptManifest: deletedScriptManifest
+            });
+        }
+        
+        console.log(`[Server] Script deleted successfully. ID: ${scriptId}, File: ${scriptToDelete.filename}`);
+        res.json({ 
+            message: '脚本删除成功', 
+            deletedScript: scriptToDelete,
+            deletedScriptManifest: deletedScriptManifest
+        });
+        
+    } catch (error) {
+        console.error('[Server] 删除脚本失败:', error);
+        res.status(500).json({ error: `删除脚本失败: ${error.message}` });
+    }
+});
+
 // 启动服务器
 const serverInstance = app.listen(PORT, '0.0.0.0', () => {
   console.log(`教程API服务器运行在 http://0.0.0.0:${PORT}`);

@@ -7,7 +7,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const metadataForm = document.getElementById('script-metadata-form');
     const modalTitle = document.getElementById('modal-title');
     const toastMessage = document.getElementById('toast-message');
-
+    
+    // 删除确认模态框元素
+    const deleteModal = document.getElementById('delete-confirmation-modal');
+    const closeDeleteModalBtn = document.getElementById('close-delete-modal-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const deleteScriptNameEl = document.getElementById('delete-script-name');
+    
+    let scriptToDelete = null; // 当前准备删除的脚本
+    
     let currentScripts = []; // 存储从 manifest 加载的脚本
     let editingScript = null; // 当前正在编辑的脚本对象
 
@@ -62,8 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${script.description.substring(0, 50)}${script.description.length > 50 ? '...' : ''}</td>
                 <td class="actions">
                     <button class="edit-btn" data-script-id="${script.id}">编辑元数据</button>
-                    <!-- 删除功能待实现 -->
-                    <!-- <button class="delete-btn" data-script-id="${script.id}">删除</button> --> 
+                    <button class="delete-btn" data-script-id="${script.id}">删除</button>
                 </td>
             `;
         });
@@ -188,7 +196,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 事件委托：编辑按钮 --- 
+    // --- 删除脚本模态框控制 ---
+    function openDeleteModal(script) {
+        scriptToDelete = script;
+        if (script) {
+            deleteScriptNameEl.textContent = `${script.name} (${script.id})`;
+            deleteModal.classList.add('show');
+        }
+    }
+    
+    function closeDeleteModal() {
+        deleteModal.classList.remove('show');
+        scriptToDelete = null;
+    }
+    
+    // 关闭删除模态框按钮
+    closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+    deleteModal.addEventListener('click', (event) => {
+        if (event.target === deleteModal) closeDeleteModal();
+    });
+    
+    // 确认删除按钮
+    confirmDeleteBtn.addEventListener('click', () => {
+        if (scriptToDelete) {
+            deleteScript(scriptToDelete.id);
+            closeDeleteModal();
+        }
+    });
+
+    // --- 事件委托：编辑按钮和删除按钮 --- 
     scriptsTableBody.addEventListener('click', (event) => {
         if (event.target.classList.contains('edit-btn')) {
             const scriptId = event.target.dataset.scriptId;
@@ -198,9 +235,59 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast('找不到要编辑的脚本信息。', 'error');
             }
+        } else if (event.target.classList.contains('delete-btn')) {
+            const scriptId = event.target.dataset.scriptId;
+            const script = currentScripts.find(s => s.id === scriptId);
+            if (script) {
+                openDeleteModal(script);
+            } else {
+                showToast('找不到要删除的脚本信息。', 'error');
+            }
         }
-        // Add delete logic here if needed
     });
+
+    // --- 删除脚本 ---
+    async function deleteScript(scriptId) {
+        showToast('正在删除脚本...', 'info');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/scripts/${scriptId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || `删除失败: ${response.statusText}`);
+            }
+            
+            // 提示客户端需要同步清理本地文件
+            const successMessage = `
+                <div>
+                    <p>脚本删除成功！</p>
+                    <p>客户端本地脚本将在下次启动时自动清理。</p>
+                    <p>如果您希望立即同步客户端，请在客户端应用中执行以下操作：</p>
+                    <ol>
+                        <li>转到任意脚本列表页面</li>
+                        <li>点击"刷新列表"按钮</li>
+                    </ol>
+                    <p><small>(这将触发脚本同步并清理已删除的脚本)</small></p>
+                </div>
+            `;
+            
+            toastMessage.innerHTML = successMessage;
+            toastMessage.className = `toast show success wide`;
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toastMessage.className = toastMessage.className.replace('show', '');
+                // 重置回纯文本
+                setTimeout(() => { toastMessage.innerHTML = ''; }, 300);
+            }, 10000); // 显示10秒钟
+            
+            fetchAndRenderScripts(); // 重新加载脚本列表
+        } catch (error) {
+            console.error('删除脚本错误:', error);
+            showToast(`删除脚本失败: ${error.message}`, 'error');
+        }
+    }
 
     // --- 初始加载 ---
     fetchAndRenderScripts();

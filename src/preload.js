@@ -293,6 +293,11 @@ contextBridge.exposeInMainWorld('scriptAPI', {
         return () => {
             ipcRenderer.removeListener('script-completed', subscription);
         };
+    },
+    // 添加同步脚本的方法
+    syncScripts: async () => {
+        const result = await ipcRenderer.invoke('sync-scripts');
+        return result;
     }
 });
 
