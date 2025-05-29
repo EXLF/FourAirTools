@@ -1057,36 +1057,12 @@ function setupApplicationIpcHandlers(mainWindow) {
         }
     });
 
-    // --- 新增：处理加载教程数据请求 ---
+    // --- 修改：处理加载教程数据请求 ---
     ipcMain.handle('app:loadTutorials', async () => {
-        console.log('[IPC] Received: app:loadTutorials');
-        let filePath;
-        // 区分开发环境和生产环境的路径
-        if (app.isPackaged) {
-            // 生产环境：假设 data 文件夹在 resources/app/ 目录下
-            filePath = path.join(process.resourcesPath, 'app', 'src', 'data', 'tutorials.json');
-        } else {
-            // 开发环境：相对于项目根目录
-            filePath = path.join(app.getAppPath(), 'src', 'data', 'tutorials.json');
-        }
-
-        console.log(`[IPC] Attempting to load tutorials from: ${filePath}`);
-
-        try {
-            // 使用异步读取文件
-            const data = await fsPromises.readFile(filePath, 'utf-8');
-            try {
-                const jsonData = JSON.parse(data);
-                console.log('[IPC] Tutorials loaded successfully.');
-                return jsonData;
-            } catch (parseError) {
-                console.error('[IPC] Error parsing tutorials.json:', parseError);
-                return null;
-            }
-        } catch (error) {
-            console.error(`[IPC] Tutorials file not found or could not be read: ${error.message}`);
-            return []; // 返回空数组，而不是null
-        }
+        console.log('[IPC] Received: app:loadTutorials. This handler is deprecated for tutorial data fetching. Tutorials should be fetched via API by the renderer.');
+        // 不再尝试从本地文件加载，因为渲染器会通过 API 获取
+        // 返回空数组以兼容旧的调用，但理想情况下渲染器不应再依赖此IPC获取教程主体内容
+        return [];
     });
 
     // 执行简单脚本的处理器

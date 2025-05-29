@@ -333,7 +333,6 @@ app.post('/api/scripts/update_manifest', async (req, res) => {
         const stats = await fs.promises.stat(scriptFilePath);
         newScriptData.lastModified = stats.mtime.toISOString();
 
-        let scriptExists = false;
         if (isNew) {
             // 检查新脚本的 ID 是否已存在
             if (manifestData.scripts.some(s => s.id === newScriptData.id)) {
@@ -348,7 +347,6 @@ app.post('/api/scripts/update_manifest', async (req, res) => {
                     return res.status(400).json({ error: `更新后的脚本 ID '${newScriptData.id}' 与其他脚本冲突。` });
                 }
                 manifestData.scripts[scriptIndex] = { ...manifestData.scripts[scriptIndex], ...newScriptData };
-                scriptExists = true;
             } else {
                 return res.status(404).json({ error: `未找到要更新的脚本 (原始ID: ${originalId})` });
             }
@@ -368,8 +366,6 @@ app.post('/api/scripts/update_manifest', async (req, res) => {
 const serverInstance = app.listen(PORT, '0.0.0.0', () => {
   console.log(`教程API服务器运行在 http://0.0.0.0:${PORT}`);
   // 你可以根据需要保留或调整其他日志输出
-  // console.log(`对外服务地址: http://106.75.5.215:${PORT}`); 
-  // console.log(`管理界面地址: http://106.75.5.215:${PORT}/admin.html`); // 旧的日志
   console.log(`教程管理界面: http://localhost:${PORT}/manage_tutorials.html`);
   console.log(`脚本管理界面: http://localhost:${PORT}/manage_scripts.html`);
 });
