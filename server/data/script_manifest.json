@@ -32,6 +32,17 @@
       "filename": "camp_network_script.js",
       "checksum": "b81ab18f8347b62552d7a4b01db7e6db6655aaa81cfa311e5ad3286526598081",
       "lastModified": "2024-05-29T15:00:00Z"
+    },
+    {
+      "id": "wallet_balance_query_script",
+      "name": "Wallet Balance Query Script",
+      "version": "1.0.0",
+      "description": "111",
+      "author": "111",
+      "category": "111",
+      "filename": "wallet_balance_query_script.js",
+      "checksum": "4b9a51a6f7cc467c265ccc7ad387378f5f3a7e749edc4eb12306bef5ca521b68",
+      "lastModified": "2025-05-29T10:44:14.479Z"
     }
   ]
-} 
+}

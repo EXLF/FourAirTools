@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs'); // <--- 确保引入 fs 模块
 const db = require('./models'); // 引入 Sequelize 实例和模型
 const { Op } = require('sequelize'); // 引入 Sequelize 操作符
+const multer = require('multer'); // <--- 引入 multer
+const crypto = require('crypto'); // <--- 引入 crypto (如果之前没有)
 
 const app = express();
 const PORT = 3001; // API 服务器端口
@@ -233,12 +235,143 @@ app.get('/api/scripts/download/:filename', (req, res) => {
   });
 });
 
+// --- 脚本管理 API 端点 ---
+
+// Multer 配置：用于处理文件上传
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'available_scripts/')); // 保存到 available_scripts 目录
+    },
+    filename: function (req, file, cb) {
+        // 使用原始文件名，但可以添加逻辑防止覆盖或处理特殊字符
+        // 为简单起见，这里直接使用原始文件名，但要注意潜在的文件名冲突
+        // 更好的做法是生成一个唯一的文件名，或者在客户端校验文件名是否已存在
+        const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8'); // 处理中文名
+        cb(null, originalName);
+    }
+});
+const upload = multer({ 
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        if (path.extname(file.originalname) !== '.js') {
+            return cb(new Error('只允许上传 .js 文件'), false);
+        }
+        cb(null, true);
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // 限制文件大小为 5MB
+});
+
+// POST /api/scripts/upload: 上传脚本文件
+app.post('/api/scripts/upload', upload.single('scriptFile'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: '没有选择文件或文件上传失败' });
+    }
+    // 文件已保存到 req.file.path (由 multer 处理)
+    console.log('[Server] Script uploaded:', req.file.filename);
+    res.json({ 
+        message: '脚本文件上传成功', 
+        filename: req.file.filename, 
+        path: req.file.path 
+    });
+}, (error, req, res, next) => {
+    // Multer 的错误处理
+    if (error instanceof multer.MulterError) {
+        console.error('[Server] Multer上传错误:', error);
+        return res.status(400).json({ error: `文件上传错误: ${error.message}` });
+    } else if (error) {
+        console.error('[Server] 文件上传未知错误:', error);
+        return res.status(500).json({ error: `文件上传失败: ${error.message}` });
+    }
+    next();
+});
+
+// 辅助函数：计算文件 checksum (与 scriptUpdaterService 中的类似，但这是服务端的)
+async function calculateServerFileChecksum(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('sha256');
+        const stream = fs.createReadStream(filePath);
+        stream.on('data', (data) => hash.update(data));
+        stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', reject);
+    });
+}
+
+// POST /api/scripts/update_manifest: 更新或添加脚本元数据到 manifest
+app.post('/api/scripts/update_manifest', async (req, res) => {
+    const { script: newScriptData, isNew, originalId } = req.body;
+
+    if (!newScriptData || !newScriptData.id || !newScriptData.name || !newScriptData.filename || !newScriptData.version) {
+        return res.status(400).json({ error: '缺少必要的脚本元数据字段 (id, name, filename, version)' });
+    }
+
+    const manifestPath = path.join(__dirname, 'data', 'script_manifest.json');
+
+    try {
+        let manifestData;
+        try {
+            const rawData = await fs.promises.readFile(manifestPath, 'utf8');
+            manifestData = JSON.parse(rawData);
+        } catch (readError) {
+            // 如果 manifest 文件不存在或无法读取/解析，则创建一个新的
+            console.warn('[Server] Manifest read/parse error, creating new one:', readError.message);
+            manifestData = { scripts: [] };
+        }
+
+        if (!Array.isArray(manifestData.scripts)) {
+            console.error('[Server] Manifest format error: scripts is not an array.');
+            manifestData.scripts = []; // 重置为数组以防万一
+        }
+
+        const scriptFilePath = path.join(__dirname, 'available_scripts', newScriptData.filename);
+        if (!fs.existsSync(scriptFilePath)) {
+             console.error(`[Server] Script file not found for manifest update: ${newScriptData.filename}`);
+            return res.status(400).json({ error: `脚本文件 ${newScriptData.filename} 在服务器上不存在。请先上传文件。` });
+        }
+
+        // 为脚本生成/更新 checksum 和 lastModified
+        newScriptData.checksum = await calculateServerFileChecksum(scriptFilePath);
+        const stats = await fs.promises.stat(scriptFilePath);
+        newScriptData.lastModified = stats.mtime.toISOString();
+
+        let scriptExists = false;
+        if (isNew) {
+            // 检查新脚本的 ID 是否已存在
+            if (manifestData.scripts.some(s => s.id === newScriptData.id)) {
+                return res.status(400).json({ error: `脚本 ID '${newScriptData.id}' 已存在。请使用唯一的ID。` });
+            }
+            manifestData.scripts.push(newScriptData);
+        } else {
+            const scriptIndex = manifestData.scripts.findIndex(s => s.id === originalId);
+            if (scriptIndex > -1) {
+                // 如果ID被修改，需要检查新ID是否冲突 (仅当 originalId 和 newScriptData.id 不同时)
+                if (originalId !== newScriptData.id && manifestData.scripts.some((s, idx) => s.id === newScriptData.id && idx !== scriptIndex)) {
+                    return res.status(400).json({ error: `更新后的脚本 ID '${newScriptData.id}' 与其他脚本冲突。` });
+                }
+                manifestData.scripts[scriptIndex] = { ...manifestData.scripts[scriptIndex], ...newScriptData };
+                scriptExists = true;
+            } else {
+                return res.status(404).json({ error: `未找到要更新的脚本 (原始ID: ${originalId})` });
+            }
+        }
+
+        await fs.promises.writeFile(manifestPath, JSON.stringify(manifestData, null, 2), 'utf8');
+        console.log(`[Server] Script manifest updated. Action: ${isNew ? 'Added' : 'Updated'} script ID: ${newScriptData.id}`);
+        res.json({ message: '脚本元数据更新成功', script: newScriptData });
+
+    } catch (error) {
+        console.error('[Server] 更新脚本 manifest 失败:', error);
+        res.status(500).json({ error: '更新脚本 manifest 失败' });
+    }
+});
+
 // 启动服务器
 const serverInstance = app.listen(PORT, '0.0.0.0', () => {
   console.log(`教程API服务器运行在 http://0.0.0.0:${PORT}`);
   // 你可以根据需要保留或调整其他日志输出
   // console.log(`对外服务地址: http://106.75.5.215:${PORT}`); 
-  // console.log(`管理界面地址: http://106.75.5.215:${PORT}/admin.html`);
+  // console.log(`管理界面地址: http://106.75.5.215:${PORT}/admin.html`); // 旧的日志
+  console.log(`教程管理界面: http://localhost:${PORT}/manage_tutorials.html`);
+  console.log(`脚本管理界面: http://localhost:${PORT}/manage_scripts.html`);
 });
 
 // 优雅退出时关闭数据库连接

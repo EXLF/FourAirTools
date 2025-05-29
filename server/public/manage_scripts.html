@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脚本管理</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f8f9fa; color: #343a40; display: flex; min-height: 100vh; }
+        .sidebar { width: 220px; background-color: #343a40; color: white; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .sidebar h2 { margin-top: 0; font-size: 1.5rem; border-bottom: 1px solid #495057; padding-bottom: 10px; }
+        .sidebar ul { list-style: none; padding: 0; margin-top: 20px; }
+        .sidebar ul li a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 15px; border-radius: 4px; margin-bottom: 5px; transition: background-color 0.2s, color 0.2s; }
+        .sidebar ul li a:hover, .sidebar ul li a.active { background-color: #495057; color: white; }
+        .container { flex-grow: 1; padding: 30px; max-width: calc(100% - 220px); }
+        h1, h2 { color: #007bff; }
+        h1 { margin-bottom: 1.5em; text-align: center; }
+        .section { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px 15px; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #e9ecef; font-weight: 600; }
+        tr:hover { background-color: #f1f3f5; }
+        .actions button, .button { padding: 8px 15px; margin-right: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: background-color 0.2s; }
+        .edit-btn { background-color: #ffc107; color: #212529; }
+        .edit-btn:hover { background-color: #e0a800; }
+        .delete-btn { background-color: #dc3545; color: white; }
+        .delete-btn:hover { background-color: #c82333; }
+        .add-btn, .submit-btn { background-color: #007bff; color: white; }
+        .add-btn:hover, .submit-btn:hover { background-color: #0056b3; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; }
+        .form-group input[type="text"], .form-group input[type="file"], .form-group textarea, .form-group select {
+            width: calc(100% - 22px); padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.95rem;
+        }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal.show { display: flex; }
+        .modal-content { background-color: #fff; padding: 30px 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 90%; max-width: 650px; position: relative; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; margin-bottom: 20px; }
+        .modal-title { font-size: 1.3rem; margin: 0; }
+        .close-btn { background: none; border: none; font-size: 2rem; font-weight: bold; color: #6c757d; cursor: pointer; padding: 0; line-height: 1; }
+        .modal-footer { text-align: right; margin-top: 25px; border-top: 1px solid #dee2e6; padding-top: 15px;}
+        .script-details { font-size: 0.85em; color: #6c757d; }
+        .script-details strong { color: #495057; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #333; color: white; padding: 10px 20px; border-radius: 4px; z-index: 1100; opacity: 0; transition: opacity 0.5s ease; font-size: 0.9rem; }
+        .toast.show { opacity: 1; }
+        .toast.success { background-color: #28a745; }
+        .toast.error { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>管理菜单</h2>
+        <ul>
+            <li><a href="manage_tutorials.html">教程管理</a></li>
+            <li><a href="manage_scripts.html" class="active">脚本管理</a></li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <h1>脚本插件管理</h1>
+
+        <div class="section">
+            <h2>上传新脚本</h2>
+            <form id="upload-script-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="script-file">选择脚本文件 (.js):</label>
+                    <input type="file" id="script-file" name="scriptFile" accept=".js" required>
+                </div>
+                <p style="font-size:0.85em; color:#6c757d;">上传后，请在下方编辑或确认元数据。</p>
+                <button type="submit" class="submit-btn">上传脚本</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>现有脚本列表</h2>
+            <table id="scripts-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名称</th>
+                        <th>版本</th>
+                        <th>文件名</th>
+                        <th>描述</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="scripts-list-body">
+                    <!-- 脚本列表将由JS填充 -->
+                </tbody>
+            </table>
+            <p id="no-scripts-message" style="text-align:center; padding:15px; display:none;">暂无脚本。</p>
+        </div>
+    </div>
+
+    <!-- 编辑/新增脚本元数据模态框 -->
+    <div id="script-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title" class="modal-title">编辑脚本元数据</h2>
+                <button type="button" class="close-btn" id="close-modal-btn">&times;</button>
+            </div>
+            <form id="script-metadata-form">
+                <input type="hidden" id="edit-script-original-id">
+                <input type="hidden" id="edit-script-is-new" value="false">
+                
+                <div class="form-group">
+                    <label for="script-id">脚本 ID (唯一标识, 英文):</label>
+                    <input type="text" id="script-id" name="id" required>
+                </div>
+                <div class="form-group">
+                    <label for="script-name">脚本名称:</label>
+                    <input type="text" id="script-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="script-version">版本 (例如 1.0.0):</label>
+                    <input type="text" id="script-version" name="version" required>
+                </div>
+                <div class="form-group">
+                    <label for="script-description">描述:</label>
+                    <textarea id="script-description" name="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="script-author">作者:</label>
+                    <input type="text" id="script-author" name="author">
+                </div>
+                <div class="form-group">
+                    <label for="script-category">分类:</label>
+                    <input type="text" id="script-category" name="category">
+                </div>
+                <div class="form-group">
+                    <label for="script-filename">文件名 (例如 script.js):</label>
+                    <input type="text" id="script-filename" name="filename" required readonly title="文件名在上传后通常不应更改">
+                </div>
+                <!-- Checksum 和 LastModified 通常由后端自动处理或在上传时生成，这里暂不直接编辑 -->
+                <div class="form-group">
+                    <label for="script-checksum">Checksum (SHA256):</label>
+                    <input type="text" id="script-checksum" name="checksum" readonly title="将在保存时由后端更新或校验">
+                </div>
+                <div class="form-group">
+                    <label for="script-lastModified">最后修改时间:</label>
+                    <input type="text" id="script-lastModified" name="lastModified" readonly title="将在保存时由后端更新">
+                </div>
+                 <div class="modal-footer">
+                    <button type="submit" class="submit-btn">保存元数据</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-message" class="toast"></div>
+
+    <script src="manage_scripts.js"></script>
+</body>
+</html> 
