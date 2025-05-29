@@ -1825,22 +1825,23 @@ function addCompactTaskStyles() {
     const styleElement = document.createElement('style');
     styleElement.id = 'compact-task-styles';
     styleElement.textContent = `
-        /* 基础样式重置 */
-        * {
+        /* 基础样式重置 - 限定在脚本插件页面 */
+        .plugin-page * {
             box-sizing: border-box;
         }
         
-        /* 页面基础样式 */
-        .page-header {
+        /* 页面基础样式 - 限定在脚本插件页面 */
+        .plugin-page .page-header {
             margin-bottom: 20px;
         }
         
-        .header-actions {
+        .plugin-page .header-actions {
             display: flex;
             gap: 12px;
             align-items: center;
         }
         
+        /* 以下为 .batch-task-container 内部的样式，它们已经有较好的作用域，保持不变 */
         .batch-task-container .btn {
             display: inline-flex;
             align-items: center;
@@ -3564,8 +3565,15 @@ function testBackgroundTasksPanel() {
  * 在页面切换时自动保存运行中的任务到后台
  */
 export function onBatchScriptsPageUnload() {
-    console.log('[脚本插件] 页面即将卸载，检查运行中的任务...');
+    console.log('[脚本插件] 页面即将卸载，清理特定样式并检查运行中的任务...');
     
+    // 移除由 addCompactTaskStyles 添加的特定样式
+    const compactTaskStyles = document.getElementById('compact-task-styles');
+    if (compactTaskStyles) {
+        compactTaskStyles.remove();
+        console.log('[BatchScripts] Compact task styles (ID: compact-task-styles) removed.');
+    }
+
     // 设置页面标志
     window.__isBatchScriptsPageActive = false;
     
