@@ -72,6 +72,8 @@ function getConfig() {
 async function main(context) {
   const { config, wallets, utils, webdriver } = context;
   
+  // utils.logToUI 和 console.log/info/error/success 的使用保持一致
+  utils.logToUI("Camp Network脚本: 开始执行");
   console.info("开始执行Camp Network脚本");
   
   try {
@@ -81,62 +83,80 @@ async function main(context) {
     const badgeId = config.badgeId || "";
     const referralEmail = config.referralEmail || "";
     const waitTime = config.waitTime || 30;
-    const wallet = wallets[0]; // 获取第一个钱包
     
-    if (!wallet) {
+    if (!wallets || wallets.length === 0) { // 检查钱包数组是否存在且不为空
       throw new Error("没有可用的钱包");
     }
+    const wallet = wallets[0]; // 获取第一个钱包
     
+    utils.logToUI(`Camp Network脚本: 使用钱包 ${wallet.address}`);
     console.info(`使用钱包: ${wallet.address}`);
+    utils.logToUI(`Camp Network脚本: 执行操作 ${action}`);
     console.info(`执行操作: ${action}`);
     
     // 连接到Camp Network
+    utils.logToUI("Camp Network脚本: 连接到Camp Network...");
     console.info("连接到Camp Network...");
-    // 这里是连接代码
-    
+    // 这里是连接代码 (示例：等待一段时间)
+    await utils.delay(1000); 
+    utils.logToUI("Camp Network脚本: 连接成功 (模拟)");
+    console.info("连接成功 (模拟)");
+
     switch (action) {
       case "quest":
         if (!questId) {
           throw new Error("完成任务需要提供任务ID");
         }
+        utils.logToUI(`Camp Network脚本: 执行完成任务操作，任务ID: ${questId}...`);
         console.info(`执行完成任务操作，任务ID: ${questId}...`);
         // 这里是完成任务的代码
+        await utils.delay(2000); // 模拟任务执行
         break;
         
       case "mint":
         if (!nftId) {
           throw new Error("铸造NFT需要提供NFT ID");
         }
+        utils.logToUI(`Camp Network脚本: 执行铸造NFT操作，NFT ID: ${nftId}...`);
         console.info(`执行铸造NFT操作，NFT ID: ${nftId}...`);
         // 这里是铸造NFT的代码
+        await utils.delay(2000);
         break;
         
       case "collect":
         if (!badgeId) {
           throw new Error("收集徽章需要提供徽章ID");
         }
+        utils.logToUI(`Camp Network脚本: 执行收集徽章操作，徽章ID: ${badgeId}...`);
         console.info(`执行收集徽章操作，徽章ID: ${badgeId}...`);
         // 这里是收集徽章的代码
+        await utils.delay(2000);
         break;
         
       case "refer":
         if (!referralEmail) {
           throw new Error("邀请好友需要提供好友邮箱");
         }
+        utils.logToUI(`Camp Network脚本: 执行邀请好友操作，好友邮箱: ${referralEmail}...`);
         console.info(`执行邀请好友操作，好友邮箱: ${referralEmail}...`);
         // 这里是邀请好友的代码
+        await utils.delay(2000);
         break;
         
       default:
         throw new Error(`不支持的操作: ${action}`);
     }
     
+    utils.logToUI(`Camp Network脚本: 等待操作完成，超时时间: ${waitTime}秒...`);
     console.info(`等待操作完成，超时时间: ${waitTime}秒...`);
     // 这里是等待操作完成的代码
+    await utils.delay(waitTime * 1000);
     
-    console.success("操作成功完成");
-    return { success: true };
+    utils.logToUI("Camp Network脚本: 操作成功完成", "success"); // 使用 success 级别
+    console.info("操作成功完成"); // console.success 不是标准方法，用 console.info 或 log
+    return { success: true, message: "Camp Network 操作成功完成" };
   } catch (error) {
+    utils.logToUI(`Camp Network脚本: 操作失败 - ${error.message}`, "error");
     console.error(`操作失败: ${error.message}`);
     return { success: false, error: error.message };
   }

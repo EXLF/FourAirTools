@@ -13,6 +13,7 @@ const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
 const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');
 const scriptEngine = require('./scriptEngine.js');
+const scriptUpdaterService = require('./services/scriptUpdaterService.js');
 
 let mainWindow = null;
 let tray = null; // 系统托盘
@@ -568,6 +569,20 @@ app.whenReady().then(async () => {
     }
   } else {
     console.log('[Update] 根据用户设置，跳过自动检查更新');
+  }
+
+  // 在应用准备好并且窗口等设置完毕后，检查脚本更新
+  // 你可以根据需要调整调用时机，例如在 createWindow() 之后，或者特定事件触发后
+  try {
+    console.log('[Main] Application ready. Checking for script updates...');
+    const updateResult = await scriptUpdaterService.checkForUpdates();
+    console.log('[Main] Script update check completed.', updateResult);
+    // 这里可以根据 updateResult 向渲染进程发送消息，通知更新状态
+    // if (mainWindow && updateResult.updatesFound) {
+    //   mainWindow.webContents.send('scripts-updated', updateResult.processedScripts);
+    // }
+  } catch (error) {
+    console.error('[Main] Error during initial script update check:', error);
   }
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，

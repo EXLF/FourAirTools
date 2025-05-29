@@ -2,6 +2,7 @@
  * 脚本执行引擎
  * 负责加载和执行用户脚本
  */
+const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { ipcMain } = require('electron');
@@ -33,7 +34,7 @@ let mainWindow = null;
 
 class ScriptEngine {
   constructor() {
-    this.scriptsDir = path.join(__dirname, '../../user_scripts/scripts');
+    this.scriptsDir = path.join(app.getPath('userData'), 'user_scripts', 'scripts');
     this.runningScripts = new Map();
     
     // 初始化IPC监听器

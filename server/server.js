@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs'); // <--- 确保引入 fs 模块
 const db = require('./models'); // 引入 Sequelize 实例和模型
 const { Op } = require('sequelize'); // 引入 Sequelize 操作符
 
@@ -179,6 +180,57 @@ app.get('/api/tutorials/:id', async (req, res) => {
     console.error("获取教程详情失败 (Sequelize):", err);
     res.status(500).json({ error: `获取教程详情失败: ${err.message}` });
   }
+});
+
+// --- 脚本插件 API 端点 ---
+
+// GET /api/scripts/manifest: 获取脚本 manifest
+app.get('/api/scripts/manifest', (req, res) => {
+  const manifestPath = path.join(__dirname, 'data', 'script_manifest.json');
+  fs.readFile(manifestPath, 'utf8', (err, data) => {
+    if (err) {
+      console.error("读取脚本 manifest 失败:", err);
+      return res.status(500).json({ error: '无法获取脚本 manifest' });
+    }
+    try {
+      const manifest = JSON.parse(data);
+      res.json(manifest);
+    } catch (parseError) {
+      console.error("解析脚本 manifest JSON 失败:", parseError);
+      return res.status(500).json({ error: '脚本 manifest 格式错误' });
+    }
+  });
+});
+
+// GET /api/scripts/download/:filename: 下载脚本文件
+app.get('/api/scripts/download/:filename', (req, res) => {
+  const filename = req.params.filename;
+  // 安全性：校验文件名，防止路径遍历
+  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    return res.status(400).json({ error: '无效的文件名' });
+  }
+
+  const filePath = path.join(__dirname, 'available_scripts', filename);
+
+  // 检查文件是否存在
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: '脚本文件未找到' });
+  }
+
+  // 设置正确的 Content-Type 和 Content-Disposition
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+  // 发送文件
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error(`发送脚本文件 ${filename} 失败:`, err);
+      // 确保在出错时也尝试发送错误响应，如果头部尚未发送
+      if (!res.headersSent) {
+        res.status(500).json({ error: '下载脚本文件失败' });
+      }
+    }
+  });
 });
 
 // 启动服务器
