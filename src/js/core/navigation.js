@@ -1,3 +1,5 @@
+import { resetToolsPageInitializationState } from '../pages/tools/index.js';
+
 // ================= 导航逻辑 =================
 
 // 缓存常用元素
@@ -51,42 +53,38 @@ export async function loadPage(pageId) {
         console.log(`[导航] 执行页面卸载处理: ${currentPage}`);
         await pageUnloadHandlers[currentPage]();
     }
+    // 如果之前的页面是tools，重置其初始化状态
+    if (currentPage === 'tools') {
+        resetToolsPageInitializationState();
+    }
 
     // 更新侧边栏活动状态
     updateSidebarActiveState(pageId);
 
     // 清除当前内容并显示加载指示器
     contentArea.innerHTML = '<p class="loading-indicator">加载中...</p>';
+    contentArea.dataset.currentPage = pageId; // 标记当前内容区域属于哪个页面
 
-    // let loadedViaFetch = false; // 不再需要此变量
-    // 选项1: 首先尝试获取HTML片段
     try {
         const response = await fetch(`src/templates/${pageId}.html`);
         if (response.ok) {
             const html = await response.text();
             contentArea.innerHTML = html;
             contentArea.scrollTop = 0;
-            // loadedViaFetch = true; // 不再需要
             console.log(`通过fetch成功加载${pageId}。`);
         } else {
-            // 如果fetch失败 (例如 404 或其他错误)
             console.error(`获取模板 "${pageId}.html" 失败，状态码: ${response.status}`);
             contentArea.innerHTML = `<div class="notice error"><h2>页面加载失败</h2><p>无法加载页面 ${pageId} 的内容 (状态: ${response.status})。</p></div>`;
-            // 初始化特定页面内容的调用不应在此处进行，因为它依赖于成功加载的HTML
-            currentPage = 'error'; // 或其他适当的错误页面标识
-            return; // 提前返回，不尝试初始化页面内容
+            currentPage = 'error'; 
+            return;
         }
     } catch (error) {
         console.error(`获取模板 "${pageId}.html" 时发生网络错误或解析错误:`, error);
         contentArea.innerHTML = `<div class="notice error"><h2>页面加载出错</h2><p>加载页面 ${pageId} 时发生网络或解析错误。</p></div>`;
         currentPage = 'error';
-        return; // 提前返回
+        return;
     }
 
-    // 选项2: 回退到<template>标签 - 此逻辑已移除，因为它不再使用
-    // if (!loadedViaFetch) { ... }
-
-    // 动态调用特定页面的初始化函数 (只有在HTML成功加载后才执行)
     try {
         await initializePageContent(pageId);
     } catch(error) {
@@ -97,7 +95,6 @@ export async function loadPage(pageId) {
          contentArea.appendChild(notice);
     }
 
-    // 更新当前页面跟踪
     currentPage = pageId;
 }
 
@@ -168,6 +165,7 @@ async function initializePageContent(pageId) {
         // 工具页面（现在需要初始化）
         case 'tools':
             modulePath = '../pages/tools/index.js';
+            initFunctionName = 'initToolsPage';
             break;
         // 未定义的页面
         default:

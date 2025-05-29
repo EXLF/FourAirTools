@@ -184,7 +184,7 @@ FourAir支持自定义脚本，用于自动化与各种Web3项目的交互。目
     * 日志记录和错误处理
 *   **钱包管理**: 
 
-## 版本更新 v1.1.1
+## 版本更新 v1.2.0
 
 本次更新主要内容：
 
@@ -218,4 +218,4 @@ FourAir支持自定义脚本，用于自动化与各种Web3项目的交互。目
    - 文档文件 (README.md, project_structure.md)
 
 2. 安装包路径
-   - Windows: `dist_electron/FourAir-Setup-1.1.1.exe` 
+   - Windows: `dist_electron/FourAir-Setup-1.2.0.exe` 
