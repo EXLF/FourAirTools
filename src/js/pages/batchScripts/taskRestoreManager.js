@@ -90,7 +90,7 @@ export class TaskRestoreManager {
         window.__currentTaskInstanceId = backgroundTask.taskInstanceId;
         window.__startTime = backgroundTask.startTime;
         
-        // 确保监听器数组存在
+        // 确保监听器数组存在（但不清理现有的）
         if (!window.__currentLogUnsubscribers) {
             window.__currentLogUnsubscribers = [];
         }
@@ -98,9 +98,17 @@ export class TaskRestoreManager {
         // 恢复脚本类型
         if (window.pageState) {
             window.pageState.currentBatchScriptType = backgroundTask.scriptType;
+            // 确保视图模式设置为MANAGER，这样全局日志处理器就知道要显示日志到UI
+            // 使用字符串常量，避免模块导入问题
+            window.pageState.currentView = 'manager';
         }
         
-        console.log('[任务恢复] 全局状态已恢复');
+        console.log('[任务恢复] 全局状态已恢复:', {
+            executionId: window.__currentExecutionId,
+            taskInstanceId: window.__currentTaskInstanceId,
+            scriptType: backgroundTask.scriptType?.name,
+            pageView: window.pageState?.currentView
+        });
     }
 
     /**
@@ -231,6 +239,30 @@ export class TaskRestoreManager {
 
                     // 恢复历史日志
                     this._restoreLogHistory(logContainer, backgroundTask.logHistory || []);
+                    
+                    // 验证全局日志处理器是否能正确工作
+                    console.log('[任务恢复] 验证日志系统状态:', {
+                        currentExecutionId: window.__currentExecutionId,
+                        pageView: window.pageState?.currentView,
+                        logContainerExists: !!document.getElementById('taskLogContainer')
+                    });
+                    
+                    // 添加一条测试日志，验证系统是否正常工作
+                    setTimeout(() => {
+                        console.log('[任务恢复] 系统验证：模拟日志事件测试全局处理器');
+                        // 模拟一个日志事件来测试全局处理器
+                        if (typeof window.globalLogEventHandler === 'function') {
+                            window.globalLogEventHandler({
+                                executionId: window.__currentExecutionId,
+                                level: 'info',
+                                message: '📡 日志系统已恢复，等待脚本日志...',
+                                timestamp: new Date().toISOString()
+                            });
+                        } else {
+                            // 直接使用TaskLogger
+                            TaskLogger.logInfo('📡 日志系统已恢复，等待脚本日志...');
+                        }
+                    }, 500);
 
                     console.log('[任务恢复] 日志系统已恢复');
                     resolve();
@@ -304,17 +336,20 @@ export class TaskRestoreManager {
             return;
         }
 
-        console.log('[任务恢复] 温和地重新连接到脚本执行（避免重复监听器）...');
+        console.log('[任务恢复] 温和地重新连接到脚本执行（依赖全局监听器）...');
         this.restoreState = RESTORE_STATES.CONNECTING;
 
-        // 清理旧的监听器，避免重复监听
-        this._cleanupOldListeners();
-
-        // 设置新的日志监听器
-        await this._setupLogListeners(backgroundTask.executionId);
+        // 不清理全局监听器，因为全局监听器会处理所有日志
+        // 只需要确保执行ID正确设置，全局监听器会自动处理日志路由
+        console.log('[任务恢复] 依赖现有的全局日志监听器，无需重新注册');
 
         // 检查主进程连接状态（不发送重连请求）
         await this._reconnectToMainProcess(backgroundTask);
+        
+        // 记录调试信息
+        console.log('[任务恢复] 当前执行ID:', window.__currentExecutionId);
+        console.log('[任务恢复] 后台任务执行ID:', backgroundTask.executionId);
+        console.log('[任务恢复] 页面视图模式:', window.pageState?.currentView);
     }
 
     /**
