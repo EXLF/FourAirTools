@@ -378,12 +378,14 @@ async function initCoreManagers() {
             { ScriptManager: SM },
             { TaskStateManager: TSM },
             { ExecutionEngine: EE },
-            { LogManager: LM }
+            { LogManager: LM },
+            { stateManagerIntegration: SMI }
         ] = await Promise.all([
             import('./core/ScriptManager.js'),
             import('./core/TaskStateManager.js'),
             import('./core/ExecutionEngine.js'),
-            import('./core/LogManager.js')
+            import('./core/LogManager.js'),
+            import('./core/StateManagerIntegration.js')
         ]);
         
         // 设置全局引用
@@ -391,6 +393,12 @@ async function initCoreManagers() {
         TaskStateManager = TSM;
         ExecutionEngine = EE;
         LogManager = LM;
+        
+        // 初始化状态管理器集成
+        console.log('[核心管理器] 初始化统一状态管理器...');
+        if (!SMI.isInitialized) {
+            SMI.initialize();
+        }
         
         // console.log('[核心管理器] 模块动态加载成功');
         // console.log('[核心管理器] 检查模块可用性:');
@@ -417,7 +425,8 @@ async function initCoreManagers() {
             scriptManager,
             taskStateManager,
             executionEngine,
-            logManager
+            logManager,
+            stateManagerIntegration: SMI
         };
         
         // 设置跨模块通信
