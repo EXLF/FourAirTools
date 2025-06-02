@@ -1,18 +1,24 @@
 /**
- * 脚本插件管理页面 - 主模块（重构版）
- * 负责初始化页面、加载批量任务列表和基本交互
+ * 脚本插件管理页面 - 主模块
+ * 负责页面初始化、脚本列表管理和核心交互逻辑
+ * 
+ * 架构说明：
+ * - 本文件为主入口，负责协调各个功能模块
+ * - 具体功能已拆分到专门的管理器模块中
+ * - 保持向后兼容性，支持旧版本代码调用
  */
 
+// ============================================================================
+// 模块导入
+// ============================================================================
+
+// 基础组件导入
 import { showModal } from '../../components/modal.js';
 import { translateLocation } from '../../utils/locationTranslator.js';
 import { BatchTaskManager } from './batchTaskManager.js';
 import { TaskLogger } from './logger.js';
 
-// 导入新的核心管理器（渐进式集成）
-// 注意：由于模块系统兼容性问题，暂时使用动态导入
-let ScriptManager, TaskStateManager, ExecutionEngine, LogManager;
-
-// 导入重构后的模块
+// 配置和工具模块
 import { 
     batchScriptTypes, 
     modules, 
@@ -26,11 +32,19 @@ import { createFilterPanelHTML, setupFilteringFunction, populateFilters } from '
 import { WalletGroupManager } from './modules/WalletGroupManager.js';
 import { ProxyManager } from './modules/ProxyManager.js';
 import { detectIPC, getWallets, getProxies } from './utils/ipcHelper.js';
+
+// 功能管理器模块
 import { setupGlobalChineseTextFix } from './utils/ChineseTextFixer.js';
 import { setupGlobalBackgroundTaskManager } from './utils/BackgroundTaskManager.js';
 import { setupGlobalTaskConfigManager } from './utils/TaskConfigManager.js';
 import { setupGlobalScriptExecutionManager } from './utils/ScriptExecutionManager.js';
 import { setupGlobalScriptStopManager } from './utils/ScriptStopManager.js';
+import { setupGlobalUIEventManager } from './utils/UIEventManager.js';
+import { setupGlobalStyleManager } from './utils/StyleManager.js';
+
+// ============================================================================
+// 全局状态和变量
+// ============================================================================
 
 // 页面状态管理
 const pageState = {
@@ -41,24 +55,38 @@ const pageState = {
     proxyManager: new ProxyManager()
 };
 
-// 新的核心管理器实例（渐进式集成）
+// 核心管理器实例
 let coreManagers = null;
+let ScriptManager, TaskStateManager, ExecutionEngine, LogManager;
+
+// 功能管理器实例
+let backgroundTaskManager = null;
+let taskConfigManager = null;
+let scriptExecutionManager = null;
+let scriptStopManager = null;
+let uiEventManager = null;
+let styleManager = null;
+
+// 后台任务兼容性变量
+let backgroundTasks = null;
+let saveBackgroundTasksToStorage = null;
+let updateBackgroundTaskIndicator = null;
+let toggleBackgroundTasksPanel = null;
+let renderBackgroundTasksList = null;
+
+// 全局事件监听器
+let globalLogUnsubscriber = null;
+let globalCompletedUnsubscriber = null;
+
+// ============================================================================
+// 功能管理器初始化
+// ============================================================================
 
 /**
- * 立即设置中文乱码修复功能
- * 使用拆分后的专用模块
+ * 初始化中文乱码修复功能
  */
 function setupChineseTextFix() {
-    // 调用拆分后的中文修复模块
     setupGlobalChineseTextFix();
-}
-
-/**
- * 显示脚本模块重构状态
- */
-function showRefactorStatus() {
-    // 减少初始化阶段的日志输出，避免控制台混乱
-    console.log('✨ 脚本插件模块重构完成!');
 }
 
 /**
@@ -71,9 +99,7 @@ async function initCoreManagers() {
     }
 
     try {
-        // console.log('[核心管理器] 开始动态加载新的架构模块...');
-        
-        // 动态导入模块
+        // 动态导入核心模块
         const [
             { ScriptManager: SM },
             { TaskStateManager: TSM },
@@ -100,24 +126,10 @@ async function initCoreManagers() {
             SMI.initialize();
         }
         
-        // console.log('[核心管理器] 模块动态加载成功');
-        // console.log('[核心管理器] 检查模块可用性:');
-        // console.log('- ScriptManager:', typeof ScriptManager);
-        // console.log('- TaskStateManager:', typeof TaskStateManager);  
-        // console.log('- ExecutionEngine:', typeof ExecutionEngine);
-        // console.log('- LogManager:', typeof LogManager);
-        
         // 创建核心管理器实例
-        // console.log('[核心管理器] 创建 TaskStateManager...');
         const taskStateManager = new TaskStateManager();
-        
-        // console.log('[核心管理器] 创建 LogManager...');
         const logManager = new LogManager();
-        
-        // console.log('[核心管理器] 创建 ExecutionEngine...');
         const executionEngine = new ExecutionEngine(taskStateManager);
-        
-        // console.log('[核心管理器] 创建 ScriptManager...');
         const scriptManager = new ScriptManager();
         
         // 存储管理器实例
@@ -132,21 +144,11 @@ async function initCoreManagers() {
         // 设置跨模块通信
         setupCoreManagersIntegration();
         
-        // console.log('[核心管理器] 新架构模块初始化完成');
-        // console.log('[核心管理器] 管理器实例:', Object.keys(coreManagers));
-        
-        // 将核心管理器暴露到全局（便于调试和其他模块访问）
+        // 暴露到全局
         if (typeof window !== 'undefined') {
             window.__FA_CoreManagers = coreManagers;
-            // console.log('[核心管理器] 已暴露到全局变量 window.__FA_CoreManagers');
-            // console.log('[核心管理器] 验证全局变量:', !!window.__FA_CoreManagers);
-            
-            // 立即启用新的日志管理器来处理中文乱码
             window.__FA_ActiveLogManager = logManager;
-            // console.log('[核心管理器] 已激活新的日志管理器，开始处理中文乱码修复');
-            
-            // 显示重构状态
-            showRefactorStatus();
+            console.log('✨ 脚本插件模块重构完成!');
         }
         
         return true;
@@ -189,58 +191,39 @@ function getCoreManagers() {
     return coreManagers;
 }
 
-// 后台任务管理 - 使用新的BackgroundTaskManager模块
-let backgroundTaskManager = null;
-
-// 后台任务兼容性变量（指向全局管理器的tasks）
-let backgroundTasks = null;
-
-// 兼容性函数（指向全局管理器的方法）
-let saveBackgroundTasksToStorage = null;
-let updateBackgroundTaskIndicator = null;
-let toggleBackgroundTasksPanel = null;
-let renderBackgroundTasksList = null;
-
-// 任务配置管理 - 使用新的TaskConfigManager模块
-let taskConfigManager = null;
-
-// 脚本执行管理 - 使用新的ScriptExecutionManager模块
-let scriptExecutionManager = null;
-
-// 脚本停止管理 - 使用新的ScriptStopManager模块
-let scriptStopManager = null;
+// ============================================================================
+// 核心管理器初始化
+// ============================================================================
 
 /**
- * 初始化后台任务管理器 (使用新的模块化架构)
+ * 初始化后台任务管理器
  */
 function initGlobalBackgroundTaskManager() {
     if (!backgroundTaskManager) {
         backgroundTaskManager = setupGlobalBackgroundTaskManager();
-        console.log('[后台任务] 新的BackgroundTaskManager模块已初始化');
+        console.log('[后台任务] BackgroundTaskManager模块已初始化');
         
-        // 设置兼容性变量，指向新管理器
+        // 设置兼容性变量
         backgroundTasks = window.__FABackgroundTasks;
         saveBackgroundTasksToStorage = window.FABackgroundTaskManager?.saveToStorage;
         updateBackgroundTaskIndicator = window.FABackgroundTaskManager?.updateIndicator;
         toggleBackgroundTasksPanel = window.toggleBackgroundTasksPanel;
         renderBackgroundTasksList = window.renderBackgroundTasksList;
-        
-        console.log('[后台任务] 兼容性变量已设置，backgroundTasks:', backgroundTasks?.size || 0);
     }
 }
 
 /**
- * 初始化任务配置管理器 (使用新的TaskConfigManager模块)
+ * 初始化任务配置管理器
  */
 function initGlobalTaskConfigManager() {
     if (!taskConfigManager) {
         taskConfigManager = setupGlobalTaskConfigManager(pageState);
-        console.log('[任务配置] 新的TaskConfigManager模块已初始化');
+        console.log('[任务配置] TaskConfigManager模块已初始化');
     }
 }
 
 /**
- * 初始化脚本执行管理器 (使用新的ScriptExecutionManager模块)
+ * 初始化脚本执行管理器
  */
 function initGlobalScriptExecutionManager() {
     if (!scriptExecutionManager) {
@@ -258,26 +241,70 @@ function initGlobalScriptExecutionManager() {
             backgroundTaskHelpers, 
             taskConfigManager
         );
-        console.log('[脚本执行] 新的ScriptExecutionManager模块已初始化');
+        console.log('[脚本执行] ScriptExecutionManager模块已初始化');
     }
 }
 
 /**
- * 初始化脚本停止管理器 (使用新的ScriptStopManager模块)
+ * 初始化脚本停止管理器
  */
 function initGlobalScriptStopManager() {
     if (!scriptStopManager) {
         scriptStopManager = setupGlobalScriptStopManager();
-        console.log('[脚本停止] 新的ScriptStopManager模块已初始化');
+        console.log('[脚本停止] ScriptStopManager模块已初始化');
+    }
+}
+
+/**
+ * 初始化UI事件管理器
+ */
+function initGlobalUIEventManager() {
+    if (!uiEventManager) {
+        uiEventManager = setupGlobalUIEventManager(pageState);
+        console.log('[UI事件] UIEventManager模块已初始化');
+    }
+}
+
+/**
+ * 初始化样式管理器
+ */
+function initGlobalStyleManager() {
+    if (!styleManager) {
+        styleManager = setupGlobalStyleManager();
+        console.log('[样式管理] StyleManager模块已初始化');
+    }
+}
+
+/**
+ * 初始化调试工具
+ */
+async function initDebugTools() {
+    try {
+        const { default: DebugTools } = await import('./utils/DebugTools.js');
+        DebugTools.initDebugTools();
+        console.log('[调试工具] DebugTools模块已初始化');
+        
+        // 设置兼容性函数
+        window.debugBackgroundTasks = window.__debugBackgroundTasks;
+        window.createTestBackgroundTask = window.__createTestBackgroundTask;
+        window.clearAllTestTasks = window.__clearAllTestTasks;
+        window.forceUpdateIndicator = window.__forceUpdateIndicator;
+        window.testBackgroundTaskFlow = window.__testBackgroundTaskFlow;
+        window.clearZombieTasks = window.__clearZombieTasks;
+        window.forceCleanZombies = window.__forceCleanZombies;
+    } catch (error) {
+        console.error('[调试工具] DebugTools模块初始化失败:', error);
     }
 }
 
 
 
-// 页面加载时立即初始化全局管理器
+// ============================================================================
+// 主要功能函数
+// ============================================================================
+
+// 页面加载时立即初始化后台任务管理器
 if (typeof window !== 'undefined') {
-    // 立即执行，不等待页面加载
-    console.log('[全局后台任务] 开始初始化...');
     initGlobalBackgroundTaskManager();
 }
 
@@ -288,83 +315,66 @@ if (typeof window !== 'undefined') {
 export async function initBatchScriptsPage(contentArea) {
     console.log("初始化脚本插件管理页面...");
     
-    // 初始化后台任务管理器
-    initGlobalBackgroundTaskManager();
-    console.log("[后台任务] 初始化时的后台任务数量:", window.__FABackgroundTasks?.size || 0);
+    // 设置页面状态
     pageState.contentAreaRef = contentArea;
+    window.__isBatchScriptsPageActive = true;
+    window.pageState = pageState;
     
     // 立即启用中文乱码修复功能
     setupChineseTextFix();
     
-    // 初始化新的核心管理器（渐进式集成）
+    // 初始化核心管理器
     console.log('[脚本插件] 开始初始化核心管理器...');
     const initSuccess = await initCoreManagers();
     console.log('[脚本插件] 核心管理器初始化结果:', initSuccess);
     
-    // 设置页面标志
-    window.__isBatchScriptsPageActive = true;
-    
-    // 将pageState暴露到全局，供BackgroundTaskManager使用
-    window.pageState = pageState;
-    
-    // 立即加载样式，确保后台任务面板样式可用
-    addCompactTaskStyles();
-    
-    // 确保全局后台任务管理器已初始化
+    // 初始化所有功能管理器
     initGlobalBackgroundTaskManager();
-    
-    // 初始化任务配置管理器
     initGlobalTaskConfigManager();
-    
-    // 初始化脚本执行管理器
     initGlobalScriptExecutionManager();
-    
-    // 初始化脚本停止管理器
     initGlobalScriptStopManager();
-    
-    // 初始化调试工具
+    initGlobalUIEventManager();
+    initGlobalStyleManager();
     initDebugTools();
     
-    // 恢复后台任务状态（从全局管理器）
+    // 立即加载样式
+    if (styleManager) {
+        styleManager.addCompactTaskStyles();
+    } else if (typeof window.addCompactTaskStyles === 'function') {
+        window.addCompactTaskStyles();
+    }
+    
+    // 恢复后台任务状态
     if (window.FABackgroundTaskManager) {
         window.FABackgroundTaskManager.loadFromStorage();
         console.log('[后台任务] 从全局管理器恢复任务状态');
-        console.log('[后台任务] 恢复后的任务数量:', backgroundTasks.size);
     }
     
+    // 渲染主界面
     renderBatchScriptCardsView(contentArea);
     
-    // 初始化时也检查后台任务指示器
+    // 初始化时检查后台任务指示器
     setTimeout(() => {
         updateBackgroundTaskIndicator();
-        console.log('[后台任务] 页面初始化完成，更新指示器');
-        console.log('[后台任务] 最终的后台任务数量:', backgroundTasks.size);
-    }, 100);
-    
-    // 额外的延迟确保DOM完全加载
-    setTimeout(() => {
         if (window.forceUpdateIndicator) {
             window.forceUpdateIndicator();
         }
-        if (window.debugBackgroundTasks) {
-            window.debugBackgroundTasks();
-        }
-    }, 1000);
+    }, 100);
 
     // 注册全局IPC监听器
-    if (globalLogUnsubscriber) globalLogUnsubscriber(); // 清理旧的（如果有）
-    if (globalCompletedUnsubscriber) globalCompletedUnsubscriber(); // 清理旧的（如果有）
+    if (globalLogUnsubscriber) globalLogUnsubscriber();
+    if (globalCompletedUnsubscriber) globalCompletedUnsubscriber();
 
-    // 暴露全局日志处理器到window对象，供其他模块使用
+    // 暴露全局日志处理器
     window.globalLogEventHandler = globalLogEventHandler;
     window.globalScriptCompletedHandler = globalScriptCompletedHandler;
 
     if (window.scriptAPI) {
-        console.log('[脚本插件] 使用 scriptAPI 注册全局日志和完成监听器');
+        console.log('[脚本插件] 使用 scriptAPI 注册全局监听器');
         globalLogUnsubscriber = window.scriptAPI.onLog(globalLogEventHandler);
         globalCompletedUnsubscriber = window.scriptAPI.onScriptCompleted(globalScriptCompletedHandler);
     } else if (window.electron && window.electron.ipcRenderer) {
-        console.log('[脚本插件] 使用 ipcRenderer 注册全局日志和完成监听器');
+        console.log('[脚本插件] 使用 ipcRenderer 注册全局监听器');
         window.electron.ipcRenderer.on('script-log', globalLogEventHandler);
         window.electron.ipcRenderer.on('script-completed', globalScriptCompletedHandler);
         globalLogUnsubscriber = () => window.electron.ipcRenderer.removeListener('script-log', globalLogEventHandler);
@@ -672,8 +682,15 @@ function navigateToModularTaskManager(taskInstanceId) {
     bindModularManagerEvents(taskInstanceId);
     loadModuleContent('simple-config', taskInstanceId);
     
-    // 添加必要的样式
-    addCompactTaskStyles();
+    // 添加必要的样式（使用新的样式管理器）
+    if (styleManager) {
+        styleManager.addCompactTaskStyles();
+    } else {
+        // 备用方案：直接调用全局函数（向后兼容）
+        if (typeof window.addCompactTaskStyles === 'function') {
+            window.addCompactTaskStyles();
+        }
+    }
 }
 
 /**
@@ -683,130 +700,34 @@ function navigateToModularTaskManager(taskInstanceId) {
 function bindModularManagerEvents(taskInstanceId) {
     const managerPage = pageState.contentAreaRef.querySelector('.batch-task-container');
     if (!managerPage) {
-        console.error("Batch task container not found");
+        console.error("[脚本插件] Batch task container not found");
         return;
     }
 
-    // 返回按钮
-    const backToCardsButton = managerPage.querySelector('#back-to-cards-btn');
-    if (backToCardsButton) {
-        backToCardsButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            saveCurrentModuleData(taskInstanceId);
-            
-            // 检查是否有正在运行的任务
-            const currentExecutionId = window.__currentExecutionId;
-            const hasExecutionTimer = !!window.__executionTimer;
-            const hasStartTime = !!window.__startTime;
-            
-            // 智能检测任务运行状态：
-            // 1. 有执行ID且有计时器 - 明确运行中
-            // 2. 有执行ID且有开始时间但没计时器 - 可能刚开始执行，计时器还没启动
-            // 3. 只有执行ID但没有开始时间 - 可能是已完成的任务，不应移至后台
-            const isTaskRunning = currentExecutionId && (hasExecutionTimer || hasStartTime);
-            
-            console.log('[脚本插件] 返回按钮点击，任务状态检查:', {
-                currentExecutionId,
-                hasExecutionTimer,
-                hasStartTime,
-                isTaskRunning,
-                taskInstanceId
-            });
-            
-            if (isTaskRunning) {
-                // 如果有正在运行的任务，保存到后台而不是清理
-                moveTaskToBackground(taskInstanceId);
-                console.log('[脚本插件] 任务已移至后台运行');
-                
-                // 添加小延迟，确保后台任务保存完成
-                setTimeout(() => {
-                    renderBatchScriptCardsView(pageState.contentAreaRef);
-                }, 100);
-            } else {
-                // 没有运行中的任务，正常清理
-                cleanupResources();
-                renderBatchScriptCardsView(pageState.contentAreaRef);
-            }
-        });
-    }
-
-    // 开始执行按钮
-    const startTaskButton = managerPage.querySelector('#start-execution-btn');
-    if (startTaskButton) {
-        // 监听钱包选择变化，更新按钮状态
-        const updateStartButtonState = () => {
-            const selectedWallets = document.querySelectorAll('input[name="selected-wallets"]:checked');
-            const walletCount = selectedWallets.length;
-            
-            // 检查当前脚本是否需要钱包
-            const scriptRequires = pageState.currentBatchScriptType?.requires;
-            const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-            
-            // console.log('[脚本插件] 按钮状态检查:', {
-            //     requiresWallets,
-            //     walletCount,
-            //     scriptName: pageState.currentBatchScriptType?.name,
-            //     scriptRequires: pageState.currentBatchScriptType?.requires,
-            //     scriptRequiresWallets: scriptRequires?.wallets,
-            //     buttonElement: startTaskButton
-            // });
-            
-            if (requiresWallets) {
-                // 需要钱包的脚本，必须选择至少一个钱包
-                if (walletCount > 0) {
-                    startTaskButton.disabled = false;
-                    // console.log('[脚本插件] 已选择钱包，启用执行按钮');
+    // 使用新的UIEventManager模块绑定UI事件
+    if (uiEventManager) {
+        const dependencies = {
+            saveCurrentModuleData: (taskId) => {
+                if (taskConfigManager) {
+                    return taskConfigManager.saveCurrentModuleData(taskId);
                 } else {
-                    startTaskButton.disabled = true;
-                    // console.log('[脚本插件] 未选择钱包，禁用执行按钮');
+                    console.warn('[脚本插件] TaskConfigManager 未初始化');
+                    return null;
                 }
-            } else {
-                // 不需要钱包的脚本，直接启用按钮
-                startTaskButton.disabled = false;
-                // console.log('[脚本插件] 不需要钱包，启用执行按钮');
-            }
+            },
+            moveTaskToBackground: window.moveTaskToBackground,
+            cleanupResources: window.cleanupResources,
+            renderBatchScriptCardsView: renderBatchScriptCardsView,
+            handleStartExecution: window.handleStartExecution,
+            switchToConfigStage: window.switchToConfigStage
         };
         
-        // 初始检查
-        setTimeout(() => {
-            updateStartButtonState();
-            // console.log('[脚本插件] 执行按钮状态初始检查完成');
-        }, 200);
-        
-        // 监听钱包选择变化
-        document.addEventListener('change', (e) => {
-            if (e.target.name === 'selected-wallets') {
-                updateStartButtonState();
-            }
-        });
-        
-        startTaskButton.addEventListener('click', async (event) => {
-            event.preventDefault();
-            await handleStartExecution(taskInstanceId, startTaskButton);
-        });
+        uiEventManager.bindAllUIEvents(taskInstanceId, managerPage, dependencies);
+    } else {
+        console.warn('[脚本插件] UIEventManager 未初始化，UI事件绑定不可用');
     }
 
-    // 返回配置按钮
-    const backToConfigBtn = managerPage.querySelector('#back-to-config-btn');
-    if (backToConfigBtn) {
-        backToConfigBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            
-            // 检查是否有正在运行的任务
-            const currentExecutionId = window.__currentExecutionId;
-            const isTaskRunning = currentExecutionId && window.__executionTimer;
-            
-            if (isTaskRunning) {
-                // 如果有正在运行的任务，保存到后台而不是停止
-                moveTaskToBackground(taskInstanceId);
-                console.log('[脚本插件] 任务已移至后台运行（从执行页面返回配置）');
-            }
-            
-            switchToConfigStage();
-        });
-    }
-
-        // 停止执行按钮 - 使用新的ScriptStopManager模块
+    // 停止执行按钮 - 使用新的ScriptStopManager模块
     if (scriptStopManager) {
         scriptStopManager.bindStopButtonEvent(taskInstanceId, managerPage);
     } else {
@@ -814,940 +735,9 @@ function bindModularManagerEvents(taskInstanceId) {
     }
 }
 
-// handleStartExecution 函数已移至 ScriptExecutionManager 模块
-
-// switchToExecutionStage 函数已移至 ScriptExecutionManager 模块
-
-// switchToConfigStage 函数已移至 ScriptExecutionManager 模块
-
-// setupScriptLogListeners 函数已移至 ScriptExecutionManager 模块
-
-// loadModuleContent 函数已移至 TaskConfigManager 模块
-
-// bindModuleSpecificInputEvents 函数已移至 TaskConfigManager 模块
-
-// saveCurrentModuleData 函数已移至 TaskConfigManager 模块
-
-// startExecutionTimer 函数已移至 ScriptExecutionManager 模块
-
-// cleanupResources 函数已移至 ScriptExecutionManager 模块
-
-/**
- * 添加紧凑任务管理器样式
- */
-function addCompactTaskStyles() {
-    if (document.getElementById('compact-task-styles')) return;
-    
-    const styleElement = document.createElement('style');
-    styleElement.id = 'compact-task-styles';
-    styleElement.textContent = `
-        /* 基础样式重置 - 限定在脚本插件页面 */
-        .plugin-page * {
-            box-sizing: border-box;
-        }
-        
-        /* 页面基础样式 - 限定在脚本插件页面 */
-        .plugin-page .page-header {
-            margin-bottom: 20px;
-        }
-        
-        .plugin-page .header-actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-        
-        /* 以下为 .batch-task-container 内部的样式，它们已经有较好的作用域，保持不变 */
-        .batch-task-container .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            background: #fff;
-            color: #495057;
-            text-decoration: none;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .batch-task-container .btn:hover {
-            border-color: #6c5ce7;
-            color: #6c5ce7;
-        }
-        
-        .batch-task-container .btn.btn-secondary {
-            border-color: #6c757d;
-            color: #6c757d;
-        }
-        
-        .batch-task-container .btn.btn-secondary:hover {
-            background: #6c757d;
-            color: #fff;
-        }
-        
-        /* 主容器 */
-        .batch-task-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            background: #f8f9fa;
-        }
-        
-        /* 顶部栏 */
-        .task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 20px;
-            background: #fff;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .header-nav {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .back-btn {
-            width: 32px;
-            height: 32px;
-            border: none;
-            background: transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #666;
-            transition: all 0.2s;
-        }
-        
-        .back-btn:hover {
-            background: #f0f0f0;
-            color: #333;
-        }
-        
-        .header-nav h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a1a1a;
-        }
-        
-        .header-status {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-size: 14px;
-        }
-        
-        .status-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .status-text {
-            color: #666;
-        }
-        
-        .timer {
-            font-family: monospace;
-            color: #666;
-        }
-        
-        /* 头部控制按钮 */
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .control-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: #fff;
-            color: #666;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-        
-        .control-btn:hover {
-            border-color: #bbb;
-            color: #333;
-            background: #f8f9fa;
-        }
-        
-        .control-btn.btn-secondary {
-            border-color: #6c757d;
-            color: #6c757d;
-        }
-        
-        .control-btn.btn-secondary:hover {
-            background: #6c757d;
-            color: #fff;
-        }
-        
-        .control-btn.btn-danger {
-            border-color: #dc3545;
-            color: #dc3545;
-        }
-        
-        .control-btn.btn-danger:hover {
-            background: #dc3545;
-            color: #fff;
-        }
-        
-        .control-btn i {
-            font-size: 12px;
-        }
-        
-        /* 主体区域 */
-        .task-body {
-            flex: 1;
-            overflow: hidden;
-        }
-        
-        /* 配置区域 */
-        .config-section {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .config-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        
-        .action-bar {
-            padding: 16px 20px;
-            background: #fff;
-            border-top: 1px solid #e9ecef;
-            text-align: center;
-        }
-        
-        /* 日志区域 */
-        .log-section {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            background: #fff;
-        }
-        
-        .log-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 20px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .log-info {
-            font-size: 14px;
-        }
-        
-        .log-title {
-            font-weight: 500;
-            color: #1a1a1a;
-            margin-right: 16px;
-        }
-        
-        .log-stats {
-            color: #666;
-        }
-        
-        .log-stats span {
-            font-weight: 500;
-            color: #1a1a1a;
-        }
-        
-        .log-actions {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .tool-btn {
-            width: 32px;
-            height: 32px;
-            border: none;
-            background: transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #666;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .tool-btn:hover {
-            background: #f0f0f0;
-            color: #333;
-        }
-        
-        .tool-btn.active {
-            background: #6c5ce7;
-            color: #fff;
-        }
-        
-        .log-container {
-            flex: 1;
-            padding: 16px;
-            overflow-y: auto;
-            font-family: 'SF Mono', Monaco, monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            background: #1e1e1e;
-            color: #d4d4d4;
-        }
-        
-        .log-entry {
-            margin-bottom: 4px;
-            display: flex;
-            align-items: flex-start;
-        }
-        
-        .log-time {
-            color: #858585;
-            margin-right: 12px;
-            flex-shrink: 0;
-        }
-        
-        .log-message {
-            flex: 1;
-            word-break: break-word;
-        }
-        
-        .log-type-info .log-message { color: #d4d4d4; }
-        .log-type-success .log-message { color: #4ec9b0; }
-        .log-type-warning .log-message { color: #dcdcaa; }
-        .log-type-error .log-message { color: #f48771; }
-        
-        .log-footer {
-            padding: 16px 20px;
-            background: #fff;
-            border-top: 1px solid #e9ecef;
-            text-align: center;
-        }
-        
-        /* 模块内容样式 */
-        .module-section {
-            background: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-        
-        .module-section h2 {
-            margin: 0 0 16px;
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a1a1a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        /* 钱包选择 */
-        .wallet-selection-section {
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        
-        /* 脚本信息卡片 */
-        .script-info-section {
-            margin-bottom: 20px;
-        }
-        
-        .info-card {
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            overflow: hidden;
-            background: #fff;
-        }
-        
-        .info-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 16px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 14px;
-            font-weight: 500;
-            color: #495057;
-        }
-        
-        .info-header i {
-            color: #6c757d;
-        }
-        
-        .info-content {
-            padding: 16px;
-        }
-        
-        .info-content p {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        
-        .info-content p:last-child {
-            margin-bottom: 0;
-        }
-        
-        .info-content strong {
-            color: #495057;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 13px;
-        }
-        
-        .wallet-actions {
-            display: flex;
-            gap: 6px;
-        }
-        
-        .wallet-actions .btn {
-            padding: 3px 8px;
-            font-size: 12px;
-        }
-        
-        .wallet-search-box {
-            padding: 8px 12px;
-            border-bottom: 1px solid #e9ecef;
-            position: relative;
-        }
-        
-        .wallet-search-box input {
-            width: 100%;
-            padding: 5px 8px;
-            padding-right: 28px;
-            font-size: 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-        
-        .wallet-search-box i {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-            font-size: 12px;
-        }
-        
-        .wallet-list {
-            max-height: 250px;
-            overflow-y: auto;
-        }
-        
-        /* 钱包分组样式 */
-        .wallet-group {
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .wallet-group:last-child {
-            border-bottom: none;
-        }
-        
-        .wallet-group-header {
-            display: flex;
-            align-items: center;
-            padding: 6px 12px;
-            background: #fafafa;
-            cursor: pointer;
-            font-size: 13px;
-            user-select: none;
-        }
-        
-        .wallet-group-header:hover {
-            background: #f5f5f5;
-        }
-        
-        .group-toggle {
-            margin-right: 6px;
-            color: #666;
-            font-size: 10px;
-            transition: transform 0.2s;
-        }
-        
-        .group-toggle.collapsed {
-            transform: rotate(-90deg);
-        }
-        
-        .group-checkbox {
-            margin-right: 8px;
-        }
-        
-        .group-name {
-            flex: 1;
-            font-weight: 500;
-            color: #333;
-        }
-        
-        .group-count {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .wallet-group-content {
-            display: block;
-        }
-        
-        .wallet-group-content.collapsed {
-            display: none;
-        }
-        
-        .wallet-item {
-            display: flex;
-            align-items: center;
-            padding: 6px 12px 6px 32px;
-            font-size: 12px;
-            transition: background 0.2s;
-        }
-        
-        .wallet-item:hover {
-            background: #f8f9fa;
-        }
-        
-        .wallet-item input[type="checkbox"] {
-            margin-right: 8px;
-        }
-        
-        .wallet-item label {
-            flex: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            margin: 0;
-        }
-        
-        .wallet-address {
-            font-family: monospace;
-            font-size: 11px;
-            color: #666;
-            margin-left: 8px;
-        }
-        
-        /* 代理配置样式优化 */
-        .proxy-section {
-            margin-top: 20px;
-        }
-        
-        .proxy-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        
-        .proxy-header label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        .proxy-config-content {
-            padding: 16px;
-            background: #f8f9fa;
-            border-radius: 6px;
-        }
-        
-        .proxy-strategy {
-            margin-bottom: 16px;
-        }
-        
-        .proxy-strategy label {
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 6px;
-            display: block;
-        }
-        
-        .proxy-strategy select {
-            padding: 6px 10px;
-            font-size: 13px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            background: #fff;
-        }
-        
-        .proxy-list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .proxy-list-title {
-            font-size: 13px;
-            color: #666;
-        }
-        
-        .refresh-proxy-btn {
-            padding: 4px 10px;
-            font-size: 12px;
-            background: transparent;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .refresh-proxy-btn:hover {
-            border-color: #6c5ce7;
-            color: #6c5ce7;
-        }
-        
-        /* 代理列表样式 */
-        .proxy-list-container {
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            background: #fff;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .proxy-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 16px;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
-        
-        .proxy-item:last-child {
-            border-bottom: none;
-        }
-        
-        .proxy-item:hover {
-            background: #f8f9fa;
-        }
-        
-        .proxy-item input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        
-        .proxy-item label {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .proxy-info {
-            flex: 1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .proxy-address {
-            color: #1a1a1a;
-            font-family: monospace;
-        }
-        
-        .proxy-location {
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .proxy-strategy-details {
-            margin-top: 12px;
-            padding: 12px;
-            background: #e9ecef;
-            border-radius: 4px;
-            font-size: 13px;
-            color: #666;
-        }
-        
-        /* 按钮样式 */
-        .batch-task-container .btn.btn-primary,
-        .background-tasks-panel .btn.btn-primary {
-            background: #6c5ce7;
-            color: #fff;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .batch-task-container .btn.btn-primary:hover:not(:disabled),
-        .background-tasks-panel .btn.btn-primary:hover:not(:disabled) {
-            background: #5a4cdb;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
-        }
-        
-        .batch-task-container .btn.btn-primary:disabled,
-        .background-tasks-panel .btn.btn-primary:disabled {
-            background: #e9ecef;
-            color: #adb5bd;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .batch-task-container .btn.btn-secondary,
-        .background-tasks-panel .btn.btn-secondary {
-            background: transparent;
-            color: #666;
-            border: 1px solid #dee2e6;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .batch-task-container .btn.btn-secondary:hover,
-        .background-tasks-panel .btn.btn-secondary:hover {
-            border-color: #6c5ce7;
-            color: #6c5ce7;
-        }
-        
-        .batch-task-container .btn.btn-danger,
-        .background-tasks-panel .btn.btn-danger {
-            background: #dc3545;
-            color: #fff;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .batch-task-container .btn.btn-danger:hover,
-        .background-tasks-panel .btn.btn-danger:hover {
-            background: #c82333;
-        }
-        
-        .btn-sm {
-            padding: 4px 10px;
-            font-size: 12px;
-        }
-        
-        /* 后台任务相关样式 */
-        .has-background-tasks {
-            background: #27ae60 !important;
-            color: #fff !important;
-            border-color: #27ae60 !important;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-        
-        .background-tasks-panel {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            width: 400px;
-            max-height: 500px;
-            background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            z-index: 1000;
-            overflow: hidden;
-        }
-        
-        .background-tasks-panel .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .background-tasks-panel .panel-header h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a1a1a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .background-tasks-panel .close-btn {
-            width: 28px;
-            height: 28px;
-            border: none;
-            background: transparent;
-            border-radius: 4px;
-            cursor: pointer;
-            color: #666;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .background-tasks-panel .close-btn:hover {
-            background: #e9ecef;
-            color: #333;
-        }
-        
-        .background-tasks-panel .panel-content {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 12px;
-        }
-        
-        .background-task-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 8px;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-        
-        .background-task-item:hover {
-            border-color: #6c5ce7;
-            background: #fff;
-        }
-        
-        .background-task-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .task-info {
-            flex: 1;
-        }
-        
-        .task-name {
-            font-size: 14px;
-            font-weight: 500;
-            color: #1a1a1a;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .task-details {
-            font-size: 12px;
-            color: #666;
-            display: flex;
-            gap: 12px;
-        }
-        
-        .task-status.running {
-            color: #27ae60;
-            font-weight: 500;
-        }
-        
-        .task-duration {
-            color: #666;
-        }
-        
-        .task-actions {
-            display: flex;
-            gap: 6px;
-        }
-        
-        .action-btn {
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-        
-        .action-btn.resume-btn {
-            background: #6c5ce7;
-            color: #fff;
-        }
-        
-        .action-btn.resume-btn:hover {
-            background: #5a4cdb;
-        }
-        
-        .action-btn.stop-btn {
-            background: #dc3545;
-            color: #fff;
-        }
-        
-        .action-btn.stop-btn:hover {
-            background: #c82333;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #666;
-        }
-        
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-        
-        .empty-state p {
-            margin: 0;
-            font-size: 14px;
-        }
-        
-        .text-success {
-            color: #27ae60 !important;
-        }
-        
-
-    `;
-    document.head.appendChild(styleElement);
-}
-
-// downloadLogs 函数已移至 ScriptExecutionManager 模块
-
-// moveTaskToBackground 函数已移至 BackgroundTaskManager 模块
-
-// restoreTaskFromBackground 和 getBackgroundTasks 函数已移至 BackgroundTaskManager 模块
-
-// stopBackgroundTask 函数已移至 BackgroundTaskManager 模块
-
-// updateBackgroundTaskIndicator 和 toggleBackgroundTasksPanel 函数已移至 BackgroundTaskManager 模块
-
-// renderBackgroundTasksList 和 formatDuration 函数已移至 BackgroundTaskManager 模块
+// ============================================================================
+// 后台任务相关功能
+// ============================================================================
 
 /**
  * 从面板恢复后台任务
@@ -1841,108 +831,78 @@ async function stopBackgroundTaskFromPanel(taskInstanceId) {
     }
 }
 
+// ============================================================================
+// 全局函数绑定
+// ============================================================================
+
 // 将函数绑定到全局作用域，供HTML使用
 window.resumeBackgroundTask = resumeBackgroundTask;
 window.stopBackgroundTaskFromPanel = stopBackgroundTaskFromPanel;
 window.navigateToModularTaskManager = navigateToModularTaskManager;
 
-// 调试工具函数已移至 DebugTools 模块
+// ============================================================================
+// 页面卸载和清理
+// ============================================================================
 
 /**
- * 初始化调试工具 (使用新的DebugTools模块)
- */
-async function initDebugTools() {
-    try {
-        // 动态导入DebugTools模块
-        const { default: DebugTools } = await import('./utils/DebugTools.js');
-        
-        // 调用静态初始化方法
-        DebugTools.initDebugTools();
-        console.log('[调试工具] DebugTools模块已初始化');
-        
-        // 设置兼容性函数
-        window.debugBackgroundTasks = window.__debugBackgroundTasks;
-        window.createTestBackgroundTask = window.__createTestBackgroundTask;
-        window.clearAllTestTasks = window.__clearAllTestTasks;
-        window.forceUpdateIndicator = window.__forceUpdateIndicator;
-        window.testBackgroundTaskFlow = window.__testBackgroundTaskFlow;
-        window.clearZombieTasks = window.__clearZombieTasks;
-        window.forceCleanZombies = window.__forceCleanZombies;
-        
-        } catch (error) {
-        console.error('[调试工具] DebugTools模块初始化失败:', error);
-        console.log('[调试工具] 调试功能将不可用');
-    }
-}
-
-// 测试函数已移至 DebugTools 模块
-
-/**
- * 页面卸载处理（供导航系统调用）
- * 在页面切换时自动保存运行中的任务到后台
+ * 页面卸载处理
  */
 export function onBatchScriptsPageUnload() {
     console.log('脚本插件页面卸载，清理资源...');
     window.__isBatchScriptsPageActive = false;
     
-    // 清理全局pageState引用
+    // 清理全局状态
     window.pageState = null;
-    
-    // 清理暴露的全局日志处理器
     window.globalLogEventHandler = null;
     window.globalScriptCompletedHandler = null;
     
-    // 清理任务配置管理器
-    if (taskConfigManager) {
-        taskConfigManager.cleanup();
-        taskConfigManager = null;
-    }
+    // 清理管理器实例
+    const managers = [
+        { name: '任务配置', instance: taskConfigManager, cleanup: () => taskConfigManager?.cleanup() },
+        { name: '脚本执行', instance: scriptExecutionManager, cleanup: () => scriptExecutionManager?.cleanup() },
+        { name: '脚本停止', instance: scriptStopManager, cleanup: () => scriptStopManager?.cleanup() },
+        { name: 'UI事件', instance: uiEventManager, cleanup: () => uiEventManager?.cleanup() },
+        { name: '样式管理', instance: styleManager, cleanup: () => styleManager?.cleanup() }
+    ];
     
-    // 清理脚本执行管理器
-    if (scriptExecutionManager) {
-        scriptExecutionManager.cleanup();
-        scriptExecutionManager = null;
-    }
+    managers.forEach(({ name, instance, cleanup }) => {
+        if (instance) {
+            cleanup();
+            console.log(`[${name}] 管理器已清理`);
+        }
+    });
     
-    // 清理脚本停止管理器
-    if (scriptStopManager) {
-        scriptStopManager.cleanup();
-        scriptStopManager = null;
-    }
-
-    // 移除由 addCompactTaskStyles 添加的特定样式
-    const compactTaskStyles = document.getElementById('compact-task-styles');
-    if (compactTaskStyles) {
-        compactTaskStyles.remove();
-        console.log('[BatchScripts] Compact task styles (ID: compact-task-styles) removed.');
-    }
+    // 重置管理器变量
+    taskConfigManager = null;
+    scriptExecutionManager = null;
+    scriptStopManager = null;
+    uiEventManager = null;
+    styleManager = null;
 
     // 清理全局监听器
-    if (globalLogUnsubscriber) {
-        try {
-            globalLogUnsubscriber();
-            globalLogUnsubscriber = null;
-            console.log('[脚本插件] 全局日志监听器已卸载');
-        } catch (e) {
-            console.warn('[脚本插件] 卸载全局日志监听器失败:', e);
+    [
+        { name: '日志监听器', unsubscriber: globalLogUnsubscriber },
+        { name: '完成监听器', unsubscriber: globalCompletedUnsubscriber }
+    ].forEach(({ name, unsubscriber }) => {
+        if (unsubscriber) {
+            try {
+                unsubscriber();
+                console.log(`[脚本插件] ${name}已卸载`);
+            } catch (e) {
+                console.warn(`[脚本插件] 卸载${name}失败:`, e);
+            }
         }
-    }
-    if (globalCompletedUnsubscriber) {
-        try {
-            globalCompletedUnsubscriber();
-            globalCompletedUnsubscriber = null;
-            console.log('[脚本插件] 全局完成监听器已卸载');
-        } catch (e) {
-            console.warn('[脚本插件] 卸载全局完成监听器失败:', e);
-        }
-    }
+    });
+    
+    globalLogUnsubscriber = null;
+    globalCompletedUnsubscriber = null;
 
-    // 其他清理逻辑...
+    // 清理资源和状态
     cleanupResources(); 
     pageState.currentBatchScriptType = null;
     pageState.currentView = VIEW_MODES.CARDS;
 
-    // 清理可能存在的计时器
+    // 清理计时器
     if (window.__executionTimer) {
         clearInterval(window.__executionTimer);
         window.__executionTimer = null;
@@ -1955,14 +915,11 @@ export function onBatchScriptsPageUnload() {
             console.warn('卸载页面时清理日志渲染器失败:', e);
         }
     }
-    
-    // 保存后台任务（如果需要）
-    // saveBackgroundTasksToStorage(); // 取决于是否希望在页面切换时也保存
 }
 
-// 模块级别变量
-let globalLogUnsubscriber = null;
-let globalCompletedUnsubscriber = null;
+// ============================================================================
+// 全局事件处理器
+// ============================================================================
 
 function globalLogEventHandler(data) {
     if (!data) return;
@@ -1970,19 +927,17 @@ function globalLogEventHandler(data) {
     const activeTaskInstanceId = window.__currentTaskInstanceId;
     const activeExecutionId = window.__currentExecutionId;
 
-    // 只在真正需要时修复中文乱码，避免破坏正常文本
+    // 中文乱码修复
     let originalMessage = data.message;
     let fixedMessage = originalMessage;
     
-    // 只对包含特定中文乱码模式的消息进行修复
     if (typeof originalMessage === 'string' && /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(originalMessage)) {
         if (typeof window.__fixChineseText === 'function') {
             fixedMessage = window.__fixChineseText(originalMessage);
         }
     }
 
-    // 日志是否属于当前在前台活动并显示UI的任务？
-    // 检查视图模式时同时支持常量和字符串形式
+    // 处理前台日志
     const isManagerView = pageState.currentView === VIEW_MODES.MANAGER || pageState.currentView === 'manager';
     if (data.executionId && activeExecutionId && data.executionId === activeExecutionId && 
         document.getElementById('taskLogContainer') && isManagerView) {
@@ -1999,7 +954,7 @@ function globalLogEventHandler(data) {
             console.error('[脚本插件日志] 处理前台日志失败:', e);
         }
     } else if (data.executionId) {
-        // 日志属于其他执行ID，检查是否是后台任务
+        // 处理后台日志
         const task = Array.from(backgroundTasks.values()).find(t => t.executionId === data.executionId);
         if (task) {
             if (!task.logHistory) {
@@ -2007,16 +962,14 @@ function globalLogEventHandler(data) {
             }
             task.logHistory.push({
                 level: data.level || 'info',
-                message: fixedMessage, // 使用修复后的消息
-                originalMessage: originalMessage, // 保留原始消息用于调试
+                message: fixedMessage,
+                originalMessage: originalMessage,
                 timestamp: data.timestamp || new Date().toISOString(),
                 executionId: data.executionId
             });
             if (task.logHistory.length > 200) {
                 task.logHistory.shift();
             }
-            // 仅在调试模式或特殊情况下打印后台日志，避免控制台输出过多
-            // console.log(`[后台日志] 记录到任务 ${task.taskInstanceId} (ExecID: ${data.executionId}): ${String(fixedMessage).substring(0,50)}...`);
         } else {
              console.log(`[脚本插件] 收到孤立日志 (ExecID: ${data.executionId}), 忽略.`);
         }
@@ -2030,7 +983,7 @@ function globalScriptCompletedHandler(data) {
 
     const activeTaskInstanceId = window.__currentTaskInstanceId;
     const activeExecutionId = window.__currentExecutionId;
-    const startButton = document.getElementById('start-execution-btn'); // 尝试获取开始按钮
+    const startButton = document.getElementById('start-execution-btn');
 
     const isManagerView = pageState.currentView === VIEW_MODES.MANAGER || pageState.currentView === 'manager';
     if (activeExecutionId && data.executionId === activeExecutionId && isManagerView) {
@@ -2052,8 +1005,7 @@ function globalScriptCompletedHandler(data) {
             window.__executionTimer = null;
         }
         
-        window.__currentExecutionId = null; // 清理当前执行ID
-        // window.__currentTaskInstanceId 通常在返回卡片页时清理，或在任务完全结束时
+        window.__currentExecutionId = null;
         window.__startTime = null;
 
         const statusText = document.getElementById('statusText');
@@ -2070,6 +1022,7 @@ function globalScriptCompletedHandler(data) {
         }
     }
 
+    // 处理后台任务完成
     const taskToRemoveEntry = Array.from(backgroundTasks.entries()).find(([taskId, task]) => task.executionId === data.executionId);
     if (taskToRemoveEntry) {
         backgroundTasks.delete(taskToRemoveEntry[0]);
@@ -2078,22 +1031,19 @@ function globalScriptCompletedHandler(data) {
         console.log(`[后台任务] 任务 ${taskToRemoveEntry[0]} (ExecID: ${data.executionId}) 执行完成，已从后台列表移除`);
     }
     
-    // 如果完成的脚本是当前UI正在显示的脚本，确保开始按钮被重置
-    // (即使它不是后台任务，但在前台完成了)
+    // 重置按钮状态
     if (pageState.currentBatchScriptType && 
         batchTaskConfigs[window.__currentTaskInstanceId]?.scriptTypeId === pageState.currentBatchScriptType.id &&
-        window.__currentTaskInstanceId?.includes(data.executionId) && // 这是一个不太可靠的检查，最好是直接比较 taskInstanceId
+        window.__currentTaskInstanceId?.includes(data.executionId) &&
         startButton && isManagerView) {
         
-        // 再次检查 executionId，因为上面可能已置null
-        if (window.__currentExecutionId_completed_check === data.executionId) { // 使用一个临时变量来避免覆盖
+        if (window.__currentExecutionId_completed_check === data.executionId) {
              if (startButton) {
                 startButton.disabled = false;
                 startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
              }
-             window.__currentExecutionId_completed_check = null; // 清理临时变量
+             window.__currentExecutionId_completed_check = null;
         }
     }
-    // 保存当前执行ID用于检查，以防它在回调中被修改
     window.__currentExecutionId_completed_check = activeExecutionId;
 }
