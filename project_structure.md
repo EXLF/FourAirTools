@@ -3,35 +3,63 @@
 本项目是一个基于 Electron 的桌面应用程序，具有丰富的功能，包括脚本执行、数据管理、IP代理等。
 
 ```
-fourAirtools/
-├── .cursorignore
+FourAir/
+├── .cursor/
 ├── .git/
-├── .gitignore
-├── index.html
+├── .github/  # (这个目录在之前的查看中没有列出，但通常存在于项目中)
+├── docs/
+│   ├── script-development-guide.md
+│   └── script-format-guide.md
 ├── node_modules/
-├── package-lock.json
-├── package.json
 ├── preload/
 │   └── webview-preload.js
-├── project_structure.md
-├── public
-├── README.md
+├── server/
+│   ├── available_scripts/
+│   │   └── wallet_balance_query_script.js
+│   ├── config/
+│   │   └── database.js
+│   ├── data/
+│   │   └── script_manifest.json
+│   ├── database/
+│   │   └── tutorials.sqlite
+│   ├── models/
+│   │   ├── index.js
+│   │   └── tutorial.js
+│   ├── public/
+│   │   ├── manage_scripts.html
+│   │   ├── manage_scripts.js
+│   │   ├── manage_tutorials.html
+│   │   └── manage_tutorials.js
+│   ├── package-lock.json
+│   ├── package.json
+│   └── server.js
 ├── src/
 │   ├── assets/
 │   │   └── icons/
 │   │       ├── across.png
 │   │       ├── arbiscan.png
 │   │       ├── binance.png
+│   │       ├── bitget.png
 │   │       ├── bscscan.png
+│   │       ├── bybit.png
 │   │       ├── chainlist.png
 │   │       ├── debank.png
 │   │       ├── default.svg
 │   │       ├── defillama.png
 │   │       ├── dune.png
 │   │       ├── etherscan.png
+│   │       ├── gate.png
 │   │       ├── hop.png
+│   │       ├── htx.png
+│   │       ├── kucoin.png
 │   │       ├── lifi.png
+│   │       ├── logo.png
+│   │       ├── logo16.ico
+│   │       ├── logo32.ico
+│   │       ├── logo48.ico
+│   │       ├── logo256.ico
 │   │       ├── metamask.png
+│   │       ├── mexc.png
 │   │       ├── okx.png
 │   │       ├── optimism.png
 │   │       ├── phantom.png
@@ -50,6 +78,7 @@ fourAirtools/
 │   │   │   ├── buttons.css
 │   │   │   ├── cards.css
 │   │   │   ├── forms.css
+│   │   │   ├── modal.css
 │   │   │   ├── modals.css
 │   │   │   ├── network.css
 │   │   │   ├── scriptCards.css
@@ -57,20 +86,25 @@ fourAirtools/
 │   │   │   ├── tables.css
 │   │   │   └── tags.css
 │   │   ├── pages/
+│   │   │   ├── batch-scripts.css
+│   │   │   ├── community.css
 │   │   │   ├── dashboard.css
 │   │   │   ├── plugins.css
-│   │   │   ├── projects.css
+│   │   │   ├── settings.css
 │   │   │   ├── social.css
+│   │   │   ├── tool-network.css
 │   │   │   ├── tools.css
-│   │   │   └── tutorials.css
+│   │   │   ├── tutorials.css
+│   │   │   └── wallets.css
 │   │   └── main.css
-│   ├── data/
-│   │   └── tutorials.json
 │   ├── js/
 │   │   ├── components/
+│   │   │   ├── calendar.js
+│   │   │   ├── confirm.js
 │   │   │   ├── modal.js
 │   │   │   ├── tableHelper.js
-│   │   │   └── toast.js
+│   │   │   ├── toast.js
+│   │   │   └── virtualScroll.js
 │   │   ├── core/
 │   │   │   ├── app.js
 │   │   │   ├── authSetup.js
@@ -78,6 +112,28 @@ fourAirtools/
 │   │   │   ├── globalListeners.js
 │   │   │   └── navigation.js
 │   │   ├── pages/
+│   │   │   ├── batchScripts/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── FilterPanel.js
+│   │   │   │   │   └── ScriptCard.js
+│   │   │   │   ├── config/
+│   │   │   │   │   └── constants.js
+│   │   │   │   ├── modules/
+│   │   │   │   │   ├── ProxyManager.js
+│   │   │   │   │   └── WalletGroupManager.js
+│   │   │   │   ├── utils/
+│   │   │   │   │   ├── formatters.js
+│   │   │   │   │   └── ipcHelper.js
+│   │   │   │   ├── batchTaskManager.js
+│   │   │   │   ├── createTask.js
+│   │   │   │   ├── index.backup.js
+│   │   │   │   ├── index.js
+│   │   │   │   ├── index.original.js
+│   │   │   │   ├── logger.js
+│   │   │   │   ├── scriptExecutionManager.js
+│   │   │   │   ├── taskDetail.js
+│   │   │   │   ├── taskRestoreDebug.js
+│   │   │   │   └── taskRestoreManager.js
 │   │   │   ├── community/
 │   │   │   │   └── index.js
 │   │   │   ├── dashboard/
@@ -93,11 +149,8 @@ fourAirtools/
 │   │   │   │   │   ├── table.js
 │   │   │   │   │   └── utils.js
 │   │   │   │   └── index.js
-│   │   │   ├── projects/
-│   │   │   │   └── index.js
 │   │   │   ├── settings/
-│   │   │   │   ├── index.js
-│   │   │   │   └── modals.js
+│   │   │   │   └── index.js
 │   │   │   ├── social/
 │   │   │   │   ├── actions.js
 │   │   │   │   ├── index.js
@@ -109,8 +162,6 @@ fourAirtools/
 │   │   │   ├── tutorials/
 │   │   │   │   └── index.js
 │   │   │   └── wallets/
-│   │   │       ├── actions.js
-│   │   │       ├── index.js
 │   │   │       ├── modals/
 │   │   │       │   ├── add-wallet-manual-modal.js
 │   │   │       │   ├── generate-wallets-modal.js
@@ -119,11 +170,18 @@ fourAirtools/
 │   │   │       │   ├── manage-groups-modal.js
 │   │   │       │   ├── view-details-modal.js
 │   │   │       │   └── wallet-form-modal.js
+│   │   │       ├── actions.js
+│   │   │       ├── index.js
 │   │   │       ├── modals.js
 │   │   │       └── table.js
-│   │   └── utils/
-│   │       ├── index.js
-│   │       └── locationTranslator.js
+│   │   ├── services/
+│   │   │   └── forgotPassword.js
+│   │   ├── utils/
+│   │   │   ├── batchWalletProcessor.js
+│   │   │   ├── index.js
+│   │   │   ├── locationTranslator.js
+│   │   │   └── performance.js
+│   │   └── updater-ui.js
 │   ├── main/
 │   │   ├── core/
 │   │   │   ├── cryptoService.js
@@ -140,37 +198,42 @@ fourAirtools/
 │   │   │   ├── dbHandlers.js
 │   │   │   ├── index.js
 │   │   │   └── proxyHandlers.js
+│   │   ├── services/
+│   │   │   └── scriptUpdaterService.js
 │   │   ├── index.js
 │   │   └── scriptEngine.js
-│   ├── preload.js
-│   └── templates/
-│       ├── batch-scripts.html
-│       ├── community.html
-│       ├── dashboard.html
-│       ├── network.html
-│       ├── projects.html
-│       ├── settings.html
-│       ├── social.html
-│       ├── tool-network.html
-│       ├── tools.html
-│       ├── tutorials.html
-│       └── wallets.html
-├── test_script_loading.js
-└── user_scripts/
-    ├── common/
-    │   ├── captcha/
-    │   │   ├── recaptchaV3.js
-    │   │   ├── recaptchaV3Solver.js
-    │   │   └── solver-wrapper.js
-    │   ├── http.js
-    │   ├── logger.js
-    │   ├── script-utils.js
-    │   └── web3.js
-    └── scripts/
-        ├── balance_check.js
-        ├── mira.js
-        ├── mira_chat_bot.js
-        └── print123.js
+│   ├── templates/
+│   │   ├── batch-scripts.html
+│   │   ├── community.html
+│   │   ├── dashboard.html
+│   │   ├── fingerprint-browser.html
+│   │   ├── settings.html
+│   │   ├── social.html
+│   │   ├── tool-network.html
+│   │   ├── tools.html
+│   │   ├── tutorials.html
+│   │   └── wallets.html
+│   └── preload.js
+├── user_scripts/
+│   └── common/
+│       ├── captcha/
+│       │   ├── recaptchaV3.js
+│       │   ├── recaptchaV3Solver.js
+│       │   └── solver-wrapper.js
+│       ├── http.js
+│       ├── logger.js
+│       ├── script-utils.js
+│       └── web3.js
+├── .buildignore
+├── .cursorignore
+├── .gitignore
+├── dev-app-update.yml
+├── index.html
+├── package-lock.json
+├── package.json
+├── project_structure.md
+├── public
+└── README.md
 ```
 
 ## 项目信息简要说明:
