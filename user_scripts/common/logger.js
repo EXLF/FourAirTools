@@ -7,6 +7,7 @@ class Logger {
   constructor(options = {}) {
     this.logCallbacks = [];
     this.prefix = options.prefix || '';
+    this.sendFunction = options.sendFunction;
   }
 
   /**
@@ -37,27 +38,55 @@ class Logger {
    */
   _log(level, message) {
     const timestamp = new Date().toLocaleTimeString();
-    const formattedMessage = `[${timestamp}] ${this.prefix}${message}`;
-    
-    // 控制台输出
+    const originalFormattedMessage = `[${timestamp}] ${this.prefix}${message}`;
+    let messageWithIcon = originalFormattedMessage;
+
+    // 根据级别添加图标，用于后续的 sendFunction 或 console 输出
     switch (level) {
       case 'success':
-        console.log(`✅ ${formattedMessage}`);
+        messageWithIcon = `✅ ${originalFormattedMessage}`;
         break;
       case 'warning':
-        console.warn(`⚠️ ${formattedMessage}`);
+        messageWithIcon = `⚠️ ${originalFormattedMessage}`;
         break;
       case 'error':
-        console.error(`❌ ${formattedMessage}`);
+        messageWithIcon = `❌ ${originalFormattedMessage}`;
         break;
-      default:
-        console.log(`ℹ️ ${formattedMessage}`);
+      default: // info
+        messageWithIcon = `ℹ️ ${originalFormattedMessage}`;
+        break;
     }
 
-    // 触发回调
+    if (typeof this.sendFunction === 'function') {
+      // 如果提供了 sendFunction，则使用它发送带图标的日志
+      try {
+        this.sendFunction(level, messageWithIcon);
+      } catch (e) {
+        // 如果 sendFunction 本身出错，回退到全局 console 打印错误和原始日志
+        console.error('Logger sendFunction 执行错误:', e);
+        console.log(`[FALLBACK LOG][${level}] ${messageWithIcon}`);
+      }
+    } else {
+      // 否则，回退到原来的控制台输出逻辑 (这里已经包含了图标)
+      switch (level) {
+        case 'success':
+          console.log(messageWithIcon);
+          break;
+        case 'warning':
+          console.warn(messageWithIcon);
+          break;
+        case 'error':
+          console.error(messageWithIcon);
+          break;
+        default:
+          console.log(messageWithIcon);
+      }
+    }
+
+    // 触发回调 (传递原始格式化消息，不带图标，回调方可自行处理)
     this.logCallbacks.forEach(callback => {
       try {
-        callback(level, formattedMessage);
+        callback(level, originalFormattedMessage);
       } catch (error) {
         console.error('日志回调函数执行错误:', error);
       }
