@@ -28,6 +28,8 @@ import { ProxyManager } from './modules/ProxyManager.js';
 import { detectIPC, getWallets, getProxies } from './utils/ipcHelper.js';
 import { setupGlobalChineseTextFix } from './utils/ChineseTextFixer.js';
 import { setupGlobalBackgroundTaskManager } from './utils/BackgroundTaskManager.js';
+import { setupGlobalTaskConfigManager } from './utils/TaskConfigManager.js';
+import { setupGlobalScriptExecutionManager } from './utils/ScriptExecutionManager.js';
 
 // 页面状态管理
 const pageState = {
@@ -198,6 +200,12 @@ let updateBackgroundTaskIndicator = null;
 let toggleBackgroundTasksPanel = null;
 let renderBackgroundTasksList = null;
 
+// 任务配置管理 - 使用新的TaskConfigManager模块
+let taskConfigManager = null;
+
+// 脚本执行管理 - 使用新的ScriptExecutionManager模块
+let scriptExecutionManager = null;
+
 /**
  * 初始化后台任务管理器 (使用新的模块化架构)
  */
@@ -214,6 +222,39 @@ function initGlobalBackgroundTaskManager() {
         renderBackgroundTasksList = window.renderBackgroundTasksList;
         
         console.log('[后台任务] 兼容性变量已设置，backgroundTasks:', backgroundTasks?.size || 0);
+    }
+}
+
+/**
+ * 初始化任务配置管理器 (使用新的TaskConfigManager模块)
+ */
+function initGlobalTaskConfigManager() {
+    if (!taskConfigManager) {
+        taskConfigManager = setupGlobalTaskConfigManager(pageState);
+        console.log('[任务配置] 新的TaskConfigManager模块已初始化');
+    }
+}
+
+/**
+ * 初始化脚本执行管理器 (使用新的ScriptExecutionManager模块)
+ */
+function initGlobalScriptExecutionManager() {
+    if (!scriptExecutionManager) {
+        const backgroundTaskHelpers = {
+            formatDuration: window.formatDuration,
+            restoreTaskFromBackground: window.restoreTaskFromBackground,
+            stopBackgroundTask: window.stopBackgroundTask,
+            saveBackgroundTasksToStorage: window.FABackgroundTaskManager?.saveToStorage,
+            updateBackgroundTaskIndicator: window.FABackgroundTaskManager?.updateIndicator
+        };
+        
+        scriptExecutionManager = setupGlobalScriptExecutionManager(
+            pageState, 
+            backgroundTasks, 
+            backgroundTaskHelpers, 
+            taskConfigManager
+        );
+        console.log('[脚本执行] 新的ScriptExecutionManager模块已初始化');
     }
 }
 
@@ -257,6 +298,12 @@ export async function initBatchScriptsPage(contentArea) {
     
     // 确保全局后台任务管理器已初始化
     initGlobalBackgroundTaskManager();
+    
+    // 初始化任务配置管理器
+    initGlobalTaskConfigManager();
+    
+    // 初始化脚本执行管理器
+    initGlobalScriptExecutionManager();
     
     // 初始化调试工具
     initDebugTools();
@@ -468,32 +515,32 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
     // 回退方案：使用原有的加载方式
     if (scriptsList.length === 0) {
         console.log('[脚本插件] 使用原有 API 方式加载脚本');
-        if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
-            try {
-                const result = await window.scriptAPI.getAllScripts();
-                if (result.success && Array.isArray(result.data)) {
-                    scriptsList = result.data.map(s => ({
-                        ...s,  // 保留所有原始字段，包括requires
-                        status: s.status || 'active',
-                        category: s.category || ''
-                    }));
-                    
-                    // 添加调试日志
+    if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
+        try {
+            const result = await window.scriptAPI.getAllScripts();
+            if (result.success && Array.isArray(result.data)) {
+                scriptsList = result.data.map(s => ({
+                    ...s,  // 保留所有原始字段，包括requires
+                    status: s.status || 'active',
+                    category: s.category || ''
+                }));
+                
+                // 添加调试日志
                     console.log('[脚本插件] 通过原有API加载的脚本数据:', scriptsList);
-                    const httpScript = scriptsList.find(script => script.id === 'http_request_test');
-                    if (httpScript) {
-                        console.log('[脚本插件] HTTP请求测试脚本数据:', httpScript);
-                        console.log('[脚本插件] HTTP脚本requires字段:', httpScript.requires);
-                    }
-                } else {
-                    console.error('获取脚本列表失败:', result.error);
+                const httpScript = scriptsList.find(script => script.id === 'http_request_test');
+                if (httpScript) {
+                    console.log('[脚本插件] HTTP请求测试脚本数据:', httpScript);
+                    console.log('[脚本插件] HTTP脚本requires字段:', httpScript.requires);
                 }
-            } catch (error) {
-                console.error('调用 getAllScripts 时出错:', error);
+            } else {
+                console.error('获取脚本列表失败:', result.error);
             }
-        } else {
-            console.warn('scriptAPI 未定义，使用静态脚本类型列表');
-            scriptsList = batchScriptTypes;
+        } catch (error) {
+            console.error('调用 getAllScripts 时出错:', error);
+        }
+    } else {
+        console.warn('scriptAPI 未定义，使用静态脚本类型列表');
+        scriptsList = batchScriptTypes;
         }
     }
 
@@ -602,19 +649,8 @@ function navigateToModularTaskManager(taskInstanceId) {
 
     pageState.contentAreaRef.innerHTML = templateHtml;
     
-    // 初始化任务配置
-    if (!batchTaskConfigs[taskInstanceId]) {
-        batchTaskConfigs[taskInstanceId] = {
-            scriptTypeId: pageState.currentBatchScriptType.id,
-            scriptName: pageState.currentBatchScriptType.name,
-            accounts: [],
-            proxyConfig: {
-                enabled: false,
-                strategy: 'one-to-one',
-                proxies: []
-            }
-        };
-    }
+    // 初始化任务配置 (使用新的TaskConfigManager)
+    taskConfigManager.initializeTaskConfig(taskInstanceId, pageState.currentBatchScriptType);
     
     bindModularManagerEvents(taskInstanceId);
     loadModuleContent('simple-config', taskInstanceId);
@@ -859,9 +895,9 @@ function bindModularManagerEvents(taskInstanceId) {
                                 startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
                             }
                         } else {
-                            // 恢复按钮状态
-                            stopTaskButton.disabled = false;
-                            stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
+                        // 恢复按钮状态
+                        stopTaskButton.disabled = false;
+                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
                         }
                     }
                 } else if (currentExecutionId && currentExecutionId.startsWith('mock_exec_')) {
@@ -951,9 +987,9 @@ function bindModularManagerEvents(taskInstanceId) {
                             startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
                         }
                     } else {
-                        // 恢复按钮状态
-                        stopTaskButton.disabled = false;
-                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
+                    // 恢复按钮状态
+                    stopTaskButton.disabled = false;
+                    stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
                     }
                 }
             } catch (error) {
@@ -968,931 +1004,23 @@ function bindModularManagerEvents(taskInstanceId) {
     }
 }
 
-/**
- * 处理开始执行任务
- * @param {string} taskInstanceId - 任务实例ID
- * @param {HTMLElement} startTaskButton - 开始按钮元素
- */
-async function handleStartExecution(taskInstanceId, startTaskButton) {
-    // 防止重复点击
-    if (startTaskButton.disabled) {
-        console.log('任务正在执行中，请勿重复点击');
-        return;
-    }
-    
-    // 保存任务实例ID到全局变量
-    window.__currentTaskInstanceId = taskInstanceId;
-    console.log('[脚本插件] 开始执行任务，任务实例ID:', taskInstanceId);
-    
-    // 记录开始时间（立即记录，不等待计时器）
-    window.__startTime = Date.now();
-    
-    // 检查是否已有相同脚本的后台任务在运行
-    const scriptId = pageState.currentBatchScriptType?.id;
-    const existingBackgroundTask = Array.from(backgroundTasks.values()).find(task => 
-        task.scriptType?.id === scriptId
-    );
-    
-    if (existingBackgroundTask) {
-        const userChoice = confirm(
-            `检测到该脚本已有任务在后台运行中！\n\n` +
-            `脚本名称: ${existingBackgroundTask.scriptType.name}\n` +
-            `运行时长: ${formatDuration(Date.now() - existingBackgroundTask.startTime)}\n\n` +
-            `点击"确定"查看现有任务\n` +
-            `点击"取消"停止现有任务并创建新任务`
-        );
-        
-        if (userChoice) {
-            // 用户选择查看现有任务
-            if (restoreTaskFromBackground(existingBackgroundTask.taskInstanceId)) {
-                // 切换到执行阶段
-                setTimeout(() => {
-                    const taskConfig = batchTaskConfigs[existingBackgroundTask.taskInstanceId];
-                    if (taskConfig) {
-                        switchToExecutionStage(taskConfig);
-                    }
-                }, 100);
-            }
-            return;
-        } else {
-            // 用户选择停止现有任务
-            await stopBackgroundTask(existingBackgroundTask.taskInstanceId);
-            console.log('[脚本插件] 已停止现有后台任务，准备创建新任务');
-        }
-    }
-    
-    // 立即禁用按钮
-    startTaskButton.disabled = true;
-    startTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 准备中...';
-    
-    saveCurrentModuleData(taskInstanceId);
-    
-    const taskConfig = batchTaskConfigs[taskInstanceId];
-    
-    // 检查当前脚本是否需要钱包
-    const scriptRequires = pageState.currentBatchScriptType?.requires;
-    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-    
-    // 验证配置
-    if (requiresWallets && taskConfig.accounts.length === 0) {
-        alert('请至少选择一个钱包账户');
-        startTaskButton.disabled = false;
-        startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-        return;
-    }
-    
-    if (taskConfig.proxyConfig.enabled) {
-        if (taskConfig.proxyConfig.proxies.length === 0) {
-            alert('已启用代理，但代理列表为空。请添加代理或禁用代理功能。');
-            startTaskButton.disabled = false;
-            startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-            return;
-        }
-        
-        if (taskConfig.proxyConfig.strategy === 'one-to-one' && 
-            taskConfig.proxyConfig.proxies.length < taskConfig.accounts.length) {
-            alert(`一对一代理策略需要至少与钱包数量相同的代理IP。\n当前钱包数量: ${taskConfig.accounts.length}\n当前代理数量: ${taskConfig.proxyConfig.proxies.length}`);
-            startTaskButton.disabled = false;
-            startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-            return;
-        }
-    }
-    
-    // 切换到执行阶段界面
-    switchToExecutionStage(taskConfig);
-    
-    // 清理旧的监听器和日志，但保留任务实例ID
-    cleanupResources(true);
-    
-    // 初始化日志
-    const logContainer = document.getElementById('taskLogContainer');
-    if (logContainer) {
-        TaskLogger.clearLogContainer(logContainer);
-        const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
-        window.__currentLogCleanup = cleanupLogRender;
-        
-        TaskLogger.logInfo('🚀 脚本插件执行系统已初始化');
-        TaskLogger.logInfo(`📋 任务名称: ${pageState.currentBatchScriptType.name}`);
-        
-        if (requiresWallets) {
-            TaskLogger.logInfo(`👥 选择的钱包数量: ${taskConfig.accounts.length}`);
-        } else {
-            TaskLogger.logInfo(`🔧 脚本类型: 通用工具脚本（无需钱包）`);
-        }
-        
-        if (taskConfig.proxyConfig.enabled) {
-            TaskLogger.logInfo(`🌐 代理配置: ${taskConfig.proxyConfig.strategy} 策略，共 ${taskConfig.proxyConfig.proxies.length} 个代理`);
-        }
-    }
-    
-    // 创建任务实例
-    const batchTaskManager = new BatchTaskManager();
-    const taskData = {
-        id: taskInstanceId,
-        name: `${pageState.currentBatchScriptType.name} 批量任务`,
-        scriptId: pageState.currentBatchScriptType.id,
-        scriptName: pageState.currentBatchScriptType.name,
-        accountIds: taskConfig.accounts,
-        proxyConfig: taskConfig.proxyConfig,
-        status: 'running',
-        startTime: Date.now()
-    };
-    
-    try {
-        await batchTaskManager.addTask(taskData);
-        TaskLogger.logInfo(`任务 ${taskInstanceId} 已创建并保存到任务管理器`);
-    } catch (err) {
-        console.warn('添加到批量任务管理器失败:', err);
-        TaskLogger.logWarning('无法保存任务状态，但脚本执行不受影响');
-    }
-    
-    // 执行脚本
-    if (window.scriptAPI && typeof window.scriptAPI.executeScript === 'function') {
-        startTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
-        
-        const scriptConfig = {
-            batchMode: true,
-            timestamp: Date.now(),
-            taskId: taskInstanceId
-        };
-        
-        // 准备代理配置
-        let actualProxyConfigToPass = null;
-        if (taskConfig.proxyConfig.enabled && taskConfig.proxyConfig.proxies.length > 0) {
-            actualProxyConfigToPass = {
-                strategy: taskConfig.proxyConfig.strategy,
-                proxies: taskConfig.proxyConfig.proxies
-            };
-        }
-        
-        // 注册日志监听（确保只注册一次）
-        setupScriptLogListeners(taskInstanceId, startTaskButton);
-        
-        try {
-            console.log('[脚本插件] 开始执行脚本...');
-            const result = await window.scriptAPI.executeScript(
-                pageState.currentBatchScriptType.id,
-                taskConfig.accounts,
-                scriptConfig,
-                actualProxyConfigToPass
-            );
-            
-            if (result && result.success && result.data && result.data.executionId) {
-                // 调用新的 setupScriptLogListeners 来设置 executionId 并准备UI
-                setupScriptLogListeners(taskInstanceId, startTaskButton, result.data.executionId);
-                
-                console.log('[脚本执行] 成功启动，执行ID:', result.data.executionId);
-                TaskLogger.logInfo(`✅ 脚本启动成功，执行ID: ${result.data.executionId}`);
+// handleStartExecution 函数已移至 ScriptExecutionManager 模块
 
-                const stopBtn = document.getElementById('stop-btn');
-                if (stopBtn) {
-                    stopBtn.style.display = 'inline-flex';
-                }
-            } else {
-                // 处理 executeScript 失败或未返回 executionId 的情况
-                TaskLogger.logError(`启动脚本失败: ${result?.error || '未获得执行ID'}`);
-                switchToConfigStage(); 
-                startTaskButton.disabled = false;
-                startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-            }
-        } catch (err) {
-            console.error('[脚本插件] 执行失败:', err);
-            TaskLogger.logError(`执行失败: ${err.message || err}`);
-            switchToConfigStage();
-            startTaskButton.disabled = false;
-            startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-        }
-    } else {
-        console.warn('脚本执行接口未定义，使用模拟执行');
-        TaskLogger.logWarning('脚本执行接口未定义，将模拟执行过程');
-        
-        // 在模拟模式下也生成执行ID
-        window.__currentExecutionId = 'mock_exec_' + taskInstanceId.split('_').pop();
-        console.log('[脚本插件] 模拟执行ID已生成:', window.__currentExecutionId);
-        
-        // 显示停止按钮
-        const stopBtn = document.getElementById('stop-btn');
-        if (stopBtn) {
-            stopBtn.style.display = 'inline-flex';
-        }
-        
-        // 模拟执行过程
-        setTimeout(() => {
-            TaskLogger.logInfo('开始模拟执行...');
-            
-            // 检查当前脚本是否需要钱包
-            const scriptRequires = pageState.currentBatchScriptType?.requires;
-            const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-            
-            let completed = 0;
-            const total = requiresWallets ? taskConfig.accounts.length : 1; // 不需要钱包的脚本只执行一次
-            
-            // 创建独立的模拟执行函数，不依赖DOM
-            const simulateTask = () => {
-                // 检查任务是否还在运行（通过检查后台任务或当前执行ID）
-                const isInBackground = backgroundTasks.has(taskInstanceId);
-                const isInForeground = window.__currentExecutionId === 'mock_exec_' + taskInstanceId.split('_').pop();
-                
-                if (!isInBackground && !isInForeground) {
-                    // 任务被停止
-                    console.log('[脚本插件] 模拟执行被停止');
-                    return;
-                }
-                
-                if (completed < total) {
-                    completed++;
-                    const logMsg = requiresWallets 
-                        ? `账户 ${completed}/${total} 执行成功`
-                        : `脚本执行成功`;
-                    
-                    // 如果在前台，使用TaskLogger
-                    if (isInForeground && typeof TaskLogger !== 'undefined' && TaskLogger.logSuccess) {
-                        TaskLogger.logSuccess(logMsg);
-                    } else {
-                        // 在后台，只记录日志
-                        console.log('[后台执行]', logMsg);
-                    }
-                    
-                    // 只有在前台执行时才更新UI
-                    if (isInForeground) {
-                        const successCountElement = document.getElementById('successCount');
-                        if (successCountElement) {
-                            successCountElement.textContent = completed;
-                        }
-                    }
-                    
-                    // 继续下一次执行
-                    setTimeout(simulateTask, 1000);
-                } else {
-                    // 执行完成
-                    console.log('[脚本插件] 模拟执行完成');
-                    
-                    // 如果在前台，显示完成信息
-                    if (isInForeground && typeof TaskLogger !== 'undefined') {
-                        TaskLogger.logSuccess('✅ 脚本插件执行完成！');
-                        TaskLogger.logInfo(`📊 执行总结:`);
-                        if (requiresWallets) {
-                            TaskLogger.logInfo(`   - 总账户数: ${total}`);
-                        } else {
-                            TaskLogger.logInfo(`   - 脚本类型: 通用工具脚本`);
-                        }
-                        TaskLogger.logInfo(`   - 成功: ${completed}`);
-                        TaskLogger.logInfo(`   - 失败: 0`);
-                        TaskLogger.logInfo(`   - 耗时: 模拟执行`);
-                    }
-                    
-                    // 清理后台任务
-                    if (isInBackground) {
-                        backgroundTasks.delete(taskInstanceId);
-                        saveBackgroundTasksToStorage();
-                        updateBackgroundTaskIndicator();
-                    }
-                    
-                    // 清理前台资源
-                    if (isInForeground) {
-                        // 停止计时器
-                        if (window.__executionTimer) {
-                            clearInterval(window.__executionTimer);
-                            window.__executionTimer = null;
-                        }
-                        
-                        // 更新状态
-                        const statusText = document.getElementById('statusText');
-                        if (statusText) {
-                            statusText.textContent = '已完成';
-                            statusText.style.color = '#27ae60';
-                        }
-                        
-                        // 隐藏停止按钮
-                        const stopBtnElement = document.getElementById('stop-btn');
-                        if (stopBtnElement) {
-                            stopBtnElement.style.display = 'none';
-                        }
-                        
-                        // 重置开始按钮状态
-                        if (startTaskButton) {
-                            startTaskButton.disabled = false;
-                            startTaskButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                        }
-                        
-                        // 清理监听器
-                        if (window.__currentLogUnsubscribers) {
-                            window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                                if (typeof unsubscribe === 'function') {
-                                    unsubscribe();
-                                }
-                            });
-                            window.__currentLogUnsubscribers = null;
-                        }
-                    }
-                }
-            };
-            
-            // 保存模拟任务引用，以便后台运行
-            window[`__mockTask_${taskInstanceId}`] = simulateTask;
-            
-            // 开始执行
-            simulateTask();
-        }, 1000);
-    }
-}
+// switchToExecutionStage 函数已移至 ScriptExecutionManager 模块
 
-/**
- * 切换到执行阶段
- * @param {Object} taskConfig - 任务配置
- */
-function switchToExecutionStage(taskConfig) {
-    // 隐藏配置区域，显示日志区域
-    const configSection = document.getElementById('configSection');
-    const logSection = document.getElementById('logSection');
-    
-    if (configSection) {
-        configSection.style.display = 'none';
-    }
-    
-    if (logSection) {
-        logSection.style.display = 'flex'; // 日志区域也使用flex布局
-    }
-    
-    // 显示头部控制按钮
-    const headerControls = document.getElementById('headerControls');
-    if (headerControls) {
-        headerControls.style.display = 'flex';
-    }
-    
-    // 显示停止按钮
-    const stopBtn = document.getElementById('stop-btn');
-    if (stopBtn) {
-        stopBtn.style.display = 'inline-flex';
-    }
-    
-    // 更新状态
-    const statusText = document.getElementById('statusText');
-    if (statusText) {
-        statusText.textContent = '执行中';
-        statusText.style.color = '#f39c12';
-    }
-    
-    // 显示计时器
-    const timerElement = document.getElementById('timer');
-    if (timerElement) {
-        timerElement.style.display = 'inline';
-    }
-    
-    // 更新统计信息
-    const scriptRequires = pageState.currentBatchScriptType?.requires;
-    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-    const totalCount = requiresWallets ? taskConfig.accounts.length : 1; // 不需要钱包的脚本显示1个任务
-    
-    document.getElementById('totalCount').textContent = totalCount;
-    document.getElementById('successCount').textContent = '0';
-    document.getElementById('failCount').textContent = '0';
-    
-    // 开始计时
-    startExecutionTimer();
-}
+// switchToConfigStage 函数已移至 ScriptExecutionManager 模块
 
-/**
- * 切换回配置阶段
- */
-function switchToConfigStage() {
-    // 显示配置区域，隐藏日志区域
-    const configSection = document.getElementById('configSection');
-    const logSection = document.getElementById('logSection');
-    
-    if (configSection) {
-        // 确保配置区域使用正确的flex布局
-        configSection.style.display = 'flex';
-        configSection.style.flexDirection = 'column';
-        configSection.style.height = '100%';
-    }
-    
-    if (logSection) {
-        logSection.style.display = 'none';
-    }
-    
-    // 隐藏头部控制按钮
-    const headerControls = document.getElementById('headerControls');
-    if (headerControls) {
-        headerControls.style.display = 'none';
-    }
-    
-    // 更新状态
-    const statusText = document.getElementById('statusText');
-    if (statusText) {
-        statusText.textContent = '配置中';
-        statusText.style.color = '#666';
-    }
-    
-    // 隐藏计时器
-    const timerElement = document.getElementById('timer');
-    if (timerElement) {
-        timerElement.style.display = 'none';
-    }
-    
-    // 只有在没有后台任务时才停止计时器（避免停止后台脚本）
-    const hasBackgroundTasks = backgroundTasks.size > 0;
-    if (!hasBackgroundTasks && window.__executionTimer) {
-        clearInterval(window.__executionTimer);
-        window.__executionTimer = null;
-        console.log('[脚本插件] 没有后台任务，停止计时器');
-    } else if (hasBackgroundTasks) {
-        console.log('[脚本插件] 存在后台任务，保持计时器运行');
-    }
-    
-    // 确保配置内容区域恢复正确的样式
-    const configContent = document.getElementById('moduleContentDisplay');
-    if (configContent) {
-        // 确保内容区域有正确的flex属性
-        configContent.style.flex = '1';
-        configContent.style.overflowY = 'auto';
-        configContent.style.padding = '20px';
-    }
-    
-    // 确保操作栏恢复正确的样式
-    const actionBar = document.querySelector('.action-bar');
-    if (actionBar) {
-        actionBar.style.display = 'block';
-        actionBar.style.padding = '16px 20px';
-        actionBar.style.background = '#fff';
-        actionBar.style.borderTop = '1px solid #e9ecef';
-        actionBar.style.textAlign = 'center';
-    }
-    
-    // 强制重新渲染，确保布局正确
-    setTimeout(() => {
-        if (configSection) {
-            // 触发重新布局
-            configSection.offsetHeight;
-        }
-    }, 10);
-}
+// setupScriptLogListeners 函数已移至 ScriptExecutionManager 模块
 
-/**
- * 设置脚本日志监听器
- * @param {string} taskInstanceId - 任务实例ID
- * @param {HTMLElement} startTaskButton - 开始按钮元素
- */
-function setupScriptLogListeners(taskInstanceId, startTaskButton, executionIdToSet) {
-    // 确保执行ID正确设置
-    window.__currentTaskInstanceId = taskInstanceId;
-    if (executionIdToSet) {
-        window.__currentExecutionId = executionIdToSet;
-        console.log('[脚本插件] 设置执行ID:', executionIdToSet);
-    }
+// loadModuleContent 函数已移至 TaskConfigManager 模块
 
-    if (window.__currentLogCleanup) {
-        try {
-            window.__currentLogCleanup();
-        } catch(e) { console.warn("清理旧日志渲染器失败", e); }
-        window.__currentLogCleanup = null;
-    }
+// bindModuleSpecificInputEvents 函数已移至 TaskConfigManager 模块
 
-    const logContainer = document.getElementById('taskLogContainer');
-    if (logContainer && pageState.currentView === VIEW_MODES.MANAGER) {
-        TaskLogger.clearLogContainer(logContainer);
-        const cleanupLogRender = TaskLogger.renderLogsToContainer(logContainer, true);
-        window.__currentLogCleanup = cleanupLogRender;
-        
-        if (executionIdToSet) {
-            TaskLogger.logInfo(`🎯 开始监听任务 ${taskInstanceId} (执行ID: ${executionIdToSet}) 的日志...`);
-        } else {
-            TaskLogger.logInfo(`📝 开始记录任务 ${taskInstanceId} 的日志...`);
-        }
-    }
-    
-    console.log(`[脚本插件] 已设置当前活动任务: taskInstanceId=${taskInstanceId}, executionId=${executionIdToSet || 'none'}`);
-    
-    // 验证执行ID设置
-    setTimeout(() => {
-        if (window.__currentExecutionId !== executionIdToSet && executionIdToSet) {
-            console.warn('[脚本插件] 执行ID设置验证失败，重新设置');
-            window.__currentExecutionId = executionIdToSet;
-        }
-    }, 100);
-}
+// saveCurrentModuleData 函数已移至 TaskConfigManager 模块
 
-/**
- * 加载模块内容
- * @param {string} moduleId - 模块ID
- * @param {string} taskInstanceId - 任务实例ID
- */
-async function loadModuleContent(moduleId, taskInstanceId) {
-    const moduleContentDisplay = document.getElementById('moduleContentDisplay');
-    if (!moduleContentDisplay) return;
-    
-    const taskConfig = batchTaskConfigs[taskInstanceId];
-    
-    try {
-        // 获取钱包和代理数据
-        const [availableWallets, availableProxies] = await Promise.all([
-            getWallets(),
-            getProxies()
-        ]);
-        
-        pageState.proxyManager.setAvailableProxies(availableProxies);
-        
-        // 如果当前没有选择代理但有可用代理，则预填充所有代理
-        if (taskConfig.proxyConfig.proxies.length === 0 && availableProxies.length > 0) {
-            taskConfig.proxyConfig.proxies = availableProxies.map(proxy => pageState.proxyManager.formatProxy(proxy));
-            console.log('预填充代理列表:', taskConfig.proxyConfig.proxies);
-        }
-        
-        // 检查当前脚本是否需要钱包
-        const scriptRequires = pageState.currentBatchScriptType?.requires;
-        const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-        
-        // 生成模块内容HTML
-        let moduleHtml = '';
-        
-        if (requiresWallets) {
-            // 需要钱包的脚本显示完整配置
-            const walletGroups = pageState.walletGroupManager.groupWallets(availableWallets);
-            const walletGroupsHtml = pageState.walletGroupManager.generateWalletGroupsHTML(walletGroups, taskInstanceId);
-            const proxyConfigHtml = pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
-            
-            moduleHtml = `
-                <div class="module-section">
-                    <h2><i class="fas fa-wallet"></i> 选择钱包账户</h2>
-                    <div class="wallet-selection-section">
-                        <div class="section-header">
-                            <span id="selected-wallet-count-${taskInstanceId}">已选择 0 个钱包</span>
-                            <div class="wallet-actions">
-                                <button class="btn btn-sm" id="select-all-wallets-${taskInstanceId}">全选</button>
-                                <button class="btn btn-sm" id="deselect-all-wallets-${taskInstanceId}">取消全选</button>
-                            </div>
-                        </div>
-                        <div class="wallet-search-box">
-                            <input type="text" id="wallet-search-${taskInstanceId}" placeholder="搜索钱包...">
-                            <i class="fas fa-search"></i>
-                        </div>
-                        <div id="wallet-list-${taskInstanceId}" class="wallet-list">
-                            ${walletGroupsHtml}
-                        </div>
-                    </div>
-                    
-                    ${proxyConfigHtml}
-                </div>
-            `;
-        } else {
-            // 不需要钱包的脚本显示简化配置
-            const proxyConfigHtml = pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
-            
-            moduleHtml = `
-                <div class="module-section">
-                    <h2><i class="fas fa-cog"></i> 脚本配置</h2>
-                    <div class="script-info-section">
-                        <div class="info-card">
-                            <div class="info-header">
-                                <i class="fas fa-info-circle"></i>
-                                <span>脚本信息</span>
-                            </div>
-                            <div class="info-content">
-                                <p><strong>脚本名称：</strong>${pageState.currentBatchScriptType.name}</p>
-                                <p><strong>脚本类型：</strong>通用工具脚本</p>
-                                <p><strong>说明：</strong>此脚本不需要钱包账户，可直接执行</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    ${proxyConfigHtml}
-                </div>
-            `;
-        }
-        
-        moduleContentDisplay.innerHTML = moduleHtml;
-        
-        // 初始化钱包分组折叠功能
-        pageState.walletGroupManager.initWalletGroupCollapse();
-        
-        // 绑定事件
-        bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies);
-        
-        // 修复：确保在DOM更新后再次初始化折叠功能
-        setTimeout(() => {
-            pageState.walletGroupManager.initWalletGroupCollapse();
-        }, 100);
-        
-        // 如果IPC不可用，显示警告
-        if (!detectIPC()) {
-            const warningDiv = document.createElement('div');
-            warningDiv.className = 'warning-banner';
-            warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 注意：当前使用的是模拟数据，因为IPC通信未配置。真实数据不可用。';
-            moduleContentDisplay.insertBefore(warningDiv, moduleContentDisplay.firstChild);
-        }
-        
-        // 对于不需要钱包的脚本，手动触发按钮状态更新
-        if (!requiresWallets) {
-            setTimeout(() => {
-                const startTaskButton = document.getElementById('start-execution-btn');
-                if (startTaskButton) {
-                    startTaskButton.disabled = false;
-                    console.log('[脚本插件] 不需要钱包的脚本，已启用执行按钮');
-                }
-            }, 100);
-        }
-        
-    } catch (error) {
-        console.error('加载模块内容失败:', error);
-        moduleContentDisplay.innerHTML = '<div class="error-message">加载配置失败，请刷新页面重试</div>';
-    }
-}
+// startExecutionTimer 函数已移至 ScriptExecutionManager 模块
 
-/**
- * 绑定模块特定的输入事件
- * @param {string} moduleId - 模块ID
- * @param {string} taskInstanceId - 任务实例ID
- * @param {Array} availableProxies - 可用代理列表
- */
-function bindModuleSpecificInputEvents(moduleId, taskInstanceId, availableProxies) {
-    const taskConfig = batchTaskConfigs[taskInstanceId];
-    const scriptRequires = pageState.currentBatchScriptType?.requires;
-    const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
-    
-    // 钱包选择相关事件（仅对需要钱包的脚本）
-    if (requiresWallets) {
-        const walletsListDiv = document.getElementById(`wallet-list-${taskInstanceId}`);
-        
-        if (walletsListDiv) {
-            // 更新选中计数的函数
-            const updateSelectedCount = () => {
-                const selectedWallets = walletsListDiv.querySelectorAll('input[name="selected-wallets"]:checked');
-                const countElement = document.getElementById(`selected-wallet-count-${taskInstanceId}`);
-                if (countElement) {
-                    countElement.textContent = `已选择 ${selectedWallets.length} 个钱包`;
-                }
-                
-                // 更新任务配置
-                taskConfig.accounts = Array.from(selectedWallets).map(cb => cb.value);
-                
-                // 更新代理策略详情
-                pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
-            };
-            
-            // 钱包复选框变化事件
-            walletsListDiv.addEventListener('change', (e) => {
-                if (e.target.name === 'selected-wallets') {
-                    updateSelectedCount();
-                    
-                    // 更新分组复选框状态
-                    const group = e.target.dataset.group;
-                    if (group) {
-                        pageState.walletGroupManager.updateGroupCheckboxState(group, walletsListDiv);
-                    }
-                }
-                
-                // 分组复选框
-                if (e.target.classList.contains('group-checkbox')) {
-                    const group = e.target.dataset.group;
-                    pageState.walletGroupManager.handleGroupCheckboxChange(group, e.target.checked, walletsListDiv);
-                    updateSelectedCount(); // 更新总计数
-                }
-            });
-            
-            // 全选/取消全选按钮
-            const selectAllBtn = document.getElementById(`select-all-wallets-${taskInstanceId}`);
-            const deselectAllBtn = document.getElementById(`deselect-all-wallets-${taskInstanceId}`);
-            
-            if (selectAllBtn) {
-                selectAllBtn.addEventListener('click', () => {
-                    walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
-                        cb.checked = true;
-                        cb.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                });
-            }
-            
-            if (deselectAllBtn) {
-                deselectAllBtn.addEventListener('click', () => {
-                    walletsListDiv.querySelectorAll('input[name="selected-wallets"]').forEach(cb => {
-                        cb.checked = false;
-                        cb.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                });
-            }
-            
-            // 钱包搜索功能
-            const walletSearchInput = document.getElementById(`wallet-search-${taskInstanceId}`);
-            if (walletSearchInput) {
-                walletSearchInput.addEventListener('input', (e) => {
-                    const searchTerm = e.target.value.toLowerCase();
-                    const walletItems = walletsListDiv.querySelectorAll('.wallet-item');
-                    
-                    walletItems.forEach(item => {
-                        const label = item.querySelector('label').textContent.toLowerCase();
-                        item.style.display = label.includes(searchTerm) ? '' : 'none';
-                    });
-                    
-                    // 更新分组显示
-                    const walletGroups = walletsListDiv.querySelectorAll('.wallet-group');
-                    walletGroups.forEach(group => {
-                        const visibleItems = group.querySelectorAll('.wallet-item:not([style*="display: none"])');
-                        group.style.display = visibleItems.length > 0 ? '' : 'none';
-                    });
-                });
-            }
-        }
-    }
-    
-    // 代理配置相关事件
-    const proxyEnabledCheckbox = document.getElementById(`proxy-enabled-${taskInstanceId}`);
-    const proxyConfigContent = document.getElementById(`proxy-config-content-${taskInstanceId}`);
-    const proxyStrategySelect = document.getElementById(`proxy-strategy-${taskInstanceId}`);
-    const refreshProxyBtn = document.getElementById(`refresh-proxy-list-${taskInstanceId}`);
-    
-    if (proxyEnabledCheckbox) {
-        proxyEnabledCheckbox.addEventListener('change', (e) => {
-            taskConfig.proxyConfig.enabled = e.target.checked;
-            if (proxyConfigContent) {
-                proxyConfigContent.style.display = e.target.checked ? '' : 'none';
-            }
-            if (e.target.checked) {
-                pageState.proxyManager.reloadProxyList(taskInstanceId, taskConfig);
-                pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
-            }
-        });
-    }
-    
-    if (proxyStrategySelect) {
-        proxyStrategySelect.addEventListener('change', (e) => {
-            taskConfig.proxyConfig.strategy = e.target.value;
-            pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
-        });
-    }
-    
-    if (refreshProxyBtn) {
-        refreshProxyBtn.addEventListener('click', async () => {
-            try {
-                const proxies = await getProxies();
-                pageState.proxyManager.setAvailableProxies(proxies);
-                pageState.proxyManager.reloadProxyList(taskInstanceId, taskConfig);
-            } catch (error) {
-                console.error('刷新代理列表失败:', error);
-            }
-        });
-    }
-    
-    // 初始化代理列表
-    if (taskConfig.proxyConfig.enabled) {
-        pageState.proxyManager.reloadProxyList(taskInstanceId, taskConfig);
-        pageState.proxyManager.updateProxyStrategyDetails(taskInstanceId, taskConfig);
-    }
-}
-
-/**
- * 保存当前模块数据
- * @param {string} taskInstanceId - 任务实例ID
- */
-function saveCurrentModuleData(taskInstanceId) {
-    const taskConfig = batchTaskConfigs[taskInstanceId];
-    if (!taskConfig) return;
-    
-    // 保存钱包选择
-    const selectedWallets = document.querySelectorAll(`input[name="selected-wallets"]:checked`);
-    taskConfig.accounts = Array.from(selectedWallets).map(cb => cb.value);
-    
-    // 保存代理配置
-    const proxyEnabledCheckbox = document.getElementById(`proxy-enabled-${taskInstanceId}`);
-    if (proxyEnabledCheckbox) {
-        taskConfig.proxyConfig.enabled = proxyEnabledCheckbox.checked;
-    }
-    
-    const proxyStrategySelect = document.getElementById(`proxy-strategy-${taskInstanceId}`);
-    if (proxyStrategySelect) {
-        taskConfig.proxyConfig.strategy = proxyStrategySelect.value;
-    }
-    
-    console.log(`保存任务配置 ${taskInstanceId}:`, taskConfig);
-}
-
-/**
- * 开始执行计时器
- */
-function startExecutionTimer() {
-    let seconds = 0;
-    const timerElement = document.getElementById('timer');
-    
-    // 记录开始时间（用于后台任务管理）
-    window.__startTime = Date.now();
-    
-    if (window.__executionTimer) {
-        clearInterval(window.__executionTimer);
-    }
-    
-    window.__executionTimer = setInterval(() => {
-        seconds++;
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        
-        if (timerElement) {
-            timerElement.textContent = 
-                `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-    }, 1000);
-    
-    // 绑定日志控制按钮
-    const clearLogsBtn = document.getElementById('clearBtn');
-    const downloadLogsBtn = document.getElementById('downloadBtn');
-    const toggleAutoScrollBtn = document.getElementById('autoScrollBtn');
-    
-    if (clearLogsBtn) {
-        clearLogsBtn.onclick = () => {
-            const logContainer = document.getElementById('taskLogContainer');
-            if (logContainer) {
-                TaskLogger.clearLogContainer(logContainer);
-                TaskLogger.logInfo('日志已清空');
-            }
-        };
-    }
-    
-    if (downloadLogsBtn) {
-        downloadLogsBtn.onclick = downloadLogs;
-    }
-    
-    if (toggleAutoScrollBtn) {
-        let autoScroll = true;
-        toggleAutoScrollBtn.classList.add('active');
-        
-        toggleAutoScrollBtn.onclick = () => {
-            autoScroll = !autoScroll;
-            toggleAutoScrollBtn.classList.toggle('active', autoScroll);
-            
-            if (autoScroll) {
-                const logContainer = document.getElementById('taskLogContainer');
-                if (logContainer) {
-                    logContainer.scrollTop = logContainer.scrollHeight;
-                }
-            }
-        };
-        
-        // 自动滚动逻辑
-        const logContainer = document.getElementById('taskLogContainer');
-        if (logContainer) {
-            const observer = new MutationObserver(() => {
-                if (autoScroll) {
-                    logContainer.scrollTop = logContainer.scrollHeight;
-                }
-            });
-            
-            observer.observe(logContainer, { childList: true, subtree: true });
-            window.__logObserver = observer;
-        }
-    }
-}
-
-/**
- * 清理资源
- * @param {boolean} preserveTaskInstanceId - 是否保留任务实例ID
- */
-function cleanupResources(preserveTaskInstanceId) {
-    // 清理定时器
-    if (window.__executionTimer) {
-        clearInterval(window.__executionTimer);
-        window.__executionTimer = null;
-    }
-    
-    // 清理日志监听器
-    if (window.__currentLogUnsubscribers) {
-            window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                if (typeof unsubscribe === 'function') {
-                    unsubscribe();
-                }
-            });
-            window.__currentLogUnsubscribers = null;
-    }
-    
-    // 清理日志渲染器
-    if (window.__currentLogCleanup && typeof window.__currentLogCleanup === 'function') {
-        window.__currentLogCleanup();
-        window.__currentLogCleanup = null;
-    }
-    
-    // 清理日志观察器
-    if (window.__logObserver) {
-        window.__logObserver.disconnect();
-        window.__logObserver = null;
-    }
-    
-    // 清理执行ID
-    if (window.__currentExecutionId) {
-        window.__currentExecutionId = null;
-    }
-    
-    // 清理批量任务日志
-    if (window.batchTaskLogs) {
-        window.batchTaskLogs = {};
-    }
-    
-    // 根据参数决定是否清理任务实例ID
-    if (!preserveTaskInstanceId && window.__currentTaskInstanceId) {
-        console.log('[脚本插件] 清理任务实例ID:', window.__currentTaskInstanceId);
-        window.__currentTaskInstanceId = null;
-    } else if (preserveTaskInstanceId && window.__currentTaskInstanceId) {
-        console.log('[脚本插件] 保留任务实例ID:', window.__currentTaskInstanceId);
-    }
-    
-    console.log('[脚本插件] 资源清理完成');
-}
+// cleanupResources 函数已移至 ScriptExecutionManager 模块
 
 /**
  * 添加紧凑任务管理器样式
@@ -2799,37 +1927,7 @@ function addCompactTaskStyles() {
     document.head.appendChild(styleElement);
 }
 
-/**
- * 下载日志
- */
-function downloadLogs() {
-    const logContainer = document.getElementById('taskLogContainer');
-    if (!logContainer) return;
-    
-    // 获取所有日志文本
-    const logEntries = logContainer.querySelectorAll('.log-entry');
-    let logText = '';
-    
-    logEntries.forEach(entry => {
-        const time = entry.querySelector('.log-time')?.textContent || '';
-        const message = entry.querySelector('.log-message')?.textContent || '';
-        logText += `${time} ${message}\n`;
-    });
-    
-    // 创建Blob并下载
-    const blob = new Blob([logText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}${now.getSeconds().toString().padStart(2,'0')}`;
-    
-    a.href = url;
-    a.download = `batch_script_log_${timestamp}.txt`;
-    a.click();
-    
-    URL.revokeObjectURL(url);
-}
+// downloadLogs 函数已移至 ScriptExecutionManager 模块
 
 // moveTaskToBackground 函数已移至 BackgroundTaskManager 模块
 
@@ -2961,7 +2059,7 @@ async function initDebugTools() {
         window.clearZombieTasks = window.__clearZombieTasks;
         window.forceCleanZombies = window.__forceCleanZombies;
         
-    } catch (error) {
+        } catch (error) {
         console.error('[调试工具] DebugTools模块初始化失败:', error);
         console.log('[调试工具] 调试功能将不可用');
     }
@@ -2983,6 +2081,18 @@ export function onBatchScriptsPageUnload() {
     // 清理暴露的全局日志处理器
     window.globalLogEventHandler = null;
     window.globalScriptCompletedHandler = null;
+    
+    // 清理任务配置管理器
+    if (taskConfigManager) {
+        taskConfigManager.cleanup();
+        taskConfigManager = null;
+    }
+    
+    // 清理脚本执行管理器
+    if (scriptExecutionManager) {
+        scriptExecutionManager.cleanup();
+        scriptExecutionManager = null;
+    }
 
     // 移除由 addCompactTaskStyles 添加的特定样式
     const compactTaskStyles = document.getElementById('compact-task-styles');
