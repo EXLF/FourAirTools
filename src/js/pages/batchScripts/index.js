@@ -30,6 +30,7 @@ import { setupGlobalChineseTextFix } from './utils/ChineseTextFixer.js';
 import { setupGlobalBackgroundTaskManager } from './utils/BackgroundTaskManager.js';
 import { setupGlobalTaskConfigManager } from './utils/TaskConfigManager.js';
 import { setupGlobalScriptExecutionManager } from './utils/ScriptExecutionManager.js';
+import { setupGlobalScriptStopManager } from './utils/ScriptStopManager.js';
 
 // 页面状态管理
 const pageState = {
@@ -206,6 +207,9 @@ let taskConfigManager = null;
 // 脚本执行管理 - 使用新的ScriptExecutionManager模块
 let scriptExecutionManager = null;
 
+// 脚本停止管理 - 使用新的ScriptStopManager模块
+let scriptStopManager = null;
+
 /**
  * 初始化后台任务管理器 (使用新的模块化架构)
  */
@@ -258,6 +262,16 @@ function initGlobalScriptExecutionManager() {
     }
 }
 
+/**
+ * 初始化脚本停止管理器 (使用新的ScriptStopManager模块)
+ */
+function initGlobalScriptStopManager() {
+    if (!scriptStopManager) {
+        scriptStopManager = setupGlobalScriptStopManager();
+        console.log('[脚本停止] 新的ScriptStopManager模块已初始化');
+    }
+}
+
 
 
 // 页面加载时立即初始化全局管理器
@@ -304,6 +318,9 @@ export async function initBatchScriptsPage(contentArea) {
     
     // 初始化脚本执行管理器
     initGlobalScriptExecutionManager();
+    
+    // 初始化脚本停止管理器
+    initGlobalScriptStopManager();
     
     // 初始化调试工具
     initDebugTools();
@@ -789,218 +806,11 @@ function bindModularManagerEvents(taskInstanceId) {
         });
     }
 
-    // 停止执行按钮
-    const stopTaskButton = managerPage.querySelector('#stop-btn');
-    if (stopTaskButton) {
-        stopTaskButton.addEventListener('click', async (event) => {
-            event.preventDefault();
-            
-            // 确认停止
-            if (!confirm('确定要停止当前正在执行的任务吗？')) {
-                return;
-            }
-            
-            try {
-                // 禁用按钮防止重复点击
-                stopTaskButton.disabled = true;
-                stopTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>停止中</span>';
-                
-                // 停止执行计时器
-                if (window.__executionTimer) {
-                    clearInterval(window.__executionTimer);
-                    window.__executionTimer = null;
-                }
-                
-                // 获取当前执行的任务ID
-                const currentExecutionId = window.__currentExecutionId;
-                
-                console.log('[停止脚本] 当前执行ID:', currentExecutionId);
-                console.log('[停止脚本] scriptAPI可用:', !!window.scriptAPI);
-                
-                if (currentExecutionId && window.scriptAPI && window.scriptAPI.stopScript) {
-                    TaskLogger.logWarning('正在停止脚本执行...');
-                    TaskLogger.logInfo(`执行ID: ${currentExecutionId}`);
-                    
-                    const result = await window.scriptAPI.stopScript(currentExecutionId);
-                    console.log('[停止脚本] 停止结果:', result);
-                    if (result.success) {
-                        TaskLogger.logWarning('✋ 脚本执行已被用户停止');
-                        
-                        // 清理当前执行状态
-                        window.__currentExecutionId = null;
-                        
-                        // 更新状态
-                        const statusText = document.getElementById('statusText');
-                        if (statusText) {
-                            statusText.textContent = '已停止';
-                            statusText.style.color = '#e74c3c';
-                        }
-                        
-                        // 清理监听器
-                        if (window.__currentLogUnsubscribers) {
-                            window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                                if (typeof unsubscribe === 'function') {
-                                    unsubscribe();
-                                }
-                            });
-                            window.__currentLogUnsubscribers = null;
-                        }
-                        
-                        // 隐藏停止按钮
-                        stopTaskButton.style.display = 'none';
-                        
-                        // 重置开始按钮
-                        const startButton = managerPage.querySelector('#start-execution-btn');
-                        if (startButton) {
-                            startButton.disabled = false;
-                            startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                        }
-                    } else {
-                        TaskLogger.logError(`停止脚本失败: ${result.error || '未知错误'}`);
-                        
-                        // 即使停止失败，也询问用户是否强制停止
-                        const forceStop = confirm('后端停止脚本失败，是否强制清理前端状态？\n' +
-                            '注意：这可能导致后端脚本继续运行，但前端将停止显示。');
-                        
-                        if (forceStop) {
-                            TaskLogger.logWarning('⚠️  用户选择强制停止，清理前端状态');
-                            
-                            // 强制清理当前执行状态
-                            window.__currentExecutionId = null;
-                            
-                            // 更新状态
-                            const statusText = document.getElementById('statusText');
-                            if (statusText) {
-                                statusText.textContent = '已强制停止';
-                                statusText.style.color = '#e74c3c';
-                            }
-                            
-                            // 清理监听器
-                            if (window.__currentLogUnsubscribers) {
-                                window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                                    if (typeof unsubscribe === 'function') {
-                                        unsubscribe();
-                                    }
-                                });
-                                window.__currentLogUnsubscribers = null;
-                            }
-                            
-                            // 隐藏停止按钮
-                            stopTaskButton.style.display = 'none';
-                            
-                            // 重置开始按钮
-                            const startButton = managerPage.querySelector('#start-execution-btn');
-                            if (startButton) {
-                                startButton.disabled = false;
-                                startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                            }
-                        } else {
-                        // 恢复按钮状态
-                        stopTaskButton.disabled = false;
-                        stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
-                        }
-                    }
-                } else if (currentExecutionId && currentExecutionId.startsWith('mock_exec_')) {
-                    // 处理模拟执行的停止
-                    TaskLogger.logWarning('正在停止模拟执行...');
-                    
-                    // 清理模拟任务函数
-                    if (window[`__mockTask_${taskInstanceId}`]) {
-                        delete window[`__mockTask_${taskInstanceId}`];
-                    }
-                    
-                    // 清空执行ID（这会触发模拟执行检查并停止）
-                    window.__currentExecutionId = null;
-                    
-                    TaskLogger.logWarning('✋ 模拟执行已被用户停止');
-                    
-                    // 更新状态
-                    const statusText = document.getElementById('statusText');
-                    if (statusText) {
-                        statusText.textContent = '已停止';
-                        statusText.style.color = '#e74c3c';
-                    }
-                    
-                    // 清理监听器
-                    if (window.__currentLogUnsubscribers) {
-                        window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                            if (typeof unsubscribe === 'function') {
-                                unsubscribe();
-                            }
-                        });
-                        window.__currentLogUnsubscribers = null;
-                    }
-                    
-                    // 隐藏停止按钮
-                    stopTaskButton.style.display = 'none';
-                    
-                    // 重置开始按钮
-                    const startButton = managerPage.querySelector('#start-execution-btn');
-                    if (startButton) {
-                        startButton.disabled = false;
-                        startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                    }
-                } else {
-                    TaskLogger.logError('无法停止脚本：执行ID不存在或停止接口不可用');
-                    TaskLogger.logWarning(`调试信息: executionId=${currentExecutionId}, scriptAPI=${!!window.scriptAPI}`);
-                    
-                    // 询问是否强制清理UI状态
-                    const forceCleanup = confirm('未找到有效的执行ID，是否清理UI状态？\n' +
-                        '这将重置界面，但不会影响可能正在运行的后端脚本。');
-                    
-                    if (forceCleanup) {
-                        TaskLogger.logWarning('⚠️  强制清理UI状态');
-                        
-                        // 强制清理所有状态
-                        window.__currentExecutionId = null;
-                        
-                        // 停止计时器
-                        if (window.__executionTimer) {
-                            clearInterval(window.__executionTimer);
-                            window.__executionTimer = null;
-                        }
-                        
-                        // 更新状态
-                        const statusText = document.getElementById('statusText');
-                        if (statusText) {
-                            statusText.textContent = '已清理';
-                            statusText.style.color = '#e74c3c';
-                        }
-                        
-                        // 清理监听器
-                        if (window.__currentLogUnsubscribers) {
-                            window.__currentLogUnsubscribers.forEach(unsubscribe => {
-                                if (typeof unsubscribe === 'function') {
-                                    unsubscribe();
-                                }
-                            });
-                            window.__currentLogUnsubscribers = null;
-                        }
-                        
-                        // 隐藏停止按钮
-                        stopTaskButton.style.display = 'none';
-                        
-                        // 重置开始按钮
-                        const startButton = managerPage.querySelector('#start-execution-btn');
-                        if (startButton) {
-                            startButton.disabled = false;
-                            startButton.innerHTML = '<i class="fas fa-play"></i> 开始执行';
-                        }
-                    } else {
-                    // 恢复按钮状态
-                    stopTaskButton.disabled = false;
-                    stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
-                    }
-                }
-            } catch (error) {
-                console.error('停止脚本执行失败:', error);
-                TaskLogger.logError(`停止脚本失败: ${error.message}`);
-                
-                // 恢复按钮状态
-                stopTaskButton.disabled = false;
-                stopTaskButton.innerHTML = '<i class="fas fa-stop"></i><span>停止</span>';
-            }
-        });
+        // 停止执行按钮 - 使用新的ScriptStopManager模块
+    if (scriptStopManager) {
+        scriptStopManager.bindStopButtonEvent(taskInstanceId, managerPage);
+    } else {
+        console.warn('[脚本插件] ScriptStopManager 未初始化，停止功能不可用');
     }
 }
 
@@ -2092,6 +1902,12 @@ export function onBatchScriptsPageUnload() {
     if (scriptExecutionManager) {
         scriptExecutionManager.cleanup();
         scriptExecutionManager = null;
+    }
+    
+    // 清理脚本停止管理器
+    if (scriptStopManager) {
+        scriptStopManager.cleanup();
+        scriptStopManager = null;
     }
 
     // 移除由 addCompactTaskStyles 添加的特定样式
