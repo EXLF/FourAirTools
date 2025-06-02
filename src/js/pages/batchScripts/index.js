@@ -8,6 +8,10 @@ import { translateLocation } from '../../utils/locationTranslator.js';
 import { BatchTaskManager } from './batchTaskManager.js';
 import { TaskLogger } from './logger.js';
 
+// 导入新的核心管理器（渐进式集成）
+// 注意：由于模块系统兼容性问题，暂时使用动态导入
+let ScriptManager, TaskStateManager, ExecutionEngine, LogManager;
+
 // 导入重构后的模块
 import { 
     batchScriptTypes, 
@@ -31,6 +35,450 @@ const pageState = {
     walletGroupManager: new WalletGroupManager(),
     proxyManager: new ProxyManager()
 };
+
+// 新的核心管理器实例（渐进式集成）
+let coreManagers = null;
+
+/**
+ * 立即设置中文乱码修复功能
+ * 不依赖模块加载，立即生效
+ */
+function setupChineseTextFix() {
+    // console.log('[中文修复] 启用中文乱码修复功能...');
+    
+    // 中文乱码映射表
+    const chineseFixMap = {
+        '鑴氭湰': '脚本',
+        '鎵ц': '执行', 
+        '閰嶇疆': '配置',
+        '鍒濆鍖?': '初始化',
+        '姝ｅ湪': '正在',
+        '瀹屾垚': '完成',
+        '閽卞寘': '钱包',
+        '鑾峰彇': '获取',
+        '娣诲姞': '添加',
+        '浠ｇ悊': '代理',
+        '鎴愬姛': '成功',
+        '澶辫触': '失败',
+        '鍚姩': '启动',
+        '鍋滄': '停止',
+        '杩愯': '运行',
+        '妫€娴?': '检测',
+        '鍔犺浇': '加载',
+        '淇濆瓨': '保存',
+        '鍒犻櫎': '删除',
+        '淇敼': '修改',
+        '鏇存柊': '更新',
+        '鍒楄〃': '列表',
+        '鏁版嵁': '数据',
+        '鏂囦欢': '文件',
+        '鐩綍': '目录',
+        '璺緞': '路径',
+        '杩炴帴': '连接',
+        '鏂板缓': '新建',
+        '涓嬭浇': '下载',
+        '涓婁紶': '上传',
+        '鍒嗘瀽': '分析',
+        '澶勭悊': '处理',
+        '鍙戦€?': '发送',
+        '鎺ユ敹': '接收',
+        '鍝嶅簲': '响应',
+        '璇锋眰': '请求',
+        '閿欒': '错误',
+        '璀﹀憡': '警告',
+        '淇℃伅': '信息',
+        '璋冭瘯': '调试',
+        '鐘舵€?': '状态',
+        '缁撴灉': '结果',
+        '杩斿洖': '返回',
+        '鏁版嵁搴?': '数据库',
+        '琛ㄦ牸': '表格',
+        '鍒楃殑': '列的',
+        '琛岀殑': '行的',
+        '鎺掑簭': '排序',
+        '绛涢€?': '筛选',
+        '鏌ヨ': '查询',
+        '鎻掑叆': '插入',
+        '绠＄悊鍣?': '管理器',
+        '鎺у埗鍙?': '控制台',
+        '鏃ュ織': '日志',
+        '鍙傛暟': '参数',
+        '閫夐」': '选项',
+        '璁剧疆': '设置',
+        '閰嶇疆椤?': '配置项',
+        '鍔熻兘': '功能',
+        '妯″潡': '模块',
+        '缁勪欢': '组件',
+        '鏈嶅姟': '服务',
+        '鎺ュ彛': '接口',
+        '鏍煎紡': '格式',
+        '鍐呭': '内容',
+        '瀛楃': '字符',
+        '瀛楃涓?': '字符串',
+        '鏁板瓧': '数字',
+        '甯冨皵': '布尔',
+        '鏁扮粍': '数组',
+        '瀵硅薄': '对象',
+        '鍑芥暟': '函数',
+        '鏂规硶': '方法',
+        '灞炴€?': '属性',
+        '鍊?': '值',
+        '閿?': '键',
+        '鍚嶇О': '名称',
+        '鏍囬': '标题',
+        '鎻忚堪': '描述',
+        '璇存槑': '说明',
+        '甯姪': '帮助',
+        '鐗堟湰': '版本',
+        '鏇存柊鏃ュ織': '更新日志',
+        '鍙戝竷': '发布',
+        '涓嬭浇閾炬帴': '下载链接',
+        '瀹夎': '安装',
+        '鍗歌浇': '卸载',
+        '鍚姩椤?': '启动项',
+        '闅愯棌': '隐藏',
+        '鏄剧ず': '显示',
+        '鎵撳紑': '打开',
+        '鍏抽棴': '关闭',
+        '鏈€澶у寲': '最大化',
+        '鏈€灏忓寲': '最小化',
+        '鍏ㄥ睆': '全屏',
+        '绐楀彛': '窗口',
+        '鑿滃崟': '菜单',
+        '宸ュ叿鏍?': '工具栏',
+        '鐘舵€佹': '状态栏',
+        '渚ц竟鏍?': '侧边栏',
+        '瀵艰埅': '导航',
+        '闈㈡澘': '面板',
+        '瀵硅瘽妗?': '对话框',
+        '鎻愮ず妗?': '提示框',
+        '璀﹀憡妗?': '警告框',
+        '纭妗?': '确认框',
+        '杈撳叆妗?': '输入框',
+        '鎸夐挳': '按钮',
+        '閾炬帴': '链接',
+        '鏍囩': '标签',
+        '琛ㄥ崟': '表单',
+        '鍒嗛〉': '分页',
+        '鍔犺浇涓?': '加载中',
+        '璇峰稍鍚?': '请稍候',
+        '姝ｅ湪鍔犺浇': '正在加载',
+        '鍔犺浇瀹屾垚': '加载完成',
+        '鍔犺浇澶辫触': '加载失败',
+        '缃戠粶寮傚父': '网络异常',
+        '杩炴帴瓒呮椂': '连接超时',
+        '鏈嶅姟鍣ㄩ敊璇?': '服务器错误',
+        '鎵句笉鍒?': '找不到',
+        '娌℃湁鏉冮檺': '没有权限',
+        '宸叉嫆缁?': '已拒绝',
+        '宸插彇娑?': '已取消',
+        '鎿嶄綔鎴愬姛': '操作成功',
+        '鎿嶄綔澶辫触': '操作失败',
+        '淇濆瓨鎴愬姛': '保存成功',
+        '淇濆瓨澶辫触': '保存失败',
+        '鍒犻櫎鎴愬姛': '删除成功',
+        '鍒犻櫎澶辫触': '删除失败',
+        '澶嶅埗鎴愬姛': '复制成功',
+        '澶嶅埗澶辫触': '复制失败',
+        '鍒囨崲鎴愬姛': '切换成功',
+        '鍒囨崲澶辫触': '切换失败',
+        '杩炴帴鎴愬姛': '连接成功',
+        '杩炴帴澶辫触': '连接失败',
+        '鏂紑杩炴帴': '断开连接',
+        '閲嶆柊杩炴帴': '重新连接',
+        '鍚屾鎴愬姛': '同步成功',
+        '鍚屾澶辫触': '同步失败',
+        '澶囦唤鎴愬姛': '备份成功',
+        '澶囦唤澶辫触': '备份失败',
+        '杩樺師鎴愬姛': '还原成功',
+        '杩樺師澶辫触': '还原失败',
+        '瀵煎嚭鎴愬姛': '导出成功',
+        '瀵煎嚭澶辫触': '导出失败',
+        '瀵煎叆鎴愬姛': '导入成功',
+        '瀵煎叆澶辫触': '导入失败',
+        '璁よ瘉鎴愬姛': '认证成功',
+        '璁よ瘉澶辫触': '认证失败',
+        '鐧诲綍鎴愬姛': '登录成功',
+        '鐧诲綍澶辫触': '登录失败',
+        '娉ㄩ攢鎴愬姛': '注销成功',
+        '鐧昏娌℃湁鏉冮檺': '登录没有权限',
+        '宸茬櫥褰?': '已登录',
+        '鏈櫥褰?': '未登录',
+        '浼氳瘽杩囨湡': '会话过期',
+        '璇烽噸鏂扮櫥褰?': '请重新登录',
+        '瀵嗙爜閿欒': '密码错误',
+        '鐢ㄦ埛鍚嶉敊璇?': '用户名错误',
+        '璐︽埛涓嶅瓨鍦?': '账户不存在',
+        '璐︽埛宸插瓨鍦?': '账户已存在',
+        '璐︽埛宸茶鍐荤粨': '账户已被冻结',
+        '璐︽埛宸茶绂佺敤': '账户已被禁用',
+        '鎿嶄綔澶憄': '操作太频繁',
+        '璇风◢鍚庡啀璇?': '请稍后再试',
+        '鏁版嵁涓嶅瓨鍦?': '数据不存在',
+        '鏁版嵁宸插瓨鍦?': '数据已存在',
+        '鏁版嵁宸茶繃鏈?': '数据已过期',
+        '鏁版嵁鏍煎紡閿欒': '数据格式错误',
+        '鍙傛暟閿欒': '参数错误',
+        '鍙傛暟缂哄け': '参数缺失',
+        '鍙傛暟鏃犳晥': '参数无效',
+        '鏍煎紡涓嶆敮鎸?': '格式不支持',
+        '鏂囦欢涓嶅瓨鍦?': '文件不存在',
+        '鏂囦欢宸插瓨鍦?': '文件已存在',
+        '鏂囦欢澶?': '文件过大',
+        '鏂囦欢澶?': '文件过小',
+        '鏂囦欢鎹熷潖': '文件损坏',
+        '鏂囦欢鏍煎紡涓嶆敮鎸?': '文件格式不支持',
+        '纾佺洏绌洪棿涓嶈冻': '磁盘空间不足',
+        '鍐呭瓨涓嶈冻': '内存不足',
+        'CPU鍗犵敤杩囬珮': 'CPU占用过高',
+        '缃戠粶涓嶇ǔ瀹?': '网络不稳定',
+        '淇″彿涓嶈壇': '信号不良',
+        '鐢垫睜鐢甸噺浣?': '电池电量低',
+        '鍏呯數鍣ㄦ湭杩炴帴': '充电器未连接',
+        '鎬ф兘浼樺寲涓?': '性能优化中',
+        '娓呯悊缂撳瓨涓?': '清理缓存中',
+        '鎵弿鐥呮瘨涓?': '扫描病毒中',
+        '绯荤粺鍗囩骇涓?': '系统升级中',
+        '瀹夊叏妫€娴嬩腑': '安全检测中',
+        '鍗囩骇瀹屾垚': '升级完成',
+        '妫€娴嬪畬鎴?': '检测完成',
+        '浼樺寲瀹屾垚': '优化完成',
+        '娓呯悊瀹屾垚': '清理完成',
+        '鎵弿瀹屾垚': '扫描完成',
+        '澶囦唤瀹屾垚': '备份完成',
+        '杩樺師瀹屾垚': '还原完成',
+        '瀹夎瀹屾垚': '安装完成',
+        '鍗歌浇瀹屾垚': '卸载完成',
+        '閰嶇疆瀹屾垚': '配置完成',
+        '鍒濆鍖栧畬鎴?': '初始化完成',
+        '钀ч敊': '错误',
+        '鍒嗘瀽': '分析',
+        '鍙傝€?': '参考',
+        '宸ュ叿': '工具',
+        '鐢ㄦ埛': '用户',
+        '绠＄悊': '管理',
+        '娓呮櫚': '清楚',
+        '瀹屾垚': '完成',
+        '鍙互': '可以',
+        '涓嶅彲浠?': '不可以',
+        '璁稿彲': '许可',
+        '绂佹': '禁止',
+        '鍏佽': '允许',
+        '閮ㄧ讲': '部署',
+        '鍙戝竷': '发布',
+        '绠$悊鍣?': '管理器',
+        '绯荤粺': '系统',
+        '杞欢': '软件',
+        '纭欢': '硬件',
+        '鍐呮牳': '内核',
+        '椹卞姩': '驱动',
+        '搴旂敤': '应用',
+        '绋嬪簭': '程序',
+        '杩涚▼': '进程',
+        '绾跨▼': '线程',
+        '浠诲姟': '任务',
+        '闃熷垪': '队列',
+        '鍫嗘爤': '堆栈',
+        '缂撳瓨': '缓存',
+        '鍐呭瓨': '内存',
+        '瀛樺偍': '存储',
+        '纭洏': '硬盘',
+        '纾佺洏': '磁盘',
+        '鍒嗗尯': '分区',
+        '鏂囦欢绯荤粺': '文件系统',
+        '鏃ュ織鏂囦欢': '日志文件',
+        '閰嶇疆鏂囦欢': '配置文件',
+        '鍙彲鎵ц鏂囦欢': '可执行文件',
+        '搴撴枃浠?': '库文件',
+        '鍥惧儚鏂囦欢': '图像文件',
+        '闊抽鏂囦欢': '音频文件',
+        '瑙嗛鏂囦欢': '视频文件',
+        '鏂囨湰鏂囦欢': '文本文件',
+        '鍘嬬缉鏂囦欢': '压缩文件',
+        '澶囦唤鏂囦欢': '备份文件',
+        '涓存椂鏂囦欢': '临时文件',
+        '缂撳瓨鏂囦欢': '缓存文件',
+        '鏃ュ織': '日志'
+    };
+    
+    // 创建全局的安全中文修复函数
+    window.__fixChineseText = function(text) {
+        if (typeof text !== 'string') return text;
+        
+        // 只对包含特定中文乱码模式的文本进行修复
+        const hasSpecificGarbledChinese = /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(text);
+        
+        if (!hasSpecificGarbledChinese) {
+            return text; // 如果没有特定的中文乱码，直接返回原文本
+        }
+        
+        let fixed = text;
+        // 只处理确实包含乱码的部分
+        for (const [garbled, correct] of Object.entries(chineseFixMap)) {
+            if (fixed.includes(garbled)) {
+                fixed = fixed.replace(new RegExp(garbled, 'g'), correct);
+            }
+        }
+        return fixed;
+    };
+    
+    // 只在脚本插件模块内部使用的受控修复功能
+    window.__logWithChineseFix = function(level, ...args) {
+        const fixedArgs = args.map(arg => {
+            if (typeof arg === 'string') {
+                return window.__fixChineseText(arg);
+            }
+            return arg;
+        });
+        
+        switch (level) {
+            case 'error':
+                console.error('[脚本插件]', ...fixedArgs);
+                break;
+            case 'warn':
+                console.warn('[脚本插件]', ...fixedArgs);
+                break;
+            case 'info':
+                console.info('[脚本插件]', ...fixedArgs);
+                break;
+            default:
+                console.log('[脚本插件]', ...fixedArgs);
+        }
+    };
+    
+    // 测试修复功能
+    const testText = "鎺ユ敹鍒拌幏鍙栬剼鏈垪琛ㄨ姹?";
+    const fixedText = window.__fixChineseText(testText);
+    
+    // console.log('[中文修复] ✅ 中文乱码修复功能已启用');
+}
+
+/**
+ * 显示脚本模块重构状态
+ */
+function showRefactorStatus() {
+    // 减少初始化阶段的日志输出，避免控制台混乱
+    console.log('✨ 脚本插件模块重构完成!');
+}
+
+/**
+ * 初始化核心管理器（使用动态导入）
+ */
+async function initCoreManagers() {
+    if (coreManagers) {
+        console.log('[核心管理器] 已初始化，跳过重复初始化');
+        return true;
+    }
+
+    try {
+        // console.log('[核心管理器] 开始动态加载新的架构模块...');
+        
+        // 动态导入模块
+        const [
+            { ScriptManager: SM },
+            { TaskStateManager: TSM },
+            { ExecutionEngine: EE },
+            { LogManager: LM }
+        ] = await Promise.all([
+            import('./core/ScriptManager.js'),
+            import('./core/TaskStateManager.js'),
+            import('./core/ExecutionEngine.js'),
+            import('./core/LogManager.js')
+        ]);
+        
+        // 设置全局引用
+        ScriptManager = SM;
+        TaskStateManager = TSM;
+        ExecutionEngine = EE;
+        LogManager = LM;
+        
+        // console.log('[核心管理器] 模块动态加载成功');
+        // console.log('[核心管理器] 检查模块可用性:');
+        // console.log('- ScriptManager:', typeof ScriptManager);
+        // console.log('- TaskStateManager:', typeof TaskStateManager);  
+        // console.log('- ExecutionEngine:', typeof ExecutionEngine);
+        // console.log('- LogManager:', typeof LogManager);
+        
+        // 创建核心管理器实例
+        // console.log('[核心管理器] 创建 TaskStateManager...');
+        const taskStateManager = new TaskStateManager();
+        
+        // console.log('[核心管理器] 创建 LogManager...');
+        const logManager = new LogManager();
+        
+        // console.log('[核心管理器] 创建 ExecutionEngine...');
+        const executionEngine = new ExecutionEngine(taskStateManager);
+        
+        // console.log('[核心管理器] 创建 ScriptManager...');
+        const scriptManager = new ScriptManager();
+        
+        // 存储管理器实例
+        coreManagers = {
+            scriptManager,
+            taskStateManager,
+            executionEngine,
+            logManager
+        };
+        
+        // 设置跨模块通信
+        setupCoreManagersIntegration();
+        
+        // console.log('[核心管理器] 新架构模块初始化完成');
+        // console.log('[核心管理器] 管理器实例:', Object.keys(coreManagers));
+        
+        // 将核心管理器暴露到全局（便于调试和其他模块访问）
+        if (typeof window !== 'undefined') {
+            window.__FA_CoreManagers = coreManagers;
+            // console.log('[核心管理器] 已暴露到全局变量 window.__FA_CoreManagers');
+            // console.log('[核心管理器] 验证全局变量:', !!window.__FA_CoreManagers);
+            
+            // 立即启用新的日志管理器来处理中文乱码
+            window.__FA_ActiveLogManager = logManager;
+            // console.log('[核心管理器] 已激活新的日志管理器，开始处理中文乱码修复');
+            
+            // 显示重构状态
+            showRefactorStatus();
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('[核心管理器] 初始化失败:', error);
+        console.error('[核心管理器] 错误堆栈:', error.stack);
+        coreManagers = null;
+        return false;
+    }
+}
+
+/**
+ * 设置核心管理器间的集成
+ */
+function setupCoreManagersIntegration() {
+    if (!coreManagers) return;
+    
+    const { taskStateManager, logManager, executionEngine } = coreManagers;
+    
+    // 设置状态变更监听，自动记录日志
+    taskStateManager.subscribe((taskId, stateData) => {
+        const { state, previousState } = stateData;
+        
+        if (previousState && previousState !== state) {
+            logManager.addLog(taskId, 'info', `任务状态变更: ${previousState} -> ${state}`, {
+                source: 'state_manager',
+                stateTransition: true
+            });
+        }
+    });
+    
+    console.log('[核心管理器] 跨模块集成设置完成');
+}
+
+/**
+ * 获取核心管理器实例
+ * @returns {Object|null} 核心管理器实例
+ */
+function getCoreManagers() {
+    return coreManagers;
+}
 
 // 后台任务管理 - 使用全局对象确保不会被重新初始化
 if (!window.__FABackgroundTasks) {
@@ -190,10 +638,18 @@ if (typeof window !== 'undefined') {
  * 初始化脚本插件管理页面
  * @param {HTMLElement} contentArea - 内容区域元素
  */
-export function initBatchScriptsPage(contentArea) {
+export async function initBatchScriptsPage(contentArea) {
     console.log("初始化脚本插件管理页面...");
     console.log("[后台任务] 初始化时的后台任务数量:", backgroundTasks.size);
     pageState.contentAreaRef = contentArea;
+    
+    // 立即启用中文乱码修复功能
+    setupChineseTextFix();
+    
+    // 初始化新的核心管理器（渐进式集成）
+    console.log('[脚本插件] 开始初始化核心管理器...');
+    const initSuccess = await initCoreManagers();
+    console.log('[脚本插件] 核心管理器初始化结果:', initSuccess);
     
     // 设置页面标志
     window.__isBatchScriptsPageActive = true;
@@ -253,8 +709,8 @@ export function initBatchScriptsPage(contentArea) {
  * @param {HTMLElement} contentArea - 内容区域元素
  */
 function renderBatchScriptCardsView(contentArea) {
-    console.log('[调试] renderBatchScriptCardsView 开始，当前后台任务数量:', backgroundTasks.size);
-    console.log('[调试] 后台任务详情:', Array.from(backgroundTasks.entries()));
+    // console.log('[调试] renderBatchScriptCardsView 开始，当前后台任务数量:', backgroundTasks.size);
+    // console.log('[调试] 后台任务详情:', Array.from(backgroundTasks.entries()));
     
     pageState.currentView = VIEW_MODES.CARDS;
     
@@ -349,9 +805,9 @@ function renderBatchScriptCardsView(contentArea) {
     
     // 确保DOM渲染完成后再更新后台任务指示器
     setTimeout(() => {
-        console.log('[后台任务] DOM渲染完成，更新指示器');
-        console.log('[后台任务] 当前后台任务数量:', backgroundTasks.size);
-        console.log('[后台任务] 后台任务详情:', Array.from(backgroundTasks.entries()));
+        // console.log('[后台任务] DOM渲染完成，更新指示器');
+        // console.log('[后台任务] 当前后台任务数量:', backgroundTasks.size);
+        // console.log('[后台任务] 后台任务详情:', Array.from(backgroundTasks.entries()));
         updateBackgroundTaskIndicator();
         
         // 如果有后台任务但按钮没显示，强制更新
@@ -383,34 +839,56 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
     
     cardsContainer.innerHTML = '';
     
-    // 加载脚本列表
+    // 加载脚本列表 - 优先使用新的 ScriptManager
     let scriptsList = [];
-    if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
+    const managers = getCoreManagers();
+    
+    if (managers && managers.scriptManager) {
         try {
-            const result = await window.scriptAPI.getAllScripts();
-            if (result.success && Array.isArray(result.data)) {
-                scriptsList = result.data.map(s => ({
-                    ...s,  // 保留所有原始字段，包括requires
-                    status: s.status || 'active',
-                    category: s.category || ''
-                }));
-                
-                // 添加调试日志
-                console.log('[脚本插件] 加载的脚本数据:', scriptsList);
-                const httpScript = scriptsList.find(script => script.id === 'http_request_test');
-                if (httpScript) {
-                    console.log('[脚本插件] HTTP请求测试脚本数据:', httpScript);
-                    console.log('[脚本插件] HTTP脚本requires字段:', httpScript.requires);
-                }
-            } else {
-                console.error('获取脚本列表失败:', result.error);
-            }
-        } catch (error) {
-            console.error('调用 getAllScripts 时出错:', error);
+            console.log('[脚本插件] 使用新的 ScriptManager 加载脚本');
+            const scripts = await managers.scriptManager.getAvailableScripts();
+            scriptsList = scripts.map(s => ({
+                ...s,  // 保留所有原始字段，包括requires
+                status: s.status || 'active',
+                category: s.category || ''
+            }));
+            
+            console.log('[脚本插件] 通过 ScriptManager 加载的脚本数据:', scriptsList);
+        } catch (managerError) {
+            console.warn('[脚本插件] ScriptManager 加载失败，回退到原有方式:', managerError);
         }
-    } else {
-        console.warn('scriptAPI 未定义，使用静态脚本类型列表');
-        scriptsList = batchScriptTypes;
+    }
+    
+    // 回退方案：使用原有的加载方式
+    if (scriptsList.length === 0) {
+        console.log('[脚本插件] 使用原有 API 方式加载脚本');
+        if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
+            try {
+                const result = await window.scriptAPI.getAllScripts();
+                if (result.success && Array.isArray(result.data)) {
+                    scriptsList = result.data.map(s => ({
+                        ...s,  // 保留所有原始字段，包括requires
+                        status: s.status || 'active',
+                        category: s.category || ''
+                    }));
+                    
+                    // 添加调试日志
+                    console.log('[脚本插件] 通过原有API加载的脚本数据:', scriptsList);
+                    const httpScript = scriptsList.find(script => script.id === 'http_request_test');
+                    if (httpScript) {
+                        console.log('[脚本插件] HTTP请求测试脚本数据:', httpScript);
+                        console.log('[脚本插件] HTTP脚本requires字段:', httpScript.requires);
+                    }
+                } else {
+                    console.error('获取脚本列表失败:', result.error);
+                }
+            } catch (error) {
+                console.error('调用 getAllScripts 时出错:', error);
+            }
+        } else {
+            console.warn('scriptAPI 未定义，使用静态脚本类型列表');
+            scriptsList = batchScriptTypes;
+        }
     }
 
     // 渲染脚本卡片
@@ -605,35 +1083,35 @@ function bindModularManagerEvents(taskInstanceId) {
             const scriptRequires = pageState.currentBatchScriptType?.requires;
             const requiresWallets = scriptRequires ? (scriptRequires.wallets !== false) : true; // 默认需要钱包
             
-            console.log('[脚本插件] 按钮状态检查:', {
-                requiresWallets,
-                walletCount,
-                scriptName: pageState.currentBatchScriptType?.name,
-                scriptRequires: pageState.currentBatchScriptType?.requires,
-                scriptRequiresWallets: scriptRequires?.wallets,
-                buttonElement: startTaskButton
-            });
+            // console.log('[脚本插件] 按钮状态检查:', {
+            //     requiresWallets,
+            //     walletCount,
+            //     scriptName: pageState.currentBatchScriptType?.name,
+            //     scriptRequires: pageState.currentBatchScriptType?.requires,
+            //     scriptRequiresWallets: scriptRequires?.wallets,
+            //     buttonElement: startTaskButton
+            // });
             
             if (requiresWallets) {
                 // 需要钱包的脚本，必须选择至少一个钱包
                 if (walletCount > 0) {
                     startTaskButton.disabled = false;
-                    console.log('[脚本插件] 已选择钱包，启用执行按钮');
+                    // console.log('[脚本插件] 已选择钱包，启用执行按钮');
                 } else {
                     startTaskButton.disabled = true;
-                    console.log('[脚本插件] 未选择钱包，禁用执行按钮');
+                    // console.log('[脚本插件] 未选择钱包，禁用执行按钮');
                 }
             } else {
                 // 不需要钱包的脚本，直接启用按钮
                 startTaskButton.disabled = false;
-                console.log('[脚本插件] 不需要钱包，启用执行按钮');
+                // console.log('[脚本插件] 不需要钱包，启用执行按钮');
             }
         };
         
         // 初始检查
         setTimeout(() => {
             updateStartButtonState();
-            console.log('[脚本插件] 执行按钮状态初始检查完成');
+            // console.log('[脚本插件] 执行按钮状态初始检查完成');
         }, 200);
         
         // 监听钱包选择变化
@@ -3511,11 +3989,22 @@ function globalLogEventHandler(data) {
     const activeTaskInstanceId = window.__currentTaskInstanceId;
     const activeExecutionId = window.__currentExecutionId;
 
+    // 只在真正需要时修复中文乱码，避免破坏正常文本
+    let originalMessage = data.message;
+    let fixedMessage = originalMessage;
+    
+    // 只对包含特定中文乱码模式的消息进行修复
+    if (typeof originalMessage === 'string' && /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(originalMessage)) {
+        if (typeof window.__fixChineseText === 'function') {
+            fixedMessage = window.__fixChineseText(originalMessage);
+        }
+    }
+
     // 日志是否属于当前在前台活动并显示UI的任务？
     if (data.executionId && activeExecutionId && data.executionId === activeExecutionId && 
         document.getElementById('taskLogContainer') && pageState.currentView === VIEW_MODES.MANAGER) {
         try {
-            const message = typeof data.message === 'string' ? data.message : JSON.stringify(data);
+            const message = typeof fixedMessage === 'string' ? fixedMessage : JSON.stringify(fixedMessage);
             const level = data.level?.toLowerCase() || 'info';
             switch (level) {
                 case 'success': TaskLogger.logSuccess(message); break;
@@ -3535,14 +4024,16 @@ function globalLogEventHandler(data) {
             }
             task.logHistory.push({
                 level: data.level || 'info',
-                message: data.message,
+                message: fixedMessage, // 使用修复后的消息
+                originalMessage: originalMessage, // 保留原始消息用于调试
                 timestamp: data.timestamp || new Date().toISOString(),
                 executionId: data.executionId
             });
             if (task.logHistory.length > 200) {
                 task.logHistory.shift();
             }
-            console.log(`[后台日志] 记录到任务 ${task.taskInstanceId} (ExecID: ${data.executionId}): ${String(data.message).substring(0,50)}...`);
+            // 仅在调试模式或特殊情况下打印后台日志，避免控制台输出过多
+            // console.log(`[后台日志] 记录到任务 ${task.taskInstanceId} (ExecID: ${data.executionId}): ${String(fixedMessage).substring(0,50)}...`);
         } else {
              console.log(`[脚本插件] 收到孤立日志 (ExecID: ${data.executionId}), 忽略.`);
         }

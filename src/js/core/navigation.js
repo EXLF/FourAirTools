@@ -177,7 +177,13 @@ async function initializePageContent(pageId) {
         const pageModule = await import(modulePath);
         if (pageModule && typeof pageModule[initFunctionName] === 'function') {
             console.log(`正在从${modulePath}调用${initFunctionName}`);
-            pageModule[initFunctionName](contentArea);
+            
+            // 检查函数是否是异步的，如果是则等待
+            const result = pageModule[initFunctionName](contentArea);
+            if (result instanceof Promise) {
+                await result;
+                console.log(`异步初始化函数 ${initFunctionName} 完成`);
+            }
         } else {
             console.warn(`初始化函数"${initFunctionName}"在模块${modulePath}中未找到或不是一个函数`);
         }

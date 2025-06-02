@@ -51,15 +51,25 @@ export class TaskLogger {
     }
     
     /**
-     * 添加日志条目并通知观察者
+     * 添加日志条目并通知观察者 - 移除过度修复
      * @param {string} type - 日志类型
      * @param {string} message - 日志消息
      * @private
      */
     static _addLogEntry(type, message) {
+        // 只在真正需要时应用中文修复
+        let processedMessage = message;
+        
+        // 只对包含特定中文乱码的消息进行修复
+        if (typeof message === 'string' && /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(message)) {
+            if (typeof window !== 'undefined' && typeof window.__fixChineseText === 'function') {
+                processedMessage = window.__fixChineseText(message);
+            }
+        }
+        
         const entry = {
             type,
-            message,
+            message: processedMessage,
             timestamp: new Date(),
             id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
         };
@@ -145,7 +155,7 @@ export class TaskLogger {
     }
     
     /**
-     * 渲染日志到HTML容器
+     * 渲染日志到HTML容器 - 移除过度修复
      * @param {HTMLElement} container - 日志容器元素
      * @param {boolean} [autoScroll=true] - 是否自动滚动到最新日志
      * @returns {Function} 停止日志渲染的函数
@@ -170,51 +180,8 @@ export class TaskLogger {
             const { type, message, timestamp, id } = logEntry;
             const timeString = TaskLogger._formatTimestamp(timestamp);
             
-            // 处理可能的编码问题
-            let displayMessage = message;
-            
-            // 如果检测到可能的乱码，尝试修复
-            if (displayMessage && /[\ufffd\uFFFD]/.test(displayMessage)) {
-                try {
-                    // 尝试修复双重编码问题
-                    displayMessage = "【注意：可能存在编码问题】" + displayMessage;
-                } catch (e) {
-                    console.warn('日志消息编码修复失败:', e);
-                }
-            }
-
-            // 处理可能的中文乱码
-            // 尝试识别并替换常见的中文乱码模式
-            if (displayMessage) {
-                // 处理脚本信息和钱包信息中的常见中文乱码
-                const chineseReplacements = {
-                    '鑴氭湰': '脚本',
-                    '鎵ц': '执行',
-                    '閰嶇疆': '配置',
-                    '鍒濆鍖?': '初始化',
-                    '姝ｅ湪': '正在',
-                    '瀹屾垚': '完成',
-                    '閽卞寘': '钱包',
-                    '鑾峰彇': '获取',
-                    '璇︾粏': '详细',
-                    '淇℃伅': '信息',
-                    '璁よ瘉': '认证',
-                    '杩涘害': '进度',
-                    '灏濊瘯': '尝试',
-                    '杩炴帴': '连接',
-                    '鎵撳嵃': '打印'
-                };
-                
-                // 替换乱码
-                Object.keys(chineseReplacements).forEach(key => {
-                    displayMessage = displayMessage.replace(new RegExp(key, 'g'), chineseReplacements[key]);
-                });
-                
-                // 如果仍有乱码字符，添加提示
-                if (/[\ufffd\uFFFD]|鑴氭湰|閰嶇疆|姝ｅ湪/.test(displayMessage)) {
-                    displayMessage += " [可能存在部分编码问题]";
-                }
-            }
+            // 直接使用已处理的消息，不再重复修复
+            const displayMessage = message || '';
             
             // 创建日志元素
             const logElement = document.createElement('div');
@@ -232,24 +199,13 @@ export class TaskLogger {
             if (autoScroll) {
                 container.scrollTop = container.scrollHeight;
             }
-            
-            // 保留最多500条日志，避免内存占用过多
-            const maxLogs = 500;
-            const logs = container.querySelectorAll('.log-entry');
-            if (logs.length > maxLogs) {
-                for (let i = 0; i < logs.length - maxLogs; i++) {
-                    container.removeChild(logs[i]);
-                }
-            }
         };
         
-        // 添加为观察者
+        // 添加观察者
         const removeObserver = TaskLogger.addObserver(logRenderer);
         
-        // 返回清理函数
-        return () => {
-            removeObserver();
-        };
+        // 返回停止渲染的函数
+        return removeObserver;
     }
     
     /**

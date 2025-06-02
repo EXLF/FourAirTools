@@ -9,6 +9,142 @@ const fs = require('fs');
 const os = require('os');
 const squirrelStartup = require('electron-squirrel-startup');
 
+// 设置正确的输出编码（Windows平台）
+if (process.platform === 'win32') {
+  const { execSync } = require('child_process');
+  try {
+    execSync('chcp 65001', { stdio: 'ignore' }); // 设置为UTF-8编码
+  } catch (e) {
+    // 忽略错误
+  }
+}
+
+// ========== 中文修复映射表（仅供其他模块使用） ==========
+const chineseFixMap = {
+    '鑴氭湰': '脚本',
+    '鎵ц': '执行', 
+    '閰嶇疆': '配置',
+    '鍒濆鍖?': '初始化',
+    '姝ｅ湪': '正在',
+    '瀹屾垚': '完成',
+    '閽卞寘': '钱包',
+    '鑾峰彇': '获取',
+    '娣诲姞': '添加',
+    '浠ｇ悊': '代理',
+    '鎴愬姛': '成功',
+    '澶辫触': '失败',
+    '鍚姩': '启动',
+    '鍋滄': '停止',
+    '杩愯': '运行',
+    '妫€娴?': '检测',
+    '鍔犺浇': '加载',
+    '淇濆瓨': '保存',
+    '鍒犻櫎': '删除',
+    '淇敼': '修改',
+    '鏇存柊': '更新',
+    '鍒楄〃': '列表',
+    '鏁版嵁': '数据',
+    '鏂囦欢': '文件',
+    '鐩綍': '目录',
+    '璺緞': '路径',
+    '杩炴帴': '连接',
+    '鏂板缓': '新建',
+    '涓嬭浇': '下载',
+    '涓婁紶': '上传',
+    '鍒嗘瀽': '分析',
+    '澶勭悊': '处理',
+    '鍙戦€?': '发送',
+    '鎺ユ敹': '接收',
+    '鍝嶅簲': '响应',
+    '璇锋眰': '请求',
+    '閿欒': '错误',
+    '璀﹀憡': '警告',
+    '淇℃伅': '信息',
+    '璋冭瘯': '调试',
+    '鐘舵€?': '状态',
+    '缁撴灉': '结果',
+    '杩斿洖': '返回',
+    '鏁版嵁搴?': '数据库',
+    '琛ㄦ牸': '表格',
+    '鍒楃殑': '列的',
+    '琛岀殑': '行的',
+    '鎺掑簭': '排序',
+    '绛涢€?': '筛选',
+    '鏌ヨ': '查询',
+    '鎻掑叆': '插入',
+    '绠＄悊鍣?': '管理器',
+    '鎺у埗鍙?': '控制台',
+    '鏃ュ織': '日志',
+    '鍙傛暟': '参数',
+    '閫夐」': '选项',
+    '璁剧疆': '设置',
+    '閰嶇疆椤?': '配置项',
+    '鍔熻兘': '功能',
+    '妯″潡': '模块',
+    '缁勪欢': '组件',
+    '鏈嶅姟': '服务',
+    '鎺ュ彛': '接口',
+    '鏍煎紡': '格式',
+    '鍐呭': '内容',
+    '瀛楃': '字符',
+    '瀛楃涓?': '字符串',
+    '鏁板瓧': '数字',
+    '甯冨皵': '布尔',
+    '鏁扮粍': '数组',
+    '瀵硅薄': '对象',
+    '鍑芥暟': '函数',
+    '鏂规硶': '方法',
+    '灞炴€?': '属性',
+    '鍊?': '值',
+    '閿?': '键',
+    '鍚嶇О': '名称',
+    '鏍囬': '标题',
+    '鎻忚堪': '描述',
+    '璇存槑': '说明',
+    '甯姪': '帮助',
+    '鐗堟湰': '版本',
+    '鏇存柊鏃ュ織': '更新日志',
+    '鍙戝竷': '发布',
+    '涓嬭浇閾炬帴': '下载链接',
+    '瀹夎': '安装',
+    '鍗歌浇': '卸载',
+    '鍚姩椤?': '启动项',
+    '闅愯棌': '隐藏',
+    '鏄剧ず': '显示',
+    '鎵撳紑': '打开',
+    '鍏抽棴': '关闭',
+    '鏈€澶у寲': '最大化',
+    '鏈€灏忓寲': '最小化',
+    '鍏ㄥ睆': '全屏',
+    '绐楀彛': '窗口'
+};
+
+// 精确的中文修复函数（仅在真正需要时使用）
+function fixChineseText(text) {
+    if (typeof text !== 'string') return text;
+    
+    // 只对包含特定中文乱码模式的文本进行修复
+    const hasSpecificGarbledChinese = /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(text);
+    
+    if (!hasSpecificGarbledChinese) {
+        return text; // 如果没有特定的中文乱码，直接返回原文本
+    }
+    
+    let fixed = text;
+    // 只处理确实包含乱码的部分
+    for (const [garbled, correct] of Object.entries(chineseFixMap)) {
+        if (fixed.includes(garbled)) {
+            fixed = fixed.replace(new RegExp(garbled, 'g'), correct);
+        }
+    }
+    return fixed;
+}
+
+// 导出修复函数和映射表供其他模块使用
+global.fixChineseText = fixChineseText;
+global.chineseFixMap = chineseFixMap;
+// ========== 结束中文修复功能 ==========
+
 const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
 const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');

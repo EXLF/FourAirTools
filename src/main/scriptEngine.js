@@ -1,6 +1,7 @@
 /**
- * 脚本执行引擎
- * 负责加载和执行用户脚本
+ * 脚本执行引擎 v2.0 - 安全性重构版本
+ * 负责在安全沙箱环境中加载和执行用户脚本
+ * 重构重点：VM2沙箱安全性、模块白名单、错误处理、日志稳定性
  */
 const { app } = require('electron');
 const fs = require('fs');
@@ -10,109 +11,228 @@ const { VM } = require('vm2');
 const util = require('util');
 const cryptoService = require('./core/cryptoService.js');
 const db = require('./db/index.js');
-const loggerModule = require(path.join(__dirname, '..', '..', 'user_scripts', 'common', 'logger.js')); // 正确的相对路径
+const loggerModule = require(path.join(__dirname, '..', '..', 'user_scripts', 'common', 'logger.js'));
 
 // 设置正确的输出编码（Windows平台）
 if (process.platform === 'win32') {
   const { execSync } = require('child_process');
   try {
-    execSync('chcp 65001', { stdio: 'ignore' }); // 设置为UTF-8编码
+    execSync('chcp 65001', { stdio: 'ignore' });
   } catch (e) {
-    // 忽略错误
+    // 忽略错误，继续执行
   }
 }
 
-// 日志记录
-function log(level, message) {
+// ==================== 安全配置常量 ====================
+const SECURITY_CONFIG = {
+  // VM2沙箱超时时间（默认10分钟）
+  DEFAULT_TIMEOUT: 10 * 60 * 1000,
+  // 最大超时时间（30分钟）
+  MAX_TIMEOUT: 30 * 60 * 1000,
+  // 核心允许的安全模块列表
+  CORE_SAFE_MODULES: ['crypto', 'path', 'url', 'util', 'ethers'],
+  // 绝对禁止的危险模块
+  FORBIDDEN_MODULES: ['fs', 'child_process', 'os', 'cluster', 'dgram', 'dns', 'net', 'tls', 'http', 'https'],
+  // 日志消息最大长度
+  MAX_LOG_MESSAGE_LENGTH: 10000,
+  // 脚本结果最大序列化长度
+  MAX_RESULT_SIZE: 50000
+};
+
+// 安全的日志记录函数
+function secureLog(level, message, executionId = null) {
   const timestamp = new Date().toISOString();
-  // 确保消息是UTF-8编码的字符串
-  const utf8Message = Buffer.from(message, 'utf8').toString('utf8');
-  console[level](`[${timestamp}][ScriptEngine][${level.toUpperCase()}] ${utf8Message}`);
+  // 限制消息长度，防止日志过载
+  let safeMessage = String(message).substring(0, SECURITY_CONFIG.MAX_LOG_MESSAGE_LENGTH);
+  if (message.length > SECURITY_CONFIG.MAX_LOG_MESSAGE_LENGTH) {
+    safeMessage += '...[截断]';
+  }
+  
+  // 简单的UTF-8处理
+  const utf8Message = Buffer.from(safeMessage, 'utf8').toString('utf8');
+  const prefix = executionId ? `[${executionId}]` : '';
+  console[level](`[${timestamp}][ScriptEngine]${prefix}[${level.toUpperCase()}] ${utf8Message}`);
 }
 
 // 保存主窗口引用
 let mainWindow = null;
 
-class ScriptEngine {
+/**
+ * 安全的脚本执行引擎
+ */
+class SecureScriptEngine {
   constructor() {
     this.scriptsDir = path.join(app.getPath('userData'), 'user_scripts', 'scripts');
     this.runningScripts = new Map();
+    this.scriptTimeouts = new Map(); // 用于跟踪脚本超时
     
     // 初始化IPC监听器
     this.initializeIpcHandlers();
     
-    log('info', `初始化完成，脚本目录: ${this.scriptsDir}`);
+    secureLog('info', `安全脚本引擎初始化完成，脚本目录: ${this.scriptsDir}`);
   }
   
   setMainWindow(window) {
     mainWindow = window;
-    log('info', '主窗口引用已设置');
+    secureLog('info', '主窗口引用已设置');
   }
   
   /**
-   * 向渲染进程发送日志信息
+   * 安全的中文修复函数 - 只在确实需要时使用
+   * @param {string} text - 待修复的文本
+   * @returns {string} 修复后的文本
+   */
+  fixChineseText(text) {
+    if (typeof text !== 'string') return text;
+    
+    // 只对包含特定中文乱码模式的文本进行修复
+    const hasSpecificGarbledChinese = /鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(text);
+    
+    if (!hasSpecificGarbledChinese) {
+      return text;
+    }
+    
+    // 使用全局映射表
+    const chineseFixMap = global.chineseFixMap || {};
+    let fixed = text;
+    
+    for (const [garbled, correct] of Object.entries(chineseFixMap)) {
+        if (fixed.includes(garbled)) {
+            fixed = fixed.replace(new RegExp(garbled, 'g'), correct);
+        }
+    }
+    return fixed;
+  }
+  
+  /**
+   * 安全的日志发送到渲染进程
    * @param {string} level - 日志级别
    * @param {string} message - 日志消息
-   * @param {string} executionId - 执行ID（可选）
+   * @param {string} executionId - 执行ID
    */
   sendLogToRenderer(level, message, executionId = null) {
-    // 使用全局 console.log 进行 scriptEngine 内部调试
-    // console.log(`[ScriptEngine DEBUG] sendLogToRenderer CALLED. Level: ${level}, ExecutionId: ${executionId}, Message (first 100 chars): ${String(message).substring(0,100)}`);
-
-    if (!mainWindow) {
-      // console.log('[ScriptEngine DEBUG] sendLogToRenderer: mainWindow is NULL. Aborting.');
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) {
       return;
-    }
-    if (mainWindow.isDestroyed()) {
-      // console.log('[ScriptEngine DEBUG] sendLogToRenderer: mainWindow is DESTROYED. Aborting.');
-      return;
-    }
-    if (!mainWindow.webContents) {
-      // console.log('[ScriptEngine DEBUG] sendLogToRenderer: mainWindow.webContents is NULL. Aborting.');
-      return;
-    } 
-    if (mainWindow.webContents.isDestroyed()) {
-        // console.log('[ScriptEngine DEBUG] sendLogToRenderer: mainWindow.webContents is DESTROYED. Aborting.');
-        return;
     }
 
     try {
-      const safeMessage = typeof message === 'string' ? 
-        message :
-        (typeof message === 'object' ? 
-          JSON.stringify(message, (key, value) => {
-            if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
-              return '[循环引用]';
-            }
-            return value;
-          }) : 
-          String(message));
+      // 安全的消息处理
+      let safeMessage = this.sanitizeLogMessage(message);
       
-      // console.log(`[ScriptEngine DEBUG] Attempting to send to renderer via webContents.send: script-log`);
-      mainWindow.webContents.send('script-log', { 
+      // 只在明确检测到中文乱码时才应用修复
+      if (/鑴氭湰|鎵ц|閰嶇疆|鍒濆鍖|姝ｅ湪|瀹屾垚|閽卞寘|鑾峰彇|鎴愬姛|澶辫触/.test(safeMessage)) {
+        safeMessage = this.fixChineseText(safeMessage);
+      }
+      
+      const logData = { 
         level, 
         message: safeMessage,
         timestamp: new Date().toISOString(),
         executionId: executionId
-      });
-      // console.log(`[ScriptEngine DEBUG] webContents.send called successfully for script-log.`);
+      };
+      
+      mainWindow.webContents.send('script-log', logData);
     } catch (error) {
-      // 使用全局 console.error 打印错误
-      console.error('[ScriptEngine] 向渲染进程发送日志失败 (Caught in sendLogToRenderer):', error); // 保留这个错误，但移除 DEBUG 标记
+      secureLog('error', `向渲染进程发送日志失败: ${error.message}`, executionId);
     }
+  }
+  
+  /**
+   * 安全的消息净化函数
+   * @param {*} message - 原始消息
+   * @returns {string} 净化后的安全消息
+   */
+  sanitizeLogMessage(message) {
+    if (typeof message === 'string') {
+      // 限制长度并移除潜在危险字符
+      return message.substring(0, SECURITY_CONFIG.MAX_LOG_MESSAGE_LENGTH)
+                   .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // 移除控制字符
+    } else if (typeof message === 'object' && message !== null) {
+      try {
+        return JSON.stringify(message, (key, value) => {
+          // 防止循环引用和敏感信息泄露
+          if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
+            return '[循环引用]';
+          }
+          if (key.toLowerCase().includes('password') || key.toLowerCase().includes('private') || key.toLowerCase().includes('secret')) {
+            return '[隐藏]';
+          }
+          return value;
+        }).substring(0, SECURITY_CONFIG.MAX_LOG_MESSAGE_LENGTH);
+      } catch (e) {
+        return '[对象序列化失败]';
+      }
+    }
+    return String(message).substring(0, SECURITY_CONFIG.MAX_LOG_MESSAGE_LENGTH);
+  }
+  
+  /**
+   * 验证和净化模块名称
+   * @param {string} moduleName - 模块名称
+   * @param {Array} allowedModules - 允许的模块列表
+   * @returns {boolean} 是否安全
+   */
+  validateModuleName(moduleName, allowedModules) {
+    // 基本格式检查
+    if (typeof moduleName !== 'string' || moduleName.length === 0) {
+      return false;
+    }
+    
+    // 检查是否在禁止列表中
+    if (SECURITY_CONFIG.FORBIDDEN_MODULES.includes(moduleName)) {
+      return false;
+    }
+    
+    // 检查路径遍历攻击
+    if (moduleName.includes('..') || moduleName.includes('/') || moduleName.includes('\\')) {
+      return false;
+    }
+    
+    // 检查是否在允许列表中
+    return allowedModules.includes(moduleName);
+  }
+  
+  /**
+   * 创建安全的require函数
+   * @param {Array} allowedModules - 允许的模块列表
+   * @param {string} scriptId - 脚本ID
+   * @param {string} executionId - 执行ID
+   * @returns {Function} 安全的require函数
+   */
+  createSecureRequire(allowedModules, scriptId, executionId) {
+    return (moduleName) => {
+      secureLog('debug', `脚本 ${scriptId} 尝试加载模块: ${moduleName}`, executionId);
+      
+      // 安全验证
+      if (!this.validateModuleName(moduleName, allowedModules)) {
+        const errorMsg = `模块 '${moduleName}' 未在白名单中或被安全策略禁止`;
+        this.sendLogToRenderer('error', errorMsg, executionId);
+        throw new Error(errorMsg);
+      }
+      
+      try {
+        const module = require(moduleName);
+        secureLog('debug', `模块 ${moduleName} 加载成功`, executionId);
+        return module;
+      } catch (error) {
+        const errorMsg = `加载模块 '${moduleName}' 失败: ${error.message}`;
+        this.sendLogToRenderer('error', errorMsg, executionId);
+        throw new Error(errorMsg);
+      }
+    };
   }
   
   initializeIpcHandlers() {
     // 获取可用脚本列表
     ipcMain.handle('get-available-scripts', async () => {
       try {
-        log('info', '接收到获取脚本列表请求');
+        secureLog('info', '接收到获取脚本列表请求');
         const scripts = await this.getAvailableScripts();
-        log('info', `获取到${scripts.length}个脚本`);
+        secureLog('info', `获取到${scripts.length}个脚本`);
         
         // 添加详细日志以便调试
         const scriptNames = scripts.map(s => s.name).join(', ');
-        log('info', `脚本列表: ${scriptNames}`);
+        secureLog('info', `脚本列表: ${scriptNames}`);
 
         // 确保返回的对象格式正确且可序列化
         const response = { 
@@ -121,11 +241,11 @@ class ScriptEngine {
         };
         
         // 记录返回结果
-        log('info', `返回响应: success=${response.success}, 数据条数=${response.data.length}`);
+        secureLog('info', `返回响应: success=${response.success}, 数据条数=${response.data.length}`);
         
         return response;
       } catch (error) {
-        log('error', `获取脚本列表失败: ${error.message}`);
+        secureLog('error', `获取脚本列表失败: ${error.message}`);
         return { success: false, error: error.message };
       }
     });
@@ -133,11 +253,11 @@ class ScriptEngine {
     // 运行脚本
     ipcMain.handle('run-script', async (event, scriptId, selectedWallets, config, proxyConfig) => {
       try {
-        log('info', `运行脚本: ${scriptId}，钱包数: ${selectedWallets?.length}, 配置: ${JSON.stringify(config)}, 代理: ${proxyConfig}`);
+        secureLog('info', `运行脚本: ${scriptId}，钱包数: ${selectedWallets?.length}, 配置: ${JSON.stringify(config)}, 代理: ${proxyConfig}`);
         const result = await this.runScript(scriptId, { selectedWallets, config, proxyConfig });
         return { success: true, data: result };
       } catch (error) {
-        log('error', `运行脚本失败: ${scriptId} - ${error.message}`);
+        secureLog('error', `运行脚本失败: ${scriptId} - ${error.message}`);
         return { success: false, error: error.message };
       }
     });
@@ -145,11 +265,11 @@ class ScriptEngine {
     // 停止脚本
     ipcMain.handle('stop-script', async (event, executionId) => {
       try {
-        log('info', `停止脚本: ${executionId}`);
+        secureLog('info', `停止脚本: ${executionId}`);
         await this.stopScript(executionId);
         return { success: true };
       } catch (error) {
-        log('error', `停止脚本失败: ${executionId} - ${error.message}`);
+        secureLog('error', `停止脚本失败: ${executionId} - ${error.message}`);
         return { success: false, error: error.message };
       }
     });
@@ -157,7 +277,7 @@ class ScriptEngine {
     // 获取运行中的脚本
     ipcMain.handle('get-running-scripts', () => {
       try {
-        log('info', '获取运行中的脚本');
+        secureLog('info', '获取运行中的脚本');
         const runningScripts = Array.from(this.runningScripts.entries()).map(([id, script]) => ({
           id,
           name: script.name,
@@ -165,7 +285,7 @@ class ScriptEngine {
         }));
         return { success: true, data: runningScripts };
       } catch (error) {
-        log('error', `获取运行中脚本失败: ${error.message}`);
+        secureLog('error', `获取运行中脚本失败: ${error.message}`);
         return { success: false, error: error.message };
       }
     });
@@ -175,7 +295,7 @@ class ScriptEngine {
     try {
       // 确保脚本目录存在
       if (!fs.existsSync(this.scriptsDir)) {
-        log('error', `脚本目录不存在: ${this.scriptsDir}`);
+        secureLog('error', `脚本目录不存在: ${this.scriptsDir}`);
         return [];
       }
       
@@ -198,9 +318,9 @@ class ScriptEngine {
               if (typeof scriptModule.getConfig === 'function') {
                 try {
                   metadata = scriptModule.getConfig();
-                  log('info', `成功加载脚本配置: ${file}`);
+                  secureLog('info', `成功加载脚本配置: ${file}`);
                 } catch (configError) {
-                  log('error', `获取脚本配置失败: ${file} - ${configError.message}`);
+                  secureLog('error', `获取脚本配置失败: ${file} - ${configError.message}`);
                 }
               }
               
@@ -235,7 +355,7 @@ class ScriptEngine {
                 });
               }
             } catch (requireError) {
-              log('error', `加载脚本失败 (require): ${file} - ${requireError.message}`);
+              secureLog('error', `加载脚本失败 (require): ${file} - ${requireError.message}`);
               
               // 即使require失败，我们仍然添加基本信息
               scripts.push({
@@ -250,14 +370,14 @@ class ScriptEngine {
               });
             }
           } catch (error) {
-            log('error', `读取脚本失败: ${file} - ${error.message}`);
+            secureLog('error', `读取脚本失败: ${file} - ${error.message}`);
           }
         }
       }
       
       return scripts;
     } catch (error) {
-      log('error', `获取可用脚本列表失败: ${error.message}`);
+      secureLog('error', `获取可用脚本列表失败: ${error.message}`);
       throw error;
     }
   }
@@ -400,13 +520,22 @@ class ScriptEngine {
         }
       }
 
+      // ==================== 安全模块配置 ====================
       const scriptMetadata = script.metadata || {};
       const declaredModules = scriptMetadata.requiredModules || [];
-      const coreAllowedModules = ['crypto', 'path', 'url', 'util', 'ethers'];
-      const allowedModulesForThisScript = [...new Set([...coreAllowedModules, ...declaredModules])];
       
-      // DEBUG: Log allowed modules for this script
-      console.log(`[ScriptEngine DEBUG] Allowed modules for script ${scriptId} (ExecutionID: ${executionId}):`, allowedModulesForThisScript);
+      // 验证声明的模块是否安全
+      const unsafeModules = declaredModules.filter(mod => 
+        SECURITY_CONFIG.FORBIDDEN_MODULES.includes(mod)
+      );
+      if (unsafeModules.length > 0) {
+        const errorMsg = `脚本 ${scriptId} 声明了危险模块: ${unsafeModules.join(', ')}`;
+        this.sendLogToRenderer('error', errorMsg, executionId);
+        throw new Error(errorMsg);
+      }
+      
+      const allowedModulesForThisScript = [...new Set([...SECURITY_CONFIG.CORE_SAFE_MODULES, ...declaredModules])];
+      secureLog('info', `脚本 ${scriptId} 允许的模块: ${allowedModulesForThisScript.join(', ')}`, executionId);
       this.sendLogToRenderer('info', `脚本 ${scriptId} 允许加载的模块: ${allowedModulesForThisScript.join(', ')}`, executionId);
 
       const engineSendLog = this.sendLogToRenderer.bind(this);
@@ -433,60 +562,7 @@ class ScriptEngine {
           success: (...args) => boundScriptLogger.success(util.format(...args)), 
           debug: (...args) => boundScriptLogger.info(util.format(...args)), 
         },
-        require: (moduleName) => {
-          // DEBUG: Log every require attempt from sandbox
-          console.log(`[ScriptEngine SANDBOX REQUIRE] Script ${scriptId} (ExecutionID: ${executionId}) is attempting to require: '${moduleName}'`);
-
-          if (moduleName === 'ethers') {
-            console.log(`[ScriptEngine REQUIRE DEBUG] Attempting to require 'ethers' for ExecutionID: ${executionId}. It IS in allowedModulesForThisScript (verified by check below).`);
-            // Double check allowance (should be redundant if outer check is correct)
-            if (!allowedModulesForThisScript.includes(moduleName)) {
-                const notAllowedMsg = `[ScriptEngine REQUIRE CRITICAL] 'ethers' is NOT in allowedModulesForThisScript for ${scriptId}, though it should be! Investigate getConfig or coreAllowedModules.`;
-                console.error(notAllowedMsg);
-                this.sendLogToRenderer('error', notAllowedMsg, executionId);
-                throw new Error(notAllowedMsg);
-            }
-            try {
-              const ethersModule = require('ethers'); // Main process require
-              console.log(`[ScriptEngine REQUIRE DEBUG] Main process require('ethers') result type: ${typeof ethersModule}, Keys: ${typeof ethersModule === 'object' && ethersModule !== null ? Object.keys(ethersModule).join(', ') : 'N/A'}. ExecutionID: ${executionId}`);
-              if (typeof ethersModule === 'undefined') {
-                  const undefinedMsg = `[ScriptEngine REQUIRE CRITICAL] Main process require('ethers') returned undefined! ExecutionID: ${executionId}`;
-                  console.error(undefinedMsg);
-                  this.sendLogToRenderer('error', undefinedMsg, executionId);
-                  // It's better to throw an error here so the script knows something is wrong
-                  throw new Error("Failed to load 'ethers' module properly in ScriptEngine."); 
-              }
-              return ethersModule;
-            } catch (e) {
-              const loadFailedMsg = `[ScriptEngine REQUIRE DEBUG] Main process require('ethers') FAILED for ExecutionID: ${executionId}. Error: ${e.message}`;
-              console.error(loadFailedMsg, e);
-              this.sendLogToRenderer('error', loadFailedMsg, executionId);
-              throw e; // Re-throw to be caught by script's try-catch or engine's outer try-catch
-            }
-          }
-          // Original require logic for other modules
-          if (allowedModulesForThisScript.includes(moduleName)) {
-            try {
-              return require(moduleName);
-            } catch (e) {
-              if (e.code === 'MODULE_NOT_FOUND' && !coreAllowedModules.includes(moduleName)) {
-                const errorMessage = `脚本 ${scriptId} 尝试加载模块 '${moduleName}'，但该模块未安装或未在项目 package.json 中正确声明依赖。请运行 'npm install ${moduleName}' 或将其添加到 package.json。`;
-                this.sendLogToRenderer('error', errorMessage, executionId);
-                throw new Error(errorMessage);
-              } else if (e.code === 'MODULE_NOT_FOUND') {
-                const errorMessage = `脚本 ${scriptId} 尝试加载核心模块 '${moduleName}' 失败，这通常不应发生。错误: ${e.message}`;
-                this.sendLogToRenderer('error', errorMessage, executionId);
-                throw new Error(errorMessage);
-              }
-              const errorMessage = `脚本 ${scriptId} 加载模块 '${moduleName}' 时发生内部错误: ${e.message}`;
-              this.sendLogToRenderer('error', errorMessage, executionId);
-              throw new Error(errorMessage);
-            }
-          }
-          const errorMessage = `模块 '${moduleName}' 未在脚本元数据中声明或不被允许在此脚本 (${scriptId}) 中使用。`;
-          this.sendLogToRenderer('error', errorMessage, executionId);
-          throw new Error(errorMessage);
-        },
+        require: this.createSecureRequire(allowedModulesForThisScript, scriptId, executionId),
         process: {
             env: {}
         },
@@ -523,35 +599,58 @@ class ScriptEngine {
         __script_result__: null,
       };
       
-      this.sendLogToRenderer('info', `为脚本 ${script.name} (执行ID: ${executionId}) 创建沙箱环境并准备执行...`, executionId);
+      // ==================== 创建安全的VM2沙箱 ====================
+      this.sendLogToRenderer('info', `为脚本 ${script.name} (执行ID: ${executionId}) 创建安全沙箱环境...`, executionId);
+
+      // 安全的超时配置
+      const requestedTimeout = scriptMetadata.timeout || SECURITY_CONFIG.DEFAULT_TIMEOUT;
+      const safeTimeout = Math.min(requestedTimeout, SECURITY_CONFIG.MAX_TIMEOUT);
+      
+      if (requestedTimeout > SECURITY_CONFIG.MAX_TIMEOUT) {
+        this.sendLogToRenderer('warning', 
+          `脚本 ${scriptId} 请求的超时时间 ${requestedTimeout}ms 超过最大限制，已调整为 ${safeTimeout}ms`, 
+          executionId
+        );
+      }
 
       const vm = new VM({
-        timeout: scriptMetadata.timeout || 600000, 
+        timeout: safeTimeout,
         sandbox: sandbox,
         require: {
-          external: true,
+          external: false, // 禁用外部模块，增强安全性
           builtin: allowedModulesForThisScript,
-          root: path.dirname(script.filePath), 
-        }
+          root: path.dirname(script.filePath),
+          resolve: (moduleName, parent) => {
+            // 额外的模块解析安全检查
+            if (!this.validateModuleName(moduleName, allowedModulesForThisScript)) {
+              throw new Error(`模块 '${moduleName}' 不在安全白名单中`);
+            }
+            return moduleName;
+          }
+        },
+        eval: false, // 禁用eval，增强安全性
+        wasm: false  // 禁用WebAssembly，增强安全性
       });
 
+      // 设置脚本超时监控
+      const timeoutHandle = setTimeout(() => {
+        this.sendLogToRenderer('error', `脚本 ${script.name} (执行ID: ${executionId}) 执行超时`, executionId);
+        this.forceStopScript(executionId);
+      }, safeTimeout);
+
+      // 存储运行中的脚本信息
       this.runningScripts.set(executionId, { 
         id: scriptId, 
         name: script.name, 
         vm, 
         status: 'running',
-        stop: () => { 
-          try {
-            if (typeof sandbox.context.onStop === 'function') {
-              sandbox.context.onStop(); 
-            }
-            this.sendLogToRenderer('info', `脚本 ${script.name} (执行ID: ${executionId}) 被请求停止。`, executionId);
-            this.runningScripts.delete(executionId);
-          } catch (e) {
-            this.sendLogToRenderer('error', `停止脚本 ${script.name} (执行ID: ${executionId}) 时出错: ${e.message}`, executionId);
-          }
-        } 
+        startTime: Date.now(),
+        timeoutHandle,
+        stop: () => this.gracefulStopScript(executionId)
       });
+      
+      // 存储超时句柄以便清理
+      this.scriptTimeouts.set(executionId, timeoutHandle);
 
       this.sendLogToRenderer('info', `即将执行脚本: ${script.name} (路径: ${script.filePath})`, executionId);
       
@@ -570,11 +669,11 @@ class ScriptEngine {
       // 在 vm.run 之后添加调试日志
       console.log(`[ScriptEngine RUN DEBUG] <<< AFTER vm.run for ${script.name}. ExecutionID: ${executionId}. Timestamp: ${new Date().toISOString()}`);
       
-      log('info', `脚本 ${scriptId} 导出的内容: ${Object.keys(scriptResult || {}).join(', ')}`);
+      secureLog('info', `脚本 ${scriptId} 导出的内容: ${Object.keys(scriptResult || {}).join(', ')}`);
       if (scriptResult && typeof scriptResult.main === 'function') {
-          log('info', `脚本 ${scriptId} 找到 main 函数`);
+          secureLog('info', `脚本 ${scriptId} 找到 main 函数`);
       } else {
-          log('error', `脚本 ${scriptId} 没有找到 main 函数，导出的内容类型: ${typeof scriptResult}`);
+          secureLog('error', `脚本 ${scriptId} 没有找到 main 函数，导出的内容类型: ${typeof scriptResult}`);
       }
       
       if (typeof scriptResult.main === 'function') {
@@ -583,58 +682,18 @@ class ScriptEngine {
         scriptResult.main(sandbox.context)
           .then(result => {
             this.sendLogToRenderer('success', `脚本 ${script.name} (ID: ${executionId}) 执行完成`, executionId);
-            if (this.runningScripts.has(executionId)) {
-              const scriptInfo = this.runningScripts.get(executionId);
-              scriptInfo.status = 'completed';
-              this.runningScripts.set(executionId, scriptInfo);
-            }
+            this.cleanupScript(executionId, 'completed');
             
-            let safeResult;
-            try {
-              safeResult = JSON.parse(JSON.stringify(result, (key, value) => {
-                if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
-                  return '[循环引用]';
-                }
-                if (typeof value === 'bigint') {
-                  return value.toString() + 'n';
-                }
-                return value;
-              }));
-            } catch (serializeError) {
-              console.error('序列化脚本结果失败:', serializeError);
-              safeResult = { 
-                success: true, 
-                message: '脚本执行完成，但结果无法完全序列化', 
-                partial: String(result).substring(0, 500) + '...'
-              };
-            }
+            // 安全的结果序列化
+            const safeResult = this.sanitizeScriptResult(result);
             
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              try {
-                mainWindow.webContents.send('script-completed', { 
-                  executionId, 
-                  result: safeResult 
-                });
-              } catch (sendError) {
-                console.error('发送脚本完成事件失败:', sendError);
-                this.sendLogToRenderer('warning', `脚本 ${script.name} (ID: ${executionId}) 执行完成，但结果传递失败`, executionId);
-              }
-            }
+            this.sendScriptCompleted(executionId, safeResult);
           })
           .catch(error => {
             this.sendLogToRenderer('error', `脚本 ${script.name} (ID: ${executionId}) 执行出错: ${error.message}`, executionId);
-            if (this.runningScripts.has(executionId)) {
-              const scriptInfo = this.runningScripts.get(executionId);
-              scriptInfo.status = 'failed';
-              this.runningScripts.set(executionId, scriptInfo);
-            }
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('script-error', { 
-                executionId, 
-                error: error.message,
-                stack: error.stack
-              });
-            }
+            this.cleanupScript(executionId, 'failed');
+            
+            this.sendScriptError(executionId, error);
           });
         
         return { executionId, status: 'running' };
@@ -644,42 +703,200 @@ class ScriptEngine {
         throw new Error(noMainFuncError);
       }
     } catch (error) {
-      log('error', `执行脚本 ${scriptId || '未知脚本'} (执行ID: ${executionId || '未知'}) 失败: ${error.message}`);
+      secureLog('error', `执行脚本 ${scriptId || '未知脚本'} (执行ID: ${executionId || '未知'}) 失败: ${error.message}`);
       this.sendLogToRenderer('error', `执行脚本 ${scriptId || '未知脚本'} (执行ID: ${executionId || '未知'}) 失败: ${error.message}`, executionId); 
       throw error;
     }
   }
   
-  async stopScript(executionId) {
+  /**
+   * 安全的脚本结果序列化
+   * @param {*} result - 脚本执行结果
+   * @returns {Object} 安全的序列化结果
+   */
+  sanitizeScriptResult(result) {
+    try {
+      const safeResult = JSON.parse(JSON.stringify(result, (key, value) => {
+        // 防止循环引用
+        if (key === 'parent' || key === 'children' || key === '_events' || key === '_eventsCount') {
+          return '[循环引用]';
+        }
+        // 处理BigInt
+        if (typeof value === 'bigint') {
+          return value.toString() + 'n';
+        }
+        // 隐藏敏感信息
+        if (key.toLowerCase().includes('password') || key.toLowerCase().includes('private') || key.toLowerCase().includes('secret')) {
+          return '[隐藏]';
+        }
+        return value;
+      }));
+      
+      // 检查序列化结果大小
+      const serialized = JSON.stringify(safeResult);
+      if (serialized.length > SECURITY_CONFIG.MAX_RESULT_SIZE) {
+        return { 
+          success: true, 
+          message: '脚本执行完成，但结果过大被截断', 
+          partial: serialized.substring(0, SECURITY_CONFIG.MAX_RESULT_SIZE) + '...[截断]'
+        };
+      }
+      
+      return safeResult;
+    } catch (serializeError) {
+      secureLog('error', `序列化脚本结果失败: ${serializeError.message}`);
+      return { 
+        success: true, 
+        message: '脚本执行完成，但结果无法序列化', 
+        error: serializeError.message
+      };
+    }
+  }
+  
+  /**
+   * 发送脚本完成事件到渲染进程
+   * @param {string} executionId - 执行ID
+   * @param {Object} result - 脚本结果
+   */
+  sendScriptCompleted(executionId, result) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    
+    try {
+      mainWindow.webContents.send('script-completed', { 
+        executionId, 
+        result 
+      });
+    } catch (sendError) {
+      secureLog('error', `发送脚本完成事件失败: ${sendError.message}`, executionId);
+      this.sendLogToRenderer('warning', `脚本执行完成，但结果传递失败: ${sendError.message}`, executionId);
+    }
+  }
+  
+  /**
+   * 发送脚本错误事件到渲染进程
+   * @param {string} executionId - 执行ID
+   * @param {Error} error - 错误对象
+   */
+  sendScriptError(executionId, error) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    
+    try {
+      mainWindow.webContents.send('script-error', { 
+        executionId, 
+        error: error.message,
+        stack: error.stack?.substring(0, 1000) // 限制堆栈信息长度
+      });
+    } catch (sendError) {
+      secureLog('error', `发送脚本错误事件失败: ${sendError.message}`, executionId);
+    }
+  }
+  
+  /**
+   * 清理脚本执行环境
+   * @param {string} executionId - 执行ID
+   * @param {string} status - 最终状态
+   */
+  cleanupScript(executionId, status = 'stopped') {
+    try {
+      // 清理超时句柄
+      if (this.scriptTimeouts.has(executionId)) {
+        clearTimeout(this.scriptTimeouts.get(executionId));
+        this.scriptTimeouts.delete(executionId);
+      }
+      
+      // 更新脚本状态
+      if (this.runningScripts.has(executionId)) {
+        const scriptInfo = this.runningScripts.get(executionId);
+        scriptInfo.status = status;
+        scriptInfo.endTime = Date.now();
+        
+        // 如果脚本有onStop清理函数，尝试调用
+        if (scriptInfo.vm && scriptInfo.vm.sandbox && 
+            scriptInfo.vm.sandbox.context && 
+            typeof scriptInfo.vm.sandbox.context.onStop === 'function') {
+          try {
+            scriptInfo.vm.sandbox.context.onStop();
+            secureLog('info', `脚本 ${scriptInfo.name} 的清理函数已执行`, executionId);
+          } catch (cleanupError) {
+            secureLog('warning', `脚本 ${scriptInfo.name} 清理函数执行失败: ${cleanupError.message}`, executionId);
+          }
+        }
+        
+        // 延迟删除，给其他组件时间处理状态变更
+        setTimeout(() => {
+          this.runningScripts.delete(executionId);
+        }, 5000);
+      }
+    } catch (error) {
+      secureLog('error', `清理脚本 ${executionId} 时出错: ${error.message}`, executionId);
+    }
+  }
+  
+  /**
+   * 优雅停止脚本
+   * @param {string} executionId - 执行ID
+   */
+  gracefulStopScript(executionId) {
     try {
       const script = this.runningScripts.get(executionId);
       if (!script) {
         throw new Error(`找不到运行中的脚本: ${executionId}`);
       }
       
-      // 之前这里有 freeze 调用，但 vm2 的 VM 实例没有 freeze 方法。
-      // 调用脚本内部注册的 onStop (如果存在)
-      if (script.vm && script.vm.sandbox && script.vm.sandbox.context && typeof script.vm.sandbox.context.onStop === 'function') {
-        try {
-            script.vm.sandbox.context.onStop();
-            this.sendLogToRenderer('info', `脚本 ${script.name} (ID: ${executionId}) 的 onStop 清理函数已调用。`, executionId);
-        } catch (onStopError) {
-            this.sendLogToRenderer('error', `脚本 ${script.name} (ID: ${executionId}) 的 onStop 函数执行出错: ${onStopError.message}`, executionId);
-        }
-      }
-
-      script.status = 'stopped'; // 更新状态
-      this.runningScripts.delete(executionId); // 从运行列表中移除
+      this.sendLogToRenderer('info', `正在优雅停止脚本 ${script.name} (ID: ${executionId})`, executionId);
+      this.cleanupScript(executionId, 'stopped');
       
-      this.sendLogToRenderer('warn', `脚本 ${script.name} (ID: ${executionId}) 已停止。`, executionId);
       return true;
     } catch (error) {
-      log('error', `停止脚本 ${executionId} 失败: ${error.message}`);
+      secureLog('error', `优雅停止脚本 ${executionId} 失败: ${error.message}`, executionId);
+      return false;
+    }
+  }
+  
+  /**
+   * 强制停止脚本（用于超时）
+   * @param {string} executionId - 执行ID
+   */
+  forceStopScript(executionId) {
+    try {
+      const script = this.runningScripts.get(executionId);
+      if (!script) {
+        return false;
+      }
+      
+      this.sendLogToRenderer('warning', `强制停止脚本 ${script.name} (ID: ${executionId})`, executionId);
+      this.cleanupScript(executionId, 'timeout');
+      
+      return true;
+    } catch (error) {
+      secureLog('error', `强制停止脚本 ${executionId} 失败: ${error.message}`, executionId);
+      return false;
+    }
+  }
+  
+  /**
+   * 停止脚本（公共接口）
+   * @param {string} executionId - 执行ID
+   * @returns {boolean} 是否成功停止
+   */
+  async stopScript(executionId) {
+    try {
+      const success = this.gracefulStopScript(executionId);
+      if (!success) {
+        throw new Error(`找不到运行中的脚本: ${executionId}`);
+      }
+      return true;
+    } catch (error) {
+      secureLog('error', `停止脚本 ${executionId} 失败: ${error.message}`);
       this.sendLogToRenderer('error', `停止脚本 ${executionId} 失败: ${error.message}`, executionId);
       throw error;
     }
   }
 }
 
-const scriptEngine = new ScriptEngine();
+const scriptEngine = new SecureScriptEngine();
 module.exports = scriptEngine;
