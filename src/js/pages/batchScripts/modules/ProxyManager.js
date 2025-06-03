@@ -109,8 +109,37 @@ export class ProxyManager {
             selectedCountElement.textContent = `已选择 ${selectedProxies.length} 个代理`;
         }
         
+        // 更新切换按钮状态
+        this.updateToggleButtonState(taskInstanceId);
+        
         // 更新代理策略详情
         this.updateProxyStrategyDetails(taskInstanceId, taskConfig);
+    }
+
+    /**
+     * 更新切换按钮状态
+     * @param {string} taskInstanceId - 任务实例ID
+     */
+    updateToggleButtonState(taskInstanceId) {
+        const toggleAllBtn = document.getElementById(`toggle-all-proxies-${taskInstanceId}`);
+        const proxyListDiv = document.getElementById(`proxy-list-${taskInstanceId}`);
+        
+        if (!toggleAllBtn || !proxyListDiv) return;
+        
+        const checkboxes = proxyListDiv.querySelectorAll('input[name="selected-proxies"]');
+        const checkedCount = proxyListDiv.querySelectorAll('input[name="selected-proxies"]:checked').length;
+        const totalCount = checkboxes.length;
+        
+        if (checkedCount === 0) {
+            toggleAllBtn.textContent = '全选';
+            toggleAllBtn.className = 'btn-toggle';
+        } else if (checkedCount === totalCount) {
+            toggleAllBtn.textContent = '全不选';
+            toggleAllBtn.className = 'btn-toggle active';
+        } else {
+            toggleAllBtn.textContent = '全选';
+            toggleAllBtn.className = 'btn-toggle partial';
+        }
     }
 
     /**
@@ -166,8 +195,47 @@ export class ProxyManager {
             });
         });
         
+        // 绑定全选/反选按钮事件
+        this.bindProxyBulkActions(taskInstanceId, taskConfig);
+        
         // 初始化时更新选中的代理
         this.updateSelectedProxies(taskInstanceId, taskConfig);
+    }
+
+    /**
+     * 绑定代理批量操作按钮事件
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} taskConfig - 任务配置
+     */
+    bindProxyBulkActions(taskInstanceId, taskConfig) {
+        const toggleAllBtn = document.getElementById(`toggle-all-proxies-${taskInstanceId}`);
+        const proxyListDiv = document.getElementById(`proxy-list-${taskInstanceId}`);
+        
+        if (!proxyListDiv || !toggleAllBtn) return;
+        
+        // 智能切换全选/反选
+        toggleAllBtn.addEventListener('click', () => {
+            const checkboxes = proxyListDiv.querySelectorAll('input[name="selected-proxies"]');
+            const checkedCount = proxyListDiv.querySelectorAll('input[name="selected-proxies"]:checked').length;
+            const shouldSelectAll = checkedCount < checkboxes.length;
+            
+            checkboxes.forEach(checkbox => {
+                const shouldCheck = shouldSelectAll;
+                if (checkbox.checked !== shouldCheck) {
+                    checkbox.checked = shouldCheck;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            
+            // 手动触发更新，确保状态同步
+            this.updateSelectedProxies(taskInstanceId, taskConfig);
+            
+            const action = shouldSelectAll ? '全选' : '全不选';
+            console.log(`[代理管理] ${action}所有代理 (${checkboxes.length} 个)`);
+        });
+        
+        // 初始化按钮状态
+        setTimeout(() => this.updateToggleButtonState(taskInstanceId), 100);
     }
 
     /**
@@ -232,9 +300,13 @@ export class ProxyManager {
                     
                     <div class="proxy-list-header">
                         <span class="proxy-list-title" id="selected-proxy-count-${taskInstanceId}">已选择 ${proxyConfig.proxies.length} 个代理</span>
-                        <button class="refresh-proxy-btn" id="refresh-proxy-list-${taskInstanceId}">
-                            <i class="fas fa-sync"></i> 刷新
-                        </button>
+                        <div class="proxy-actions">
+                            <button class="btn-toggle" id="toggle-all-proxies-${taskInstanceId}">全选</button>
+                            <button class="btn-refresh" id="refresh-proxy-list-${taskInstanceId}">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>刷新</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="proxy-list-${taskInstanceId}" class="proxy-list">
                         <!-- 代理列表将动态加载 -->

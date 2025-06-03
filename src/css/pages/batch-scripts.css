@@ -1301,38 +1301,6 @@ input:checked + .slider:before {
     color: #2c3e50;
 }
 
-.proxy-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.proxy-actions .btn {
-    font-size: 13px;
-    padding: 6px 14px;
-}
-
-.proxy-actions .btn-secondary {
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dfe4ea;
-}
-
-.proxy-actions .btn-secondary:hover {
-    background-color: #e9ecef;
-    border-color: #ced4da;
-}
-
-.proxy-actions .btn-primary {
-    background-color: #6c5ce7;
-    color: #fff;
-    border: 1px solid #6c5ce7;
-}
-
-.proxy-actions .btn-primary:hover {
-    background-color: #5a4cdb;
-    border-color: #5a4cdb;
-}
-
 .proxy-manual-input textarea {
     width: 100%;
     border: 1px solid #dfe4ea;
@@ -1371,6 +1339,97 @@ input:checked + .slider:before {
     background-color: #fff;
     border: 1px solid #e9ecef;
     border-radius: 8px;
+}
+
+.proxy-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 10px;
+}
+
+.proxy-list-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.proxy-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-toggle {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 500;
+}
+
+.btn-toggle:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+    color: #495057;
+}
+
+.btn-toggle.active {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
+.btn-toggle.active:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.btn-toggle.partial {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-toggle.partial:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+.btn-refresh {
+    background-color: #6c5ce7;
+    color: #fff;
+    border: 1px solid #6c5ce7;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+}
+
+.btn-refresh:hover {
+    background-color: #5a4cdb;
+    border-color: #5a4cdb;
+}
+
+.btn-refresh i {
+    font-size: 11px;
+}
+
+.btn-refresh span {
+    font-size: 12px;
 }
 
 .proxy-item {
