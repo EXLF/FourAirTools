@@ -1,21 +1,51 @@
 /**
  * 脚本执行管理器
  * 负责脚本的启动、停止、状态管理、日志监听器管理、执行计时器管理等
+ * 
+ * 服务层重构 - 第9步: 集成ScriptService和TaskService
  */
 
 import { BatchTaskManager } from '../batchTaskManager.js';
 import { TaskLogger } from '../logger.js';
 import { batchTaskConfigs, VIEW_MODES } from '../config/constants.js';
+import { isFeatureEnabled, safeExecuteAsyncWithFallback } from '../infrastructure/types.js';
 
 /**
  * 脚本执行管理器类
  */
 export class ScriptExecutionManager {
-    constructor(pageState, backgroundTasks, backgroundTaskHelpers) {
+    constructor(pageState, backgroundTasks, backgroundTaskHelpers, options = {}) {
         this.pageState = pageState;
         this.backgroundTasks = backgroundTasks;
         this.backgroundTaskHelpers = backgroundTaskHelpers;
         this.activeExecutions = new Map(); // 存储活动执行的信息
+        
+        // 服务层重构 - 第9步: Service层集成
+        this.scriptService = options.scriptService || null;
+        this.taskService = options.taskService || null;
+        this.useServices = isFeatureEnabled('fa_use_script_service') || isFeatureEnabled('fa_use_task_service');
+        
+        // 统计信息
+        this.stats = {
+            totalExecutions: 0,
+            successfulExecutions: 0,
+            failedExecutions: 0,
+            totalExecutionTime: 0,
+            serviceUsageCount: 0,
+            fallbackUsageCount: 0
+        };
+        
+        console.log(`[ScriptExecutionManager] 初始化完成，Service层启用: ${this.useServices}`);
+    }
+
+    /**
+     * 设置Service层实例（服务层重构 - 第9步）
+     */
+    setServices(scriptService, taskService) {
+        this.scriptService = scriptService;
+        this.taskService = taskService;
+        this.useServices = isFeatureEnabled('fa_use_script_service') || isFeatureEnabled('fa_use_task_service');
+        console.log(`[ScriptExecutionManager] Service层已设置，启用状态: ${this.useServices}`);
     }
 
     /**
@@ -188,7 +218,7 @@ export class ScriptExecutionManager {
     }
 
     /**
-     * 执行真实脚本
+     * 执行真实脚本（服务层重构 - 第9步）
      * @param {string} taskInstanceId - 任务实例ID
      * @param {Object} taskConfig - 任务配置
      * @param {HTMLElement} startTaskButton - 开始按钮元素
@@ -196,7 +226,179 @@ export class ScriptExecutionManager {
      * @private
      */
     async _executeRealScript(taskInstanceId, taskConfig, startTaskButton) {
+        const executionStartTime = Date.now();
+        this.stats.totalExecutions++;
+        
         startTaskButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
+        
+        // 优先使用Service层执行
+        if (this.useServices && (this.scriptService || this.taskService)) {
+            try {
+                const result = await this._executeWithServices(taskInstanceId, taskConfig, startTaskButton);
+                if (result.success) {
+                    this.stats.serviceUsageCount++;
+                    this.stats.successfulExecutions++;
+                    this.stats.totalExecutionTime += Date.now() - executionStartTime;
+                    return true;
+                } else {
+                    console.warn('[脚本执行] Service层执行失败，回退到原始方式:', result.error);
+                    // 继续执行原始方式
+                }
+            } catch (error) {
+                console.warn('[脚本执行] Service层执行异常，回退到原始方式:', error);
+                // 继续执行原始方式
+            }
+        }
+        
+        // 原始执行方式（回退机制）
+        const result = await this._executeOriginal(taskInstanceId, taskConfig, startTaskButton);
+        if (result) {
+            this.stats.fallbackUsageCount++;
+            this.stats.successfulExecutions++;
+        } else {
+            this.stats.failedExecutions++;
+        }
+        this.stats.totalExecutionTime += Date.now() - executionStartTime;
+        
+        return result;
+    }
+
+    /**
+     * 使用Service层执行脚本（服务层重构 - 第9步）
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} taskConfig - 任务配置
+     * @param {HTMLElement} startTaskButton - 开始按钮元素
+     * @returns {Promise<Object>} 执行结果
+     * @private
+     */
+    async _executeWithServices(taskInstanceId, taskConfig, startTaskButton) {
+        console.log('[脚本执行] 🚀 使用Service层执行脚本...');
+        
+        try {
+            // 1. 使用TaskService创建任务（如果可用）
+            let taskServiceResult = null;
+            if (this.taskService) {
+                const taskServiceConfig = {
+                    name: `${this.pageState.currentBatchScriptType.name} - ${taskInstanceId}`,
+                    scriptId: this.pageState.currentBatchScriptType.id,
+                    scriptType: this.pageState.currentBatchScriptType.id,
+                    accounts: taskConfig.accounts,
+                    proxyConfig: taskConfig.proxyConfig.enabled ? {
+                        strategy: taskConfig.proxyConfig.strategy,
+                        proxies: taskConfig.proxyConfig.proxies
+                    } : null,
+                    scriptParams: {
+                        batchMode: true,
+                        timestamp: Date.now(),
+                        taskId: taskInstanceId
+                    },
+                    priority: 'normal',
+                    metadata: {
+                        source: 'ScriptExecutionManager',
+                        executionContext: 'foreground',
+                        uiTaskInstanceId: taskInstanceId
+                    }
+                };
+                
+                taskServiceResult = await this.taskService.createTask(taskServiceConfig);
+                if (taskServiceResult.success) {
+                    TaskLogger.logInfo(`📋 任务已通过TaskService创建: ${taskServiceResult.taskId}`);
+                }
+            }
+            
+            // 2. 使用ScriptService执行脚本
+            let executionResult = null;
+            if (this.scriptService) {
+                const executionConfig = {
+                    wallets: taskConfig.accounts,
+                    proxyConfig: taskConfig.proxyConfig.enabled ? {
+                        strategy: taskConfig.proxyConfig.strategy,
+                        proxies: taskConfig.proxyConfig.proxies
+                    } : null,
+                    scriptParams: {
+                        batchMode: true,
+                        timestamp: Date.now(),
+                        taskId: taskInstanceId,
+                        taskServiceId: taskServiceResult?.taskId
+                    }
+                };
+                
+                executionResult = await this.scriptService.executeScript(
+                    this.pageState.currentBatchScriptType.id,
+                    executionConfig
+                );
+            } else if (taskServiceResult?.success) {
+                // 如果有TaskService但没有ScriptService，尝试启动任务
+                executionResult = await this.taskService.startTask(taskServiceResult.taskId);
+            }
+            
+            if (!executionResult || !executionResult.success) {
+                throw new Error(executionResult?.error?.message || 'Service层执行失败');
+            }
+            
+            // 3. 处理执行成功
+            const executionId = executionResult.executionId || executionResult.data?.executionId;
+            if (!executionId) {
+                throw new Error('未获得执行ID');
+            }
+            
+            // 设置执行ID并准备UI
+            this.setupScriptLogListeners(taskInstanceId, startTaskButton, executionId);
+            
+            console.log('[脚本执行] ✅ Service层执行成功，执行ID:', executionId);
+            TaskLogger.logInfo(`✅ 脚本启动成功 (Service层)，执行ID: ${executionId}`);
+            
+            // 显示停止按钮
+            const stopBtn = document.getElementById('stop-btn');
+            if (stopBtn) {
+                stopBtn.style.display = 'inline-flex';
+            }
+            
+            // 记录活动执行
+            this.activeExecutions.set(taskInstanceId, {
+                executionId: executionId,
+                startTime: Date.now(),
+                scriptType: this.pageState.currentBatchScriptType,
+                taskServiceId: taskServiceResult?.taskId,
+                executionMethod: 'service'
+            });
+            
+            // 更新TaskService状态（如果可用）
+            if (this.taskService && taskServiceResult?.taskId) {
+                await this.taskService.updateTaskStatus(taskServiceResult.taskId, 'running', {
+                    executionId: executionId,
+                    startedAt: Date.now(),
+                    uiTaskInstanceId: taskInstanceId
+                });
+            }
+            
+            return { success: true, executionId, taskServiceId: taskServiceResult?.taskId };
+            
+        } catch (error) {
+            console.error('[脚本执行] Service层执行失败:', error);
+            TaskLogger.logError(`Service层执行失败: ${error.message}`);
+            
+            return {
+                success: false,
+                error: {
+                    type: 'SERVICE_EXECUTION_FAILED',
+                    message: error.message,
+                    details: error
+                }
+            };
+        }
+    }
+
+    /**
+     * 原始执行方式（向后兼容）
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} taskConfig - 任务配置
+     * @param {HTMLElement} startTaskButton - 开始按钮元素
+     * @returns {Promise<boolean>} 执行是否成功启动
+     * @private
+     */
+    async _executeOriginal(taskInstanceId, taskConfig, startTaskButton) {
+        console.log('[脚本执行] 🔄 使用原始方式执行脚本...');
         
         const scriptConfig = {
             batchMode: true,
@@ -230,7 +432,7 @@ export class ScriptExecutionManager {
                 this.setupScriptLogListeners(taskInstanceId, startTaskButton, result.data.executionId);
                 
                 console.log('[脚本执行] 成功启动，执行ID:', result.data.executionId);
-                TaskLogger.logInfo(`✅ 脚本启动成功，执行ID: ${result.data.executionId}`);
+                TaskLogger.logInfo(`✅ 脚本启动成功 (原始方式)，执行ID: ${result.data.executionId}`);
 
                 // 显示停止按钮
                 const stopBtn = document.getElementById('stop-btn');
@@ -242,7 +444,8 @@ export class ScriptExecutionManager {
                 this.activeExecutions.set(taskInstanceId, {
                     executionId: result.data.executionId,
                     startTime: Date.now(),
-                    scriptType: this.pageState.currentBatchScriptType
+                    scriptType: this.pageState.currentBatchScriptType,
+                    executionMethod: 'original'
                 });
                 
                 return true;
@@ -505,7 +708,7 @@ export class ScriptExecutionManager {
     }
 
     /**
-     * 停止真实脚本执行
+     * 停止真实脚本执行（服务层重构 - 第9步）
      * @param {string} taskInstanceId - 任务实例ID
      * @param {Object} execution - 执行信息
      * @param {boolean} force - 是否强制停止
@@ -513,19 +716,116 @@ export class ScriptExecutionManager {
      * @private
      */
     async _stopRealExecution(taskInstanceId, execution, force) {
+        TaskLogger.logWarning('正在停止脚本执行...');
+        TaskLogger.logInfo(`执行ID: ${execution.executionId}`);
+        
+        let stopResult = null;
+        
+        // 优先使用Service层停止
+        if (this.useServices && execution.executionMethod === 'service') {
+            try {
+                stopResult = await this._stopWithServices(taskInstanceId, execution, force);
+                if (stopResult.success) {
+                    console.log('[脚本执行] ✅ Service层停止成功');
+                    TaskLogger.logWarning('✋ 脚本执行已被用户停止 (Service层)');
+                    
+                    // 清理当前执行状态
+                    window.__currentExecutionId = null;
+                    this.activeExecutions.delete(taskInstanceId);
+                    
+                    return true;
+                } else {
+                    console.warn('[脚本执行] Service层停止失败，回退到原始方式:', stopResult.error);
+                }
+            } catch (error) {
+                console.warn('[脚本执行] Service层停止异常，回退到原始方式:', error);
+            }
+        }
+        
+        // 原始停止方式（回退机制）
+        return await this._stopOriginal(taskInstanceId, execution, force);
+    }
+
+    /**
+     * 使用Service层停止脚本（服务层重构 - 第9步）
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} execution - 执行信息
+     * @param {boolean} force - 是否强制停止
+     * @returns {Promise<Object>} 停止结果
+     * @private
+     */
+    async _stopWithServices(taskInstanceId, execution, force) {
+        console.log('[脚本执行] 🛑 使用Service层停止脚本...');
+        
+        try {
+            let stopResult = null;
+            
+            // 1. 使用ScriptService停止脚本
+            if (this.scriptService) {
+                stopResult = await this.scriptService.stopScript(execution.executionId);
+                if (stopResult.success) {
+                    TaskLogger.logInfo('📋 脚本已通过ScriptService停止');
+                }
+            }
+            
+            // 2. 使用TaskService更新任务状态
+            if (this.taskService && execution.taskServiceId) {
+                try {
+                    await this.taskService.updateTaskStatus(execution.taskServiceId, 'cancelled', {
+                        stoppedAt: Date.now(),
+                        stoppedBy: 'user',
+                        reason: 'Manual stop from UI',
+                        executionId: execution.executionId
+                    });
+                    TaskLogger.logInfo('📊 任务状态已通过TaskService更新为已取消');
+                } catch (taskError) {
+                    console.warn('[脚本执行] TaskService状态更新失败:', taskError);
+                    // 不阻止停止流程
+                }
+            }
+            
+            // 3. 验证停止结果
+            if (!stopResult || !stopResult.success) {
+                throw new Error(stopResult?.error?.message || 'Service层停止失败');
+            }
+            
+            return { success: true, method: 'service' };
+            
+        } catch (error) {
+            console.error('[脚本执行] Service层停止失败:', error);
+            
+            return {
+                success: false,
+                error: {
+                    type: 'SERVICE_STOP_FAILED',
+                    message: error.message,
+                    details: error
+                }
+            };
+        }
+    }
+
+    /**
+     * 原始停止方式（向后兼容）
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} execution - 执行信息
+     * @param {boolean} force - 是否强制停止
+     * @returns {Promise<boolean>} 停止是否成功
+     * @private
+     */
+    async _stopOriginal(taskInstanceId, execution, force) {
+        console.log('[脚本执行] 🔄 使用原始方式停止脚本...');
+        
         if (!window.scriptAPI || !window.scriptAPI.stopScript) {
             TaskLogger.logError('无法停止脚本：停止接口不可用');
             return false;
         }
         
-        TaskLogger.logWarning('正在停止脚本执行...');
-        TaskLogger.logInfo(`执行ID: ${execution.executionId}`);
-        
         const result = await window.scriptAPI.stopScript(execution.executionId);
         console.log('[脚本执行] 停止结果:', result);
         
         if (result.success) {
-            TaskLogger.logWarning('✋ 脚本执行已被用户停止');
+            TaskLogger.logWarning('✋ 脚本执行已被用户停止 (原始方式)');
             
             // 清理当前执行状态
             window.__currentExecutionId = null;
@@ -934,33 +1234,68 @@ export class ScriptExecutionManager {
     }
 
     /**
-     * 获取统计信息
+     * 获取统计信息（服务层重构 - 第9步）
      * @returns {Object} 统计信息
      */
     getStats() {
+        const currentTime = Date.now();
+        const activeExecutionDetails = Array.from(this.activeExecutions.entries()).map(([taskId, execution]) => ({
+            taskId,
+            executionId: execution.executionId,
+            isMock: execution.isMock || false,
+            startTime: execution.startTime,
+            duration: currentTime - execution.startTime,
+            scriptType: execution.scriptType?.name || 'Unknown',
+            executionMethod: execution.executionMethod || 'unknown',
+            taskServiceId: execution.taskServiceId || null
+        }));
+        
         return {
+            // 基础统计
             activeExecutions: this.activeExecutions.size,
-            executions: Array.from(this.activeExecutions.entries()).map(([taskId, execution]) => ({
-                taskId,
-                executionId: execution.executionId,
-                isMock: execution.isMock || false,
-                startTime: execution.startTime,
-                duration: Date.now() - execution.startTime
-            }))
+            executions: activeExecutionDetails,
+            
+            // 服务层重构统计 (第9步)
+            serviceLayerStats: {
+                ...this.stats,
+                serviceUsageRate: this.stats.totalExecutions > 0 
+                    ? (this.stats.serviceUsageCount / this.stats.totalExecutions * 100).toFixed(1) + '%'
+                    : '0%',
+                fallbackUsageRate: this.stats.totalExecutions > 0
+                    ? (this.stats.fallbackUsageCount / this.stats.totalExecutions * 100).toFixed(1) + '%'
+                    : '0%',
+                averageExecutionTime: this.stats.totalExecutions > 0
+                    ? Math.round(this.stats.totalExecutionTime / this.stats.totalExecutions)
+                    : 0
+            },
+            
+            // 配置信息
+            configuration: {
+                useServices: this.useServices,
+                hasScriptService: !!this.scriptService,
+                hasTaskService: !!this.taskService,
+                serviceLayerEnabled: isFeatureEnabled('fa_use_script_service') || isFeatureEnabled('fa_use_task_service')
+            }
         };
     }
 }
 
 /**
- * 创建脚本执行管理器实例并暴露全局函数
+ * 创建脚本执行管理器实例并暴露全局函数（服务层重构 - 第9步）
  * @param {Object} pageState - 页面状态对象
  * @param {Map} backgroundTasks - 后台任务列表
  * @param {Object} backgroundTaskHelpers - 后台任务辅助函数
  * @param {Object} taskConfigManager - 任务配置管理器
+ * @param {Object} options - 选项配置
+ * @param {Object} options.scriptService - ScriptService实例
+ * @param {Object} options.taskService - TaskService实例
  * @returns {ScriptExecutionManager} 脚本执行管理器实例
  */
-export function setupGlobalScriptExecutionManager(pageState, backgroundTasks, backgroundTaskHelpers, taskConfigManager) {
-    const scriptExecutionManager = new ScriptExecutionManager(pageState, backgroundTasks, backgroundTaskHelpers);
+export function setupGlobalScriptExecutionManager(pageState, backgroundTasks, backgroundTaskHelpers, taskConfigManager, options = {}) {
+    const scriptExecutionManager = new ScriptExecutionManager(pageState, backgroundTasks, backgroundTaskHelpers, {
+        scriptService: options.scriptService,
+        taskService: options.taskService
+    });
     
     // 暴露核心功能到全局
     window.FAScriptExecutionManager = scriptExecutionManager;
@@ -994,14 +1329,27 @@ export function setupGlobalScriptExecutionManager(pageState, backgroundTasks, ba
         return scriptExecutionManager._downloadLogs();
     };
     
-    // 调试功能
+    // 调试功能（服务层重构 - 第9步增强）
     window.__debugScriptExecution = () => {
         console.log('=== 脚本执行管理器调试信息 ===');
-        console.log('统计信息:', scriptExecutionManager.getStats());
+        const stats = scriptExecutionManager.getStats();
+        console.log('统计信息:', stats);
         console.log('活动执行:', scriptExecutionManager.activeExecutions);
         console.log('页面状态:', pageState);
+        console.log('Service层配置:', stats.configuration);
+        console.log('Service层统计:', stats.serviceLayerStats);
     };
     
-    console.log('[脚本执行] ScriptExecutionManager 全局函数已设置');
+    // Service层管理功能（第9步新增）
+    window.__setScriptExecutionServices = (scriptService, taskService) => {
+        scriptExecutionManager.setServices(scriptService, taskService);
+        console.log('[脚本执行] Service层已更新');
+    };
+    
+    window.__getScriptExecutionStats = () => {
+        return scriptExecutionManager.getStats();
+    };
+    
+    console.log('[脚本执行] ScriptExecutionManager 全局函数已设置 (Service层增强)');
     return scriptExecutionManager;
 } 

@@ -3,4 +3,4 @@ description:
 globs: 
 alwaysApply: true
 ---
-运行前先调用 use context7 的MPC
+运行前如果有需要用到最新的技术文档，就先调用 use context7 的MPC

@@ -12,6 +12,23 @@
 // 模块导入
 // ============================================================================
 
+// 基础设施模块（服务层重构）
+import { ApiClient } from './infrastructure/ApiClient.js';
+import { ErrorHandler } from './infrastructure/ErrorHandler.js';
+import { CacheManager } from './infrastructure/CacheManager.js';
+import { FeatureFlags, isFeatureEnabled, safeExecuteAsyncWithFallback } from './infrastructure/types.js';
+
+// Repository模块（服务层重构）
+import { BaseRepository, RepositoryFactory } from './repositories/BaseRepository.js';
+import { ScriptRepository } from './repositories/ScriptRepository.js';
+import { WalletRepository } from './repositories/WalletRepository.js';
+
+// Service模块（服务层重构）
+import { ScriptService } from './services/ScriptService.js';
+import { demoScriptServiceIntegration } from './services/ScriptServiceDemo.js';
+import { TaskService, TaskState } from './services/TaskService.js';
+import { getTaskServiceDemo } from './services/TaskServiceDemo.js';
+
 // 基础组件导入
 import { showModal } from '../../components/modal.js';
 import { translateLocation } from '../../utils/locationTranslator.js';
@@ -41,6 +58,7 @@ import { setupGlobalScriptExecutionManager } from './utils/ScriptExecutionManage
 import { setupGlobalScriptStopManager } from './utils/ScriptStopManager.js';
 import { setupGlobalUIEventManager } from './utils/UIEventManager.js';
 import { setupGlobalStyleManager } from './utils/StyleManager.js';
+import { OptimizationUtils } from './utils/OptimizationUtils.js';
 
 // ============================================================================
 // 全局状态和变量
@@ -54,6 +72,10 @@ const pageState = {
     walletGroupManager: new WalletGroupManager(),
     proxyManager: new ProxyManager()
 };
+
+// 基础设施实例（服务层重构）
+let infrastructureServices = null;
+let repositoryFactory = null;
 
 // 核心管理器实例
 let coreManagers = null;
@@ -81,6 +103,269 @@ let globalCompletedUnsubscriber = null;
 // ============================================================================
 // 功能管理器初始化
 // ============================================================================
+
+/**
+ * 初始化基础设施服务（服务层重构 - 第1步）
+ */
+async function initInfrastructureServices() {
+    if (infrastructureServices) {
+        console.log('[基础设施] 已初始化，跳过重复初始化');
+        return infrastructureServices;
+    }
+
+    try {
+        console.log('[基础设施] 开始初始化核心服务...');
+        
+        // 创建基础设施实例但不立即使用
+        const apiClient = new ApiClient();
+        const errorHandler = new ErrorHandler();
+        const cacheManager = new CacheManager();
+        
+        infrastructureServices = {
+            apiClient,
+            errorHandler,
+            cacheManager
+        };
+        
+        // 初始化Repository工厂
+        repositoryFactory = new RepositoryFactory();
+        
+        // 创建ScriptRepository实例
+        const scriptRepository = repositoryFactory.createRepository(
+            'ScriptRepository',
+            ScriptRepository,
+            {
+                apiClient,
+                errorHandler,
+                cacheManager
+            }
+        );
+        
+        // 创建WalletRepository实例
+        const walletRepository = repositoryFactory.createRepository(
+            'WalletRepository',
+            WalletRepository,
+            {
+                apiClient,
+                errorHandler,
+                cacheManager
+            }
+        );
+        
+        // 创建ScriptService实例
+        const scriptService = new ScriptService({
+            scriptRepository
+        });
+        
+        // 创建TaskService实例 (服务层重构 - 第8步)
+        const taskService = new TaskService({
+            scriptService,
+            maxConcurrentTasks: 3,
+            enableTaskPriority: true,
+            enableBackgroundTasks: true
+        });
+        
+        // 集成TaskService到BatchTaskManager (服务层重构 - 第8步)
+        try {
+            // 获取或创建BatchTaskManager实例
+            let batchTaskManager = window.__FA_BatchTaskManager;
+            if (!batchTaskManager && window.BatchTaskManager) {
+                batchTaskManager = new window.BatchTaskManager();
+            }
+            
+            if (batchTaskManager && batchTaskManager.setTaskService) {
+                batchTaskManager.setTaskService(taskService);
+                taskService.batchTaskManager = batchTaskManager; // 双向绑定
+                console.log('[基础设施] TaskService与BatchTaskManager集成完成');
+            } else {
+                console.warn('[基础设施] BatchTaskManager未找到，TaskService将独立运行');
+            }
+        } catch (error) {
+            console.warn('[基础设施] TaskService集成失败:', error);
+        }
+        
+        // 将Service添加到基础设施中
+        infrastructureServices.scriptService = scriptService;
+        infrastructureServices.taskService = taskService;
+        
+        // 初始化WalletRepository演示和调试功能
+        await initWalletRepositoryDemo(repositoryFactory);
+        
+        // 初始化ScriptService演示和调试功能
+        await initScriptServiceDemo(scriptService);
+        
+        // 初始化TaskService演示和调试功能 (服务层重构 - 第8步)
+        await initTaskServiceDemo(taskService);
+        
+        // 暴露到全局用于调试和统计
+        if (typeof window !== 'undefined') {
+            window.__FA_Infrastructure = infrastructureServices;
+            window.__FA_RepositoryFactory = repositoryFactory;
+            window.__FA_FeatureFlags = FeatureFlags;
+            
+            // 调试方法已在全局初始化时定义，这里只做覆盖检查
+            if (!window.FA_enableAllNewFeatures) {
+                console.warn('[基础设施] 全局调试函数未正确初始化');
+            }
+            
+            window.FA_getInfraStats = () => {
+                return {
+                    apiClient: apiClient.getStats(),
+                    errorHandler: errorHandler.getStats(),
+                    cacheManager: cacheManager.getStats(),
+                    repositories: repositoryFactory ? repositoryFactory.getAllStats() : {},
+                    featureFlags: Object.fromEntries(
+                        Object.entries(FeatureFlags).map(([key, flag]) => [
+                            key, 
+                            isFeatureEnabled(flag)
+                        ])
+                    )
+                };
+            };
+            
+            // 测试基础设施功能
+            window.FA_testInfrastructure = async () => {
+                console.log('🧪 开始测试基础设施功能...');
+                
+                try {
+                    // 测试缓存
+                    cacheManager.set('test_key', 'test_value', 1000);
+                    const cached = cacheManager.get('test_key');
+                    console.log('✅ 缓存测试:', cached === 'test_value' ? '通过' : '失败');
+                    
+                    // 测试错误处理
+                    const testError = new Error('测试错误');
+                    const handledError = errorHandler.handleApiError(testError, 'test', 'testMethod', []);
+                    console.log('✅ 错误处理测试:', handledError.type ? '通过' : '失败');
+                    
+                    // 测试ApiClient（如果可用）
+                    if (window.scriptAPI) {
+                        console.log('📡 测试 ApiClient...');
+                        // 这里不实际调用，只是验证方法存在
+                        console.log('✅ ApiClient 方法检查:', typeof apiClient.getAllScripts === 'function' ? '通过' : '失败');
+                    }
+                    
+                    console.log('🎉 基础设施测试完成！');
+                    return true;
+                } catch (error) {
+                    console.error('❌ 基础设施测试失败:', error);
+                    return false;
+                }
+            };
+        }
+        
+        console.log('[基础设施] 初始化完成 ✅');
+        return infrastructureServices;
+        
+    } catch (error) {
+        console.error('[基础设施] 初始化失败:', error);
+        infrastructureServices = null;
+        return null;
+    }
+}
+
+/**
+ * 初始化WalletRepository演示和调试功能
+ */
+async function initWalletRepositoryDemo(repositoryFactory) {
+    try {
+        // 动态导入演示模块
+        const { enableWalletRepositoryDebugging, integrateWalletRepositoryIntoGroupManager } = 
+            await import('./demo/WalletRepositoryDemo.js');
+        
+        // 启用调试功能
+        enableWalletRepositoryDebugging();
+        
+        // 集成到WalletGroupManager（如果存在）
+        if (pageState.walletGroupManager) {
+            await integrateWalletRepositoryIntoGroupManager(
+                pageState.walletGroupManager, 
+                repositoryFactory
+            );
+        }
+        
+        console.log('[WalletRepository] 演示和调试功能已初始化');
+        
+    } catch (error) {
+        console.warn('[WalletRepository] 演示功能初始化失败:', error);
+        // 不阻止主流程继续
+    }
+}
+
+/**
+ * 初始化ScriptService演示和调试功能
+ */
+async function initScriptServiceDemo(scriptService) {
+    try {
+        console.log('[ScriptService] 初始化演示功能...');
+        
+        // 如果启用了特性开关，自动运行演示
+        if (isFeatureEnabled('fa_use_script_service')) {
+            console.log('[ScriptService] 特性已启用，初始化演示功能');
+            
+            // 在页面加载完成后运行演示
+            setTimeout(async () => {
+                await demoScriptServiceIntegration();
+            }, 3000); // 延迟3秒，确保页面加载完成
+        }
+        
+        console.log('[ScriptService] 演示功能初始化完成');
+        
+    } catch (error) {
+        console.warn('[ScriptService] 演示功能初始化失败:', error);
+        // 不阻止主流程继续
+    }
+}
+
+/**
+ * 初始化TaskService演示和调试功能 (服务层重构 - 第8步)
+ */
+async function initTaskServiceDemo(taskService) {
+    try {
+        console.log('[TaskService] 开始初始化演示功能...');
+        
+        // 获取TaskServiceDemo实例
+        const taskServiceDemo = getTaskServiceDemo();
+        
+        // 如果启用了特性开关，自动运行演示
+        if (isFeatureEnabled('fa_use_task_service')) {
+            console.log('[TaskService] 特性已启用，初始化演示功能');
+            
+            // 在页面加载完成后运行演示
+            setTimeout(async () => {
+                try {
+                    const initResult = await taskServiceDemo.initialize();
+                    if (initResult.success) {
+                        console.log('✅ [TaskService] 演示模块初始化成功');
+                        
+                        // 暴露TaskService到全局用于调试
+                        if (typeof window !== 'undefined') {
+                            window.FA_TaskService = taskServiceDemo.getTaskService();
+                            console.log('🔧 [TaskService] 已暴露到全局变量 window.FA_TaskService');
+                        }
+                    } else {
+                        console.warn('⚠️ [TaskService] 演示模块初始化失败:', initResult.error);
+                    }
+                } catch (error) {
+                    console.warn('[TaskService演示] 运行失败:', error);
+                }
+            }, 2000); // 稍晚于ScriptService初始化
+        } else {
+            console.log('[TaskService] 特性未启用，跳过自动演示');
+        }
+        
+        // 始终暴露到全局用于手动测试
+        if (typeof window !== 'undefined') {
+            window.FA_TaskServiceDemo = taskServiceDemo;
+        }
+        
+        console.log('[TaskService] 演示功能初始化完成');
+        
+    } catch (error) {
+        console.warn('[TaskService] 演示功能初始化失败:', error);
+        // 不阻止主流程继续
+    }
+}
 
 /**
  * 初始化中文乱码修复功能
@@ -225,6 +510,9 @@ function initGlobalTaskConfigManager() {
 /**
  * 初始化脚本执行管理器
  */
+/**
+ * 初始化脚本执行管理器（服务层重构 - 第9步）
+ */
 function initGlobalScriptExecutionManager() {
     if (!scriptExecutionManager) {
         const backgroundTaskHelpers = {
@@ -235,13 +523,49 @@ function initGlobalScriptExecutionManager() {
             updateBackgroundTaskIndicator: window.FABackgroundTaskManager?.updateIndicator
         };
         
+        // 获取Service层实例（服务层重构 - 第9步）
+        const serviceOptions = {};
+        if (window.FA_ScriptService) {
+            serviceOptions.scriptService = window.FA_ScriptService;
+            console.log('[脚本执行] 🔗 集成 ScriptService');
+        }
+        if (window.FA_TaskService) {
+            serviceOptions.taskService = window.FA_TaskService;
+            console.log('[脚本执行] 🔗 集成 TaskService');
+        }
+        
         scriptExecutionManager = setupGlobalScriptExecutionManager(
             pageState, 
             backgroundTasks, 
             backgroundTaskHelpers, 
-            taskConfigManager
+            taskConfigManager,
+            serviceOptions
         );
-        console.log('[脚本执行] ScriptExecutionManager模块已初始化');
+        
+        console.log('[脚本执行] ScriptExecutionManager模块已初始化 (Service层集成)');
+        
+        // 如果Service还没初始化，设置延迟集成
+        if (!serviceOptions.scriptService || !serviceOptions.taskService) {
+            setTimeout(() => {
+                const delayedServices = {};
+                if (!serviceOptions.scriptService && window.FA_ScriptService) {
+                    delayedServices.scriptService = window.FA_ScriptService;
+                }
+                if (!serviceOptions.taskService && window.FA_TaskService) {
+                    delayedServices.taskService = window.FA_TaskService;
+                }
+                
+                if (Object.keys(delayedServices).length > 0) {
+                    if (window.__setScriptExecutionServices) {
+                        window.__setScriptExecutionServices(
+                            delayedServices.scriptService || serviceOptions.scriptService,
+                            delayedServices.taskService || serviceOptions.taskService
+                        );
+                        console.log('[脚本执行] ⏰ 延迟Service层集成完成:', Object.keys(delayedServices));
+                    }
+                }
+            }, 2000);
+        }
     }
 }
 
@@ -297,15 +621,117 @@ async function initDebugTools() {
     }
 }
 
+/**
+ * 初始化优化工具
+ */
+function initOptimizationTools() {
+    try {
+        // 优化工具已在模块导入时自动注册到全局
+        console.log('[优化工具] OptimizationUtils模块已初始化');
+        
+        // 设置定期自动优化（可选）
+        if (isFeatureEnabled('fa_auto_optimization')) {
+            setInterval(() => {
+                OptimizationUtils.performFullOptimization();
+            }, 30 * 60 * 1000); // 30分钟自动优化一次
+            
+            console.log('[优化工具] 自动优化已启用（30分钟间隔）');
+        }
+        
+        // 暴露快捷优化函数
+        window.FA_quickOptimize = async () => {
+            console.log('🚀 执行快速优化...');
+            const results = await OptimizationUtils.performFullOptimization();
+            console.log('✅ 快速优化完成:', results);
+            return results;
+        };
+        
+    } catch (error) {
+        console.error('[优化工具] OptimizationUtils模块初始化失败:', error);
+    }
+}
+
 
 
 // ============================================================================
 // 主要功能函数
 // ============================================================================
 
-// 页面加载时立即初始化后台任务管理器
+// 页面加载时立即初始化后台任务管理器和基础设施
 if (typeof window !== 'undefined') {
     initGlobalBackgroundTaskManager();
+    
+    // 立即暴露全局调试函数（不依赖基础设施初始化）
+    window.FA_enableAllNewFeatures = () => {
+        const flags = [
+            'fa_use_script_repository',
+            'fa_use_script_service', 
+            'fa_use_api_cache',
+            'fa_enable_api_retry',
+            'fa_use_task_service',
+            'fa_use_wallet_repo',
+            'fa_debug_services'
+        ];
+        
+        flags.forEach(flag => {
+            localStorage.setItem(flag, 'true');
+        });
+        
+        console.log('✅ 所有新特性已启用，刷新页面生效');
+        console.log('🔄 请刷新页面查看效果：location.reload()');
+    };
+    
+    window.FA_disableAllNewFeatures = () => {
+        const flags = [
+            'fa_use_script_repository',
+            'fa_use_script_service', 
+            'fa_use_api_cache',
+            'fa_enable_api_retry',
+            'fa_use_task_service',
+            'fa_use_wallet_repo',
+            'fa_debug_services'
+        ];
+        
+        flags.forEach(flag => {
+            localStorage.setItem(flag, 'false');
+        });
+        
+        console.log('❌ 所有新特性已禁用，刷新页面生效');
+        console.log('🔄 请刷新页面查看效果：location.reload()');
+    };
+    
+    window.FA_enableRepository = () => {
+        localStorage.setItem('fa_use_script_repository', 'true');
+        console.log('✅ Repository层已启用，刷新页面生效');
+        console.log('🔄 请刷新页面并进入脚本插件页面查看效果');
+    };
+    
+    window.FA_getFeatureStatus = () => {
+        const flags = [
+            'fa_use_script_repository',
+            'fa_use_script_service', 
+            'fa_use_api_cache',
+            'fa_enable_api_retry'
+        ];
+        
+        const status = {};
+        flags.forEach(flag => {
+            status[flag] = localStorage.getItem(flag) === 'true';
+        });
+        
+        console.table(status);
+        return status;
+    };
+    
+    // 立即初始化基础设施并暴露全局调试函数
+    (async () => {
+        try {
+            const infraServices = await initInfrastructureServices();
+            console.log('[全局初始化] 基础设施服务已就绪');
+        } catch (error) {
+            console.error('[全局初始化] 基础设施初始化失败:', error);
+        }
+    })();
 }
 
 /**
@@ -319,6 +745,11 @@ export async function initBatchScriptsPage(contentArea) {
     pageState.contentAreaRef = contentArea;
     window.__isBatchScriptsPageActive = true;
     window.pageState = pageState;
+    
+    // 初始化基础设施服务（服务层重构）
+    console.log('[脚本插件] 开始初始化基础设施...');
+    const infraResult = await initInfrastructureServices();
+    console.log('[脚本插件] 基础设施初始化结果:', infraResult ? '成功' : '失败');
     
     // 立即启用中文乱码修复功能
     setupChineseTextFix();
@@ -336,6 +767,7 @@ export async function initBatchScriptsPage(contentArea) {
     initGlobalUIEventManager();
     initGlobalStyleManager();
     initDebugTools();
+    initOptimizationTools();
     
     // 立即加载样式
     if (styleManager) {
@@ -435,8 +867,28 @@ function renderBatchScriptCardsView(contentArea) {
             refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
             
             try {
-                // 先执行脚本同步（如果可用）
-                if (window.scriptAPI && typeof window.scriptAPI.syncScripts === 'function') {
+                // 第6步试点：优先使用ScriptService处理同步
+                let syncHandled = false;
+                if (isFeatureEnabled('fa_use_script_service') && infrastructureServices && infrastructureServices.scriptService) {
+                    try {
+                        console.log('[脚本插件] 🚀 使用 ScriptService 处理同步...');
+                        const { handleRefreshScriptsWithService } = await import('./services/ScriptServiceDemo.js');
+                        const serviceResult = await handleRefreshScriptsWithService();
+                        
+                        if (serviceResult.success) {
+                            console.log('[脚本插件] ✅ ScriptService 同步成功');
+                            syncHandled = true;
+                        } else {
+                            console.warn('[脚本插件] ⚠️ ScriptService 同步失败，回退到原始方式:', serviceResult.error);
+                        }
+                    } catch (serviceError) {
+                        console.warn('[脚本插件] ⚠️ ScriptService 处理失败，回退到原始方式:', serviceError);
+                    }
+                }
+                
+                // 回退方案：使用原始API
+                if (!syncHandled && window.scriptAPI && typeof window.scriptAPI.syncScripts === 'function') {
+                    console.log('[脚本插件] 🔄 使用原始 API 处理同步...');
                     const syncResult = await window.scriptAPI.syncScripts();
                     console.log('[脚本插件] 脚本同步结果:', syncResult);
                     
@@ -505,69 +957,206 @@ function renderBatchScriptCardsView(contentArea) {
 }
 
 /**
- * 加载并渲染脚本插件卡片
+ * 加载并渲染脚本插件卡片 (新版本 - 使用ScriptService)
  * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
+ * @param {Object} options - 加载选项
  */
-async function loadAndRenderBatchScriptCards(pageContentArea) {
+async function loadAndRenderBatchScriptCardsV2(pageContentArea, options = {}) {
     const cardsContainer = pageContentArea.querySelector('#batchScriptCardsContainer');
     const statusFilterElement = pageContentArea.querySelector('#batchScriptStatusFilter');
     
     if (!cardsContainer) {
-        console.error('卡片容器 #batchScriptCardsContainer 未找到');
+        console.error('[脚本加载V2] 卡片容器 #batchScriptCardsContainer 未找到');
         return;
     }
     
     cardsContainer.innerHTML = '';
     
-    // 加载脚本列表 - 优先使用新的 ScriptManager
-    let scriptsList = [];
-    const managers = getCoreManagers();
+    try {
+        console.log('[脚本加载V2] 🚀 使用 ScriptService 加载脚本列表...');
+        
+        // 使用ScriptService获取脚本列表
+        const scriptService = infrastructureServices?.scriptService || new (await import('./services/ScriptService.js')).ScriptService();
+        const result = await scriptService.getAvailableScripts({
+            sortBy: options.sortBy || 'name',
+            includeDisabled: options.includeDisabled || false,
+            filterCategory: options.filterCategory,
+            searchQuery: options.searchQuery,
+            forceRefresh: options.forceRefresh || false
+        });
+        
+        if (!result.success) {
+            throw new Error(`ScriptService 返回错误: ${result.error?.message || '未知错误'}`);
+        }
+        
+        const scriptsList = result.data.scripts || [];
+        const metadata = {
+            totalCount: result.data.totalCount || scriptsList.length,
+            availableCount: result.data.availableCount || scriptsList.length,
+            categories: result.data.categories || [],
+            loadTime: Date.now(),
+            source: 'ScriptService'
+        };
+        
+        console.log(`[脚本加载V2] ✅ 通过 ScriptService 加载成功: ${scriptsList.length} 个脚本`);
+        console.log(`[脚本加载V2] 📊 元数据:`, metadata);
+        
+        // 渲染脚本卡片
+        renderScriptCards(cardsContainer, scriptsList, (scriptData) => {
+            pageState.currentBatchScriptType = scriptData;
+            const taskInstanceId = `task_${scriptData.id}_${Date.now()}`;
+            navigateToModularTaskManager(taskInstanceId);
+        });
+        
+        // 更新筛选器选项
+        populateFilters(statusFilterElement, scriptsList);
+        
+        // 显示加载统计信息
+        showLoadingStats(metadata);
+        
+        return {
+            success: true,
+            scripts: scriptsList,
+            metadata
+        };
+        
+    } catch (error) {
+        console.error('[脚本加载V2] ❌ ScriptService 加载失败:', error);
+        
+        // 回退到原始版本
+        console.log('[脚本加载V2] 🔄 回退到原始加载方式...');
+        return loadAndRenderBatchScriptCardsV1(pageContentArea, options);
+    }
+}
+
+/**
+ * 加载并渲染脚本插件卡片 (原始版本 - 保留作为回退)
+ * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
+ * @param {Object} options - 加载选项
+ */
+async function loadAndRenderBatchScriptCardsV1(pageContentArea, options = {}) {
+    const cardsContainer = pageContentArea.querySelector('#batchScriptCardsContainer');
+    const statusFilterElement = pageContentArea.querySelector('#batchScriptStatusFilter');
     
-    if (managers && managers.scriptManager) {
+    if (!cardsContainer) {
+        console.error('[脚本加载V1] 卡片容器 #batchScriptCardsContainer 未找到');
+        return;
+    }
+    
+    cardsContainer.innerHTML = '';
+    
+    // 服务层重构：优先尝试使用新的Repository层
+    let scriptsList = [];
+    const useScriptRepository = isFeatureEnabled(FeatureFlags.USE_SCRIPT_REPOSITORY);
+    const useNewInfrastructure = isFeatureEnabled(FeatureFlags.USE_SCRIPT_SERVICE);
+    
+    // 第一优先级：使用ScriptRepository
+    if (useScriptRepository && repositoryFactory) {
         try {
-            console.log('[脚本插件] 使用新的 ScriptManager 加载脚本');
-            const scripts = await managers.scriptManager.getAvailableScripts();
-            scriptsList = scripts.map(s => ({
-                ...s,  // 保留所有原始字段，包括requires
-                status: s.status || 'active',
-                category: s.category || ''
-            }));
-            
-            console.log('[脚本插件] 通过 ScriptManager 加载的脚本数据:', scriptsList);
-        } catch (managerError) {
-            console.warn('[脚本插件] ScriptManager 加载失败，回退到原有方式:', managerError);
+            console.log('[脚本加载V1] 使用新的 ScriptRepository 加载脚本');
+            const scriptRepo = repositoryFactory.getRepository('ScriptRepository');
+            if (scriptRepo) {
+                const result = await scriptRepo.getAllScripts();
+                
+                if (result.success && Array.isArray(result.data)) {
+                    scriptsList = result.data;
+                    console.log('[脚本加载V1] 通过 ScriptRepository 加载的脚本数据:', scriptsList);
+                } else {
+                    throw new Error(`ScriptRepository 返回错误: ${result.error?.message || '未知错误'}`);
+                }
+            } else {
+                throw new Error('ScriptRepository 实例未找到');
+            }
+        } catch (repositoryError) {
+            console.warn('[脚本加载V1] ScriptRepository 失败，尝试 ApiClient:', repositoryError);
         }
     }
     
-    // 回退方案：使用原有的加载方式
-    if (scriptsList.length === 0) {
-        console.log('[脚本插件] 使用原有 API 方式加载脚本');
-    if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
+    // 第二优先级：使用ApiClient
+    if (scriptsList.length === 0 && useNewInfrastructure && infrastructureServices) {
         try {
-            const result = await window.scriptAPI.getAllScripts();
+            console.log('[脚本加载V1] 使用新的 ApiClient 加载脚本');
+            const result = await infrastructureServices.apiClient.getAllScripts();
+            
             if (result.success && Array.isArray(result.data)) {
                 scriptsList = result.data.map(s => ({
-                    ...s,  // 保留所有原始字段，包括requires
+                    ...s,
                     status: s.status || 'active',
                     category: s.category || ''
                 }));
-                
-                // 添加调试日志
-                    console.log('[脚本插件] 通过原有API加载的脚本数据:', scriptsList);
-                const httpScript = scriptsList.find(script => script.id === 'http_request_test');
-                if (httpScript) {
-                    console.log('[脚本插件] HTTP请求测试脚本数据:', httpScript);
-                    console.log('[脚本插件] HTTP脚本requires字段:', httpScript.requires);
-                }
+                console.log('[脚本加载V1] 通过 ApiClient 加载的脚本数据:', scriptsList);
             } else {
-                console.error('获取脚本列表失败:', result.error);
+                throw new Error(`ApiClient 返回错误: ${result.error}`);
             }
-        } catch (error) {
-            console.error('调用 getAllScripts 时出错:', error);
+        } catch (apiClientError) {
+            console.warn('[脚本加载V1] ApiClient 失败，尝试 ScriptManager:', apiClientError);
+            
+            // 第二层回退：使用 ScriptManager
+            const managers = getCoreManagers();
+            if (managers && managers.scriptManager) {
+                try {
+                    console.log('[脚本加载V1] 使用新的 ScriptManager 加载脚本');
+                    const scripts = await managers.scriptManager.getAvailableScripts();
+                    scriptsList = scripts.map(s => ({
+                        ...s,
+                        status: s.status || 'active',
+                        category: s.category || ''
+                    }));
+                    console.log('[脚本加载V1] 通过 ScriptManager 加载的脚本数据:', scriptsList);
+                } catch (managerError) {
+                    console.warn('[脚本加载V1] ScriptManager 也失败，使用原始方式:', managerError);
+                }
+            }
         }
-    } else {
-        console.warn('scriptAPI 未定义，使用静态脚本类型列表');
-        scriptsList = batchScriptTypes;
+    }
+    
+    // 第三优先级：使用 ScriptManager
+    if (scriptsList.length === 0) {
+        const managers = getCoreManagers();
+        if (managers && managers.scriptManager) {
+            try {
+                console.log('[脚本加载V1] 使用新的 ScriptManager 加载脚本');
+                const scripts = await managers.scriptManager.getAvailableScripts();
+                scriptsList = scripts.map(s => ({
+                    ...s,
+                    status: s.status || 'active',
+                    category: s.category || ''
+                }));
+                console.log('[脚本加载V1] 通过 ScriptManager 加载的脚本数据:', scriptsList);
+            } catch (managerError) {
+                console.warn('[脚本加载V1] ScriptManager 加载失败，回退到原有方式:', managerError);
+            }
+        }
+    }
+    
+    // 最终回退方案：使用原有的直接API调用
+    if (scriptsList.length === 0) {
+        console.log('[脚本加载V1] 使用原有 API 方式加载脚本');
+        if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
+            try {
+                const result = await window.scriptAPI.getAllScripts();
+                if (result.success && Array.isArray(result.data)) {
+                    scriptsList = result.data.map(s => ({
+                        ...s,
+                        status: s.status || 'active',
+                        category: s.category || ''
+                    }));
+                    
+                    console.log('[脚本加载V1] 通过原有API加载的脚本数据:', scriptsList);
+                    const httpScript = scriptsList.find(script => script.id === 'http_request_test');
+                    if (httpScript) {
+                        console.log('[脚本加载V1] HTTP请求测试脚本数据:', httpScript);
+                        console.log('[脚本加载V1] HTTP脚本requires字段:', httpScript.requires);
+                    }
+                } else {
+                    console.error('[脚本加载V1] 获取脚本列表失败:', result.error);
+                }
+            } catch (error) {
+                console.error('[脚本加载V1] 调用 getAllScripts 时出错:', error);
+            }
+        } else {
+            console.warn('[脚本加载V1] scriptAPI 未定义，使用静态脚本类型列表');
+            scriptsList = batchScriptTypes;
         }
     }
 
@@ -580,6 +1169,52 @@ async function loadAndRenderBatchScriptCards(pageContentArea) {
     
     // 更新筛选器选项
     populateFilters(statusFilterElement, scriptsList);
+    
+    return {
+        success: true,
+        scripts: scriptsList,
+        metadata: {
+            totalCount: scriptsList.length,
+            source: 'Repository/API'
+        }
+    };
+}
+
+/**
+ * 加载并渲染脚本插件卡片 (主入口函数)
+ * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
+ * @param {Object} options - 加载选项
+ */
+async function loadAndRenderBatchScriptCards(pageContentArea, options = {}) {
+    // 检查特性开关决定使用哪个版本
+    const useScriptServiceV2 = isFeatureEnabled(FeatureFlags.USE_SCRIPT_SERVICE) && infrastructureServices?.scriptService;
+    
+    if (useScriptServiceV2) {
+        console.log('[脚本加载] 🚀 使用 ScriptService V2');
+        return loadAndRenderBatchScriptCardsV2(pageContentArea, options);
+    } else {
+        console.log('[脚本加载] 📋 使用原始方式 V1');
+        return loadAndRenderBatchScriptCardsV1(pageContentArea, options);
+    }
+}
+
+/**
+ * 显示加载统计信息
+ * @param {Object} metadata - 加载元数据
+ */
+function showLoadingStats(metadata) {
+    if (!metadata) return;
+    
+    console.log(`📊 [脚本加载统计] 来源: ${metadata.source}`);
+    console.log(`📊 [脚本加载统计] 总脚本: ${metadata.totalCount}`);
+    console.log(`📊 [脚本加载统计] 可用脚本: ${metadata.availableCount}`);
+    console.log(`📊 [脚本加载统计] 类别数: ${metadata.categories?.length || 0}`);
+    console.log(`📊 [脚本加载统计] 加载时间: ${new Date(metadata.loadTime).toLocaleTimeString()}`);
+    
+    // 可以在这里添加UI通知
+    if (typeof window.showToast === 'function') {
+        window.showToast(`已加载 ${metadata.totalCount} 个脚本 (来源: ${metadata.source})`, 'success');
+    }
 }
 
 /**
@@ -845,75 +1480,125 @@ window.navigateToModularTaskManager = navigateToModularTaskManager;
 // ============================================================================
 
 /**
- * 页面卸载处理
+ * 页面卸载处理（第10步优化）
  */
 export function onBatchScriptsPageUnload() {
-    console.log('脚本插件页面卸载，清理资源...');
-    window.__isBatchScriptsPageActive = false;
+    console.log('🧹 脚本插件页面卸载，开始清理资源...');
     
-    // 清理全局状态
-    window.pageState = null;
-    window.globalLogEventHandler = null;
-    window.globalScriptCompletedHandler = null;
+    // 使用优化工具进行系统级清理
+    const cleanupResults = {
+        managers: 0,
+        listeners: 0,
+        timers: 0,
+        memory: 0
+    };
     
-    // 清理管理器实例
-    const managers = [
-        { name: '任务配置', instance: taskConfigManager, cleanup: () => taskConfigManager?.cleanup() },
-        { name: '脚本执行', instance: scriptExecutionManager, cleanup: () => scriptExecutionManager?.cleanup() },
-        { name: '脚本停止', instance: scriptStopManager, cleanup: () => scriptStopManager?.cleanup() },
-        { name: 'UI事件', instance: uiEventManager, cleanup: () => uiEventManager?.cleanup() },
-        { name: '样式管理', instance: styleManager, cleanup: () => styleManager?.cleanup() }
-    ];
-    
-    managers.forEach(({ name, instance, cleanup }) => {
-        if (instance) {
-            cleanup();
-            console.log(`[${name}] 管理器已清理`);
-        }
-    });
-    
-    // 重置管理器变量
-    taskConfigManager = null;
-    scriptExecutionManager = null;
-    scriptStopManager = null;
-    uiEventManager = null;
-    styleManager = null;
-
-    // 清理全局监听器
-    [
-        { name: '日志监听器', unsubscriber: globalLogUnsubscriber },
-        { name: '完成监听器', unsubscriber: globalCompletedUnsubscriber }
-    ].forEach(({ name, unsubscriber }) => {
-        if (unsubscriber) {
+    try {
+        // 1. 标记页面为非活动状态
+        window.__isBatchScriptsPageActive = false;
+        
+        // 2. 清理管理器实例
+        const managers = [
+            { name: '任务配置', instance: taskConfigManager, cleanup: () => taskConfigManager?.cleanup() },
+            { name: '脚本执行', instance: scriptExecutionManager, cleanup: () => scriptExecutionManager?.cleanup() },
+            { name: '脚本停止', instance: scriptStopManager, cleanup: () => scriptStopManager?.cleanup() },
+            { name: 'UI事件', instance: uiEventManager, cleanup: () => uiEventManager?.cleanup() },
+            { name: '样式管理', instance: styleManager, cleanup: () => styleManager?.cleanup() }
+        ];
+        
+        managers.forEach(({ name, instance, cleanup }) => {
+            if (instance) {
+                try {
+                    cleanup();
+                    cleanupResults.managers++;
+                    console.log(`✅ [${name}] 管理器已清理`);
+                } catch (error) {
+                    console.warn(`⚠️ [${name}] 管理器清理失败:`, error);
+                }
+            }
+        });
+        
+        // 3. 清理全局监听器
+        const listeners = [
+            { name: '日志监听器', unsubscriber: globalLogUnsubscriber },
+            { name: '完成监听器', unsubscriber: globalCompletedUnsubscriber }
+        ];
+        
+        listeners.forEach(({ name, unsubscriber }) => {
+            if (unsubscriber) {
+                try {
+                    unsubscriber();
+                    cleanupResults.listeners++;
+                    console.log(`✅ [${name}] 已卸载`);
+                } catch (e) {
+                    console.warn(`⚠️ [${name}] 卸载失败:`, e);
+                }
+            }
+        });
+        
+        // 4. 清理计时器和资源
+        const timers = ['__executionTimer', '__zombieCheckTimer', '__optimizationTimer'];
+        timers.forEach(timerName => {
+            if (window[timerName]) {
+                try {
+                    clearInterval(window[timerName]);
+                    window[timerName] = null;
+                    cleanupResults.timers++;
+                } catch (e) {
+                    console.warn(`⚠️ 清理计时器失败: ${timerName}`, e);
+                }
+            }
+        });
+        
+        // 5. 使用优化工具进行深度清理
+        if (window.FA_OptimizationUtils) {
             try {
-                unsubscriber();
-                console.log(`[脚本插件] ${name}已卸载`);
-            } catch (e) {
-                console.warn(`[脚本插件] 卸载${name}失败:`, e);
+                const memoryResults = OptimizationUtils.MemoryManager.cleanupGlobalVariables();
+                OptimizationUtils.MemoryManager.cleanupEventListeners();
+                cleanupResults.memory = memoryResults;
+                console.log('✅ 优化工具清理完成');
+            } catch (error) {
+                console.warn('⚠️ 优化工具清理失败:', error);
             }
         }
-    });
-    
-    globalLogUnsubscriber = null;
-    globalCompletedUnsubscriber = null;
-
-    // 清理资源和状态
-    cleanupResources(); 
-    pageState.currentBatchScriptType = null;
-    pageState.currentView = VIEW_MODES.CARDS;
-
-    // 清理计时器
-    if (window.__executionTimer) {
-        clearInterval(window.__executionTimer);
-        window.__executionTimer = null;
-    }
-    if (window.__currentLogCleanup) {
-        try {
-            window.__currentLogCleanup();
-            window.__currentLogCleanup = null;
-        } catch (e) {
-            console.warn('卸载页面时清理日志渲染器失败:', e);
+        
+        // 6. 重置状态变量
+        globalLogUnsubscriber = null;
+        globalCompletedUnsubscriber = null;
+        taskConfigManager = null;
+        scriptExecutionManager = null;
+        scriptStopManager = null;
+        uiEventManager = null;
+        styleManager = null;
+        
+        // 7. 清理页面状态
+        if (pageState) {
+            pageState.currentBatchScriptType = null;
+            pageState.currentView = VIEW_MODES.CARDS;
         }
+        window.pageState = null;
+        window.globalLogEventHandler = null;
+        window.globalScriptCompletedHandler = null;
+        
+        // 8. 清理资源
+        if (typeof cleanupResources === 'function') {
+            cleanupResources();
+        }
+        
+        // 9. 特殊清理
+        if (window.__currentLogCleanup) {
+            try {
+                window.__currentLogCleanup();
+                window.__currentLogCleanup = null;
+            } catch (e) {
+                console.warn('⚠️ 日志渲染器清理失败:', e);
+            }
+        }
+        
+        console.log('✅ 页面卸载完成，清理统计:', cleanupResults);
+        
+    } catch (error) {
+        console.error('❌ 页面卸载过程中出现错误:', error);
     }
 }
 

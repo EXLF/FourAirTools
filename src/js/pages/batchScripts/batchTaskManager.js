@@ -5,6 +5,7 @@
 
 import { ScriptExecutionManager } from './scriptExecutionManager.js';
 import { TaskLogger } from './logger.js';
+import { isFeatureEnabled } from './infrastructure/types.js';
 
 // 批量任务执行管理器
 const scriptExecutionManager = new ScriptExecutionManager();
@@ -19,6 +20,10 @@ export class BatchTaskManager {
     constructor() {
         this.tasks = new Map(); // 任务映射表，键为任务ID，值为任务数据
         this.taskEventListeners = new Map(); // 任务事件监听器
+        
+        // 服务层重构 - 第8步: TaskService集成
+        this.taskService = null; // 将由外部注入
+        this.useService = false; // 默认禁用，通过特性开关控制
         
         // 初始化时加载保存的任务
         this._loadSavedTasks();
@@ -358,7 +363,72 @@ export class BatchTaskManager {
      * @param {Object} taskData - 任务数据
      * @returns {Promise<Object>} 添加的任务
      */
+    /**
+     * 设置TaskService实例（服务层重构 - 第8步）
+     */
+    setTaskService(taskService) {
+        this.taskService = taskService;
+        this.useService = isFeatureEnabled('fa_use_task_service');
+        console.log(`[BatchTaskManager] TaskService已设置，启用状态: ${this.useService}`);
+    }
+
     async addTask(taskData) {
+        // 服务层重构 - 第8步: 优先使用TaskService
+        if (this.useService && this.taskService) {
+            try {
+                console.log('[BatchTaskManager] 使用TaskService创建任务');
+                
+                // 转换为TaskService需要的格式
+                const taskConfig = {
+                    name: taskData.name,
+                    scriptId: taskData.scriptId || taskData.scriptType,
+                    scriptType: taskData.scriptType,
+                    accounts: taskData.accounts || taskData.accountIds?.map(id => ({ id })) || [],
+                    proxyConfig: taskData.proxyConfig,
+                    scriptParams: taskData.scriptParams || {},
+                    priority: taskData.priority || 'normal',
+                    metadata: {
+                        source: 'BatchTaskManager',
+                        originalId: taskData.id,
+                        ...taskData.metadata
+                    }
+                };
+                
+                const result = await this.taskService.createTask(taskConfig);
+                if (result.success) {
+                    // 更新任务ID为TaskService返回的ID
+                    taskData.id = result.taskId;
+                    taskData.serviceTaskId = result.taskId;
+                    
+                    // 保存到本地存储以保持兼容性
+                    this.tasks.set(taskData.id, taskData);
+                    this._saveAllTasks();
+                    
+                    console.log(`[BatchTaskManager] TaskService创建任务成功: ${result.taskId}`);
+                    
+                    return {
+                        success: true,
+                        taskId: result.taskId,
+                        taskData: result.taskData
+                    };
+                } else {
+                    console.warn('[BatchTaskManager] TaskService创建失败，使用原始方法:', result.error);
+                    // 继续使用原始方法
+                }
+            } catch (error) {
+                console.warn('[BatchTaskManager] TaskService失败，回退到原始方法:', error);
+                this.useService = false; // 临时禁用
+            }
+        }
+        
+        // 原始逻辑保持不变
+        return this.addTaskOriginal(taskData);
+    }
+    
+    /**
+     * 原始的addTask方法（保持向后兼容）
+     */
+    async addTaskOriginal(taskData) {
         try {
             // 确保任务有唯一ID
             if (!taskData.id) {
@@ -374,12 +444,22 @@ export class BatchTaskManager {
             this.tasks.set(taskData.id, taskData);
             this._saveAllTasks();
             
-            console.log(`已添加新任务: ${taskData.name} (${taskData.id})`);
+            console.log(`[BatchTaskManager] 使用原始方法添加任务: ${taskData.name} (${taskData.id})`);
             
-            return taskData;
+            return {
+                success: true,
+                taskId: taskData.id,
+                taskData: taskData
+            };
         } catch (error) {
-            console.error('添加批量任务失败:', error);
-            throw error;
+            console.error('[BatchTaskManager] 添加批量任务失败:', error);
+            return {
+                success: false,
+                error: {
+                    type: 'TASK_CREATION_FAILED',
+                    message: error.message
+                }
+            };
         }
     }
     
