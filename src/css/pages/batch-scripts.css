@@ -2094,4 +2094,139 @@ input:checked + .slider:before {
         padding: 12px 20px;
         gap: 10px;
     }
+}
+
+/* 脚本参数配置样式 */
+.script-params-section {
+    margin: 20px 0;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.script-params-section h2 {
+    margin: 0;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.script-params-section h2 i {
+    font-size: 18px;
+}
+
+.params-container {
+    padding: 20px;
+}
+
+.param-group {
+    margin-bottom: 20px;
+}
+
+.param-group:last-child {
+    margin-bottom: 0;
+}
+
+.param-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.param-group .required {
+    color: #e74c3c;
+    margin-left: 2px;
+}
+
+.param-group input[type="text"],
+.param-group input[type="number"],
+.param-group select,
+.param-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.param-group input[type="text"]:focus,
+.param-group input[type="number"]:focus,
+.param-group select:focus,
+.param-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.param-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+.param-group .checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.param-group .checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin: 3px 0 0 0;
+    flex-shrink: 0;
+}
+
+.param-group .checkbox-group label {
+    margin: 0;
+    color: #555;
+    font-weight: 400;
+    cursor: pointer;
+    flex: 1;
+    line-height: 1.4;
+}
+
+.param-description {
+    margin: 6px 0 0 0;
+    color: #6c757d;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* 错误状态样式 */
+.param-group input.error,
+.param-group select.error,
+.param-group textarea.error {
+    border-color: #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+/* 禁用状态样式 */
+.param-group input:disabled,
+.param-group select:disabled,
+.param-group textarea:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+    .params-container {
+        padding: 16px;
+    }
+    
+    .param-group {
+        margin-bottom: 16px;
+    }
 } 

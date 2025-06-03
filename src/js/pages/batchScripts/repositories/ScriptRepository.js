@@ -294,10 +294,12 @@ export class ScriptRepository extends BaseRepository {
             imageUrl: script.imageUrl || null,
             icon: script.icon || null,
             requires: {
-                wallets: script.requires?.wallets || false,
+                wallets: script.requires?.wallets !== false, // 默认需要钱包
                 proxies: script.requires?.proxies || false,
                 socialsAccounts: script.requires?.socialsAccounts || false
             },
+            // 保留脚本配置参数
+            config: script.config || {}, // 确保保留config字段
             params: script.params || {},
             filePath: script.filePath || '',
             createdAt: script.createdAt || null,

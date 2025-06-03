@@ -901,7 +901,16 @@ async function loadAndRenderBatchScriptCardsV2(pageContentArea, options = {}) {
         
         // 渲染脚本卡片
         renderScriptCards(cardsContainer, scriptsList, (scriptData) => {
+            console.log('🎯 [脚本选择] 用户选择了脚本:', scriptData?.name);
+            console.log('🎯 [脚本选择] 脚本完整数据:', scriptData);
+            console.log('🎯 [脚本选择] 脚本config字段:', scriptData?.config);
+            console.log('🎯 [脚本选择] config类型:', typeof scriptData?.config);
+            console.log('🎯 [脚本选择] config是否为对象:', scriptData?.config && typeof scriptData.config === 'object');
+            console.log('🎯 [脚本选择] config键数量:', scriptData?.config ? Object.keys(scriptData.config).length : 0);
+            
             pageState.currentBatchScriptType = scriptData;
+            console.log('🎯 [脚本选择] 已设置 currentBatchScriptType');
+            
             const taskInstanceId = `task_${scriptData.id}_${Date.now()}`;
             navigateToModularTaskManager(taskInstanceId);
         });
@@ -970,7 +979,16 @@ async function loadAndRenderBatchScriptCardsFallback(pageContentArea, options = 
 
     // 渲染脚本卡片
     renderScriptCards(cardsContainer, scriptsList, (scriptData) => {
+        console.log('🎯 [脚本选择] 用户选择了脚本 (Fallback):', scriptData?.name);
+        console.log('🎯 [脚本选择] 脚本完整数据 (Fallback):', scriptData);
+        console.log('🎯 [脚本选择] 脚本config字段 (Fallback):', scriptData?.config);
+        console.log('🎯 [脚本选择] config类型 (Fallback):', typeof scriptData?.config);
+        console.log('🎯 [脚本选择] config是否为对象 (Fallback):', scriptData?.config && typeof scriptData.config === 'object');
+        console.log('🎯 [脚本选择] config键数量 (Fallback):', scriptData?.config ? Object.keys(scriptData.config).length : 0);
+        
         pageState.currentBatchScriptType = scriptData;
+        console.log('🎯 [脚本选择] 已设置 currentBatchScriptType (Fallback)');
+        
         const taskInstanceId = `task_${scriptData.id}_${Date.now()}`;
         navigateToModularTaskManager(taskInstanceId);
     });

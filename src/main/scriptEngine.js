@@ -368,6 +368,7 @@ class SecureScriptEngine {
                   // 将重要字段提升到根级别
                   requires: safeMetadata.requires || { wallets: true }, // 默认需要钱包
                   requiredModules: safeMetadata.requiredModules || [],
+                  config: safeMetadata.config || {}, // 将配置参数提升到根级别
                   metadata: safeMetadata
                 });
               } else {

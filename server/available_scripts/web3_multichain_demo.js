@@ -47,10 +47,9 @@ function getConfig() {
       "retry", "p-limit", "p-queue"
     ],
     
-    // 配置参数
-    configFields: [
-      {
-        name: "targetChain",
+    // 配置参数 - 修改为对象格式以兼容前端
+    config: {
+      targetChain: {
         type: "select",
         label: "目标区块链",
         description: "选择要操作的区块链网络",
@@ -63,8 +62,7 @@ function getConfig() {
           { value: "multichain", label: "多链操作" }
         ]
       },
-      {
-        name: "operationType",
+      operationType: {
         type: "select",
         label: "操作类型",
         description: "选择要执行的操作",
@@ -78,32 +76,28 @@ function getConfig() {
           { value: "portfolio_analysis", label: "投资组合分析" }
         ]
       },
-      {
-        name: "ethereumRpc",
+      ethereumRpc: {
         type: "text",
         label: "以太坊RPC地址",
         description: "以太坊网络RPC节点URL",
         required: false,
         default: "https://rpc.ankr.com/eth"
       },
-      {
-        name: "solanaRpc",
+      solanaRpc: {
         type: "text",
         label: "Solana RPC地址",
         description: "Solana网络RPC节点URL",
         required: false,
         default: "https://api.mainnet-beta.solana.com"
       },
-      {
-        name: "polkadotRpc",
+      polkadotRpc: {
         type: "text",
         label: "Polkadot RPC地址",
         description: "Polkadot网络RPC节点URL（WebSocket）",
         required: false,
         default: "wss://rpc.polkadot.io"
       },
-      {
-        name: "batchSize",
+      batchSize: {
         type: "number",
         label: "批处理大小",
         description: "每批处理的钱包数量",
@@ -112,8 +106,7 @@ function getConfig() {
         min: 1,
         max: 20
       },
-      {
-        name: "delayBetweenRequests",
+      delayBetweenRequests: {
         type: "number",
         label: "请求间延迟(毫秒)",
         description: "请求之间的延迟时间",
@@ -122,14 +115,13 @@ function getConfig() {
         min: 500,
         max: 5000
       },
-      {
-        name: "enableDetailedLogs",
+      enableDetailedLogs: {
         type: "checkbox",
         label: "启用详细日志",
         description: "显示详细的执行日志",
         default: true
       }
-    ]
+    }
   };
 }
 

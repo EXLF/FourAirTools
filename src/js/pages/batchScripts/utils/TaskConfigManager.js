@@ -27,6 +27,7 @@ export class TaskConfigManager {
                 scriptTypeId: scriptType.id,
                 scriptName: scriptType.name,
                 accounts: [],
+                scriptParams: {},
                 proxyConfig: {
                     enabled: false,
                     strategy: 'one-to-one',
@@ -157,6 +158,7 @@ export class TaskConfigManager {
     _generateWalletBasedConfigHTML(taskInstanceId, taskConfig, availableWallets) {
         const walletGroups = this.pageState.walletGroupManager.groupWallets(availableWallets);
         const walletGroupsHtml = this.pageState.walletGroupManager.generateWalletGroupsHTML(walletGroups, taskInstanceId);
+        const scriptParamsHtml = this._generateScriptParamsHTML(taskInstanceId);
         const proxyConfigHtml = this.pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
         
         return `
@@ -179,6 +181,8 @@ export class TaskConfigManager {
                     </div>
                 </div>
                 
+                ${scriptParamsHtml}
+                
                 ${proxyConfigHtml}
             </div>
         `;
@@ -192,6 +196,7 @@ export class TaskConfigManager {
      * @private
      */
     _generateSimpleConfigHTML(taskInstanceId, taskConfig) {
+        const scriptParamsHtml = this._generateScriptParamsHTML(taskInstanceId);
         const proxyConfigHtml = this.pageState.proxyManager.generateProxyConfigHTML(taskInstanceId, taskConfig.proxyConfig);
         
         return `
@@ -211,9 +216,121 @@ export class TaskConfigManager {
                     </div>
                 </div>
                 
+                ${scriptParamsHtml}
+                
                 ${proxyConfigHtml}
             </div>
         `;
+    }
+
+    /**
+     * 生成脚本参数配置HTML
+     * @param {string} taskInstanceId - 任务实例ID
+     * @returns {string} 脚本参数HTML
+     * @private
+     */
+    _generateScriptParamsHTML(taskInstanceId) {
+        const scriptType = this.pageState.currentBatchScriptType;
+        
+        // 添加详细的调试日志
+        console.log('🔍 [脚本参数] 开始生成脚本参数HTML');
+        console.log('🔍 [脚本参数] scriptType:', scriptType);
+        console.log('🔍 [脚本参数] scriptType?.name:', scriptType?.name);
+        console.log('🔍 [脚本参数] scriptType?.config:', scriptType?.config);
+        console.log('🔍 [脚本参数] config keys:', scriptType?.config ? Object.keys(scriptType.config) : 'undefined');
+        console.log('🔍 [脚本参数] config length:', scriptType?.config ? Object.keys(scriptType.config).length : 0);
+        
+        // 检查脚本是否有配置参数
+        if (!scriptType || !scriptType.config || Object.keys(scriptType.config).length === 0) {
+            console.log('❌ [脚本参数] 没有配置参数，原因:', {
+                hasScriptType: !!scriptType,
+                hasConfig: !!scriptType?.config,
+                configKeys: scriptType?.config ? Object.keys(scriptType.config).length : 0
+            });
+            return '';
+        }
+        
+        console.log('✅ [脚本参数] 找到配置参数，开始生成HTML');
+        
+        const params = scriptType.config;
+        let paramsHTML = `
+            <div class="script-params-section">
+                <h2><i class="fas fa-sliders-h"></i> 脚本参数配置</h2>
+                <div class="params-container" id="script-params-${taskInstanceId}">
+        `;
+        
+        // 遍历参数定义，生成对应的输入控件
+        for (const [paramName, paramDef] of Object.entries(params)) {
+            console.log('🔧 [脚本参数] 处理参数:', paramName, paramDef);
+            const inputId = `script-param-${paramName}-${taskInstanceId}`;
+            const isRequired = paramDef.required ? '<span class="required">*</span>' : '';
+            
+            paramsHTML += `
+                <div class="param-group">
+                    <label for="${inputId}">${paramDef.label || paramName} ${isRequired}</label>
+            `;
+            
+            // 根据参数类型创建不同的输入控件
+            switch (paramDef.type) {
+                case 'select':
+                    paramsHTML += `<select id="${inputId}" name="scriptParam.${paramName}" ${paramDef.required ? 'required' : ''}>`;
+                    if (paramDef.options && Array.isArray(paramDef.options)) {
+                        paramDef.options.forEach(option => {
+                            const selected = option.value === paramDef.default ? 'selected' : '';
+                            paramsHTML += `<option value="${option.value}" ${selected}>${option.label}</option>`;
+                        });
+                    }
+                    paramsHTML += '</select>';
+                    break;
+                
+                case 'checkbox':
+                    const checked = paramDef.default ? 'checked' : '';
+                    paramsHTML += `
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="${inputId}" name="scriptParam.${paramName}" ${checked}>
+                            <label for="${inputId}">${paramDef.description || ''}</label>
+                        </div>`;
+                    break;
+                
+                case 'number':
+                    paramsHTML += `<input type="number" id="${inputId}" name="scriptParam.${paramName}" 
+                        value="${paramDef.default || ''}" 
+                        ${paramDef.min !== undefined ? `min="${paramDef.min}"` : ''} 
+                        ${paramDef.max !== undefined ? `max="${paramDef.max}"` : ''} 
+                        ${paramDef.step ? `step="${paramDef.step}"` : ''}
+                        ${paramDef.required ? 'required' : ''}
+                        placeholder="${paramDef.placeholder || ''}">`;
+                    break;
+                
+                case 'textarea':
+                    paramsHTML += `<textarea id="${inputId}" name="scriptParam.${paramName}" 
+                        placeholder="${paramDef.placeholder || ''}"
+                        ${paramDef.rows ? `rows="${paramDef.rows}"` : 'rows="3"'}
+                        ${paramDef.required ? 'required' : ''}>${paramDef.default || ''}</textarea>`;
+                    break;
+                
+                default: // text
+                    paramsHTML += `<input type="text" id="${inputId}" name="scriptParam.${paramName}" 
+                        value="${paramDef.default || ''}" 
+                        placeholder="${paramDef.placeholder || ''}"
+                        ${paramDef.required ? 'required' : ''}>`;
+            }
+            
+            // 添加描述（如果有）
+            if (paramDef.description && paramDef.type !== 'checkbox') {
+                paramsHTML += `<p class="param-description">${paramDef.description}</p>`;
+            }
+            
+            paramsHTML += '</div>';
+        }
+        
+        paramsHTML += `
+                </div>
+            </div>
+        `;
+        
+        console.log('✅ [脚本参数] HTML生成完成，长度:', paramsHTML.length);
+        return paramsHTML;
     }
 
     /**
@@ -488,6 +605,9 @@ export class TaskConfigManager {
             const selectedWallets = document.querySelectorAll(`input[name="selected-wallets"]:checked`);
             taskConfig.accounts = Array.from(selectedWallets).map(cb => cb.value);
             
+            // 保存脚本参数配置
+            this._saveScriptParams(taskInstanceId, taskConfig);
+            
             // 保存代理配置
             const proxyEnabledCheckbox = document.getElementById(`proxy-enabled-${taskInstanceId}`);
             if (proxyEnabledCheckbox) {
@@ -502,6 +622,7 @@ export class TaskConfigManager {
             console.log(`[任务配置] 保存任务配置 ${taskInstanceId}:`, {
                 scriptName: taskConfig.scriptName,
                 accountCount: taskConfig.accounts.length,
+                scriptParamsCount: taskConfig.scriptParams ? Object.keys(taskConfig.scriptParams).length : 0,
                 proxyEnabled: taskConfig.proxyConfig.enabled,
                 proxyStrategy: taskConfig.proxyConfig.strategy
             });
@@ -511,6 +632,58 @@ export class TaskConfigManager {
             console.error('[任务配置] 保存配置数据失败:', error);
             return null;
         }
+    }
+
+    /**
+     * 保存脚本参数配置
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} taskConfig - 任务配置对象
+     * @private
+     */
+    _saveScriptParams(taskInstanceId, taskConfig) {
+        const scriptType = this.pageState.currentBatchScriptType;
+        
+        // 初始化脚本参数对象
+        if (!taskConfig.scriptParams) {
+            taskConfig.scriptParams = {};
+        }
+        
+        // 如果脚本没有配置参数，直接返回
+        if (!scriptType || !scriptType.config || Object.keys(scriptType.config).length === 0) {
+            return;
+        }
+        
+        // 遍历脚本配置定义，收集用户输入的值
+        for (const [paramName, paramDef] of Object.entries(scriptType.config)) {
+            const inputElement = document.getElementById(`script-param-${paramName}-${taskInstanceId}`);
+            
+            if (inputElement) {
+                let value;
+                
+                // 根据参数类型获取值
+                switch (paramDef.type) {
+                    case 'checkbox':
+                        value = inputElement.checked;
+                        break;
+                    case 'number':
+                        value = inputElement.value ? Number(inputElement.value) : paramDef.default;
+                        break;
+                    case 'select':
+                    case 'text':
+                    case 'textarea':
+                    default:
+                        value = inputElement.value || paramDef.default;
+                        break;
+                }
+                
+                taskConfig.scriptParams[paramName] = value;
+            } else {
+                // 如果没有找到输入元素，使用默认值
+                taskConfig.scriptParams[paramName] = paramDef.default;
+            }
+        }
+        
+        console.log(`[任务配置] 已保存脚本参数:`, taskConfig.scriptParams);
     }
 
     /**
@@ -544,6 +717,9 @@ export class TaskConfigManager {
             errors.push('请至少选择一个钱包账户');
         }
         
+        // 验证脚本参数
+        this._validateScriptParams(taskInstanceId, taskConfig, errors);
+        
         if (taskConfig.proxyConfig.enabled) {
             if (taskConfig.proxyConfig.proxies.length === 0) {
                 errors.push('已启用代理，但代理列表为空。请添加代理或禁用代理功能');
@@ -559,6 +735,48 @@ export class TaskConfigManager {
             valid: errors.length === 0,
             errors
         };
+    }
+
+    /**
+     * 验证脚本参数
+     * @param {string} taskInstanceId - 任务实例ID
+     * @param {Object} taskConfig - 任务配置
+     * @param {Array} errors - 错误数组
+     * @private
+     */
+    _validateScriptParams(taskInstanceId, taskConfig, errors) {
+        const scriptType = this.pageState.currentBatchScriptType;
+        
+        // 如果脚本没有配置参数，直接返回
+        if (!scriptType || !scriptType.config || Object.keys(scriptType.config).length === 0) {
+            return;
+        }
+        
+        // 验证必需的参数
+        for (const [paramName, paramDef] of Object.entries(scriptType.config)) {
+            if (paramDef.required) {
+                const value = taskConfig.scriptParams?.[paramName];
+                
+                if (value === undefined || value === null || value === '') {
+                    errors.push(`参数 "${paramDef.label || paramName}" 是必需的`);
+                }
+                
+                // 数字类型验证
+                if (paramDef.type === 'number' && value !== undefined && value !== null && value !== '') {
+                    const numValue = Number(value);
+                    if (isNaN(numValue)) {
+                        errors.push(`参数 "${paramDef.label || paramName}" 必须是有效的数字`);
+                    } else {
+                        if (paramDef.min !== undefined && numValue < paramDef.min) {
+                            errors.push(`参数 "${paramDef.label || paramName}" 不能小于 ${paramDef.min}`);
+                        }
+                        if (paramDef.max !== undefined && numValue > paramDef.max) {
+                            errors.push(`参数 "${paramDef.label || paramName}" 不能大于 ${paramDef.max}`);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
