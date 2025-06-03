@@ -3,12 +3,14 @@
  * 管理脚本插件任务的创建、执行、状态跟踪等功能
  */
 
-import { ScriptExecutionManager } from './scriptExecutionManager.js';
+// ScriptExecutionManager已迁移到Service层，此处暂时保留备用导入
+// import { ScriptExecutionManager } from './utils/ScriptExecutionManager.js';
 import { TaskLogger } from './logger.js';
 import { isFeatureEnabled } from './infrastructure/types.js';
 
-// 批量任务执行管理器
-const scriptExecutionManager = new ScriptExecutionManager();
+// 批量任务执行管理器 - 已迁移到TaskService集成
+// 保留此变量用于向后兼容，实际使用TaskService
+let scriptExecutionManager = null;
 
 // 本地存储键
 const STORAGE_KEY = 'batch_tasks_data';
@@ -566,8 +568,17 @@ export class BatchTaskManager {
             // 通知任务开始
             this._notifyTaskUpdate(taskId, { status: 'running' });
             
-            // 通过脚本执行管理器启动任务
-            await scriptExecutionManager.executeTask(task);
+            // 优先使用TaskService启动任务
+            if (this.useService && this.taskService) {
+                console.log('[BatchTaskManager] 使用TaskService启动任务');
+                const result = await this.taskService.startTask(taskId);
+                if (!result.success) {
+                    throw new Error(`TaskService启动失败: ${result.error}`);
+                }
+            } else {
+                console.warn('[BatchTaskManager] TaskService不可用，跳过脚本执行管理器调用');
+                // 注意：旧的scriptExecutionManager已删除，这里只记录警告
+            }
             
             TaskLogger.logInfo(`任务 ${task.name} 已启动`);
             
@@ -609,8 +620,17 @@ export class BatchTaskManager {
                 throw new Error('只有运行中的任务才能暂停');
             }
             
-            // 暂停执行
-            await scriptExecutionManager.pauseTask(taskId);
+            // 优先使用TaskService暂停任务
+            if (this.useService && this.taskService) {
+                console.log('[BatchTaskManager] 使用TaskService暂停任务');
+                const result = await this.taskService.pauseTask(taskId);
+                if (!result.success) {
+                    throw new Error(`TaskService暂停失败: ${result.error}`);
+                }
+            } else {
+                console.warn('[BatchTaskManager] TaskService不可用，跳过脚本执行管理器调用');
+                // 注意：旧的scriptExecutionManager已删除，这里只记录警告
+            }
             
             // 更新任务状态
             task.status = 'paused';
@@ -647,8 +667,17 @@ export class BatchTaskManager {
                 throw new Error('只有运行中或已暂停的任务才能停止');
             }
             
-            // 停止执行
-            await scriptExecutionManager.stopTask(taskId);
+            // 优先使用TaskService停止任务
+            if (this.useService && this.taskService) {
+                console.log('[BatchTaskManager] 使用TaskService停止任务');
+                const result = await this.taskService.stopTask(taskId);
+                if (!result.success) {
+                    throw new Error(`TaskService停止失败: ${result.error}`);
+                }
+            } else {
+                console.warn('[BatchTaskManager] TaskService不可用，跳过脚本执行管理器调用');
+                // 注意：旧的scriptExecutionManager已删除，这里只记录警告
+            }
             
             // 更新任务状态
             task.status = 'stopped';
