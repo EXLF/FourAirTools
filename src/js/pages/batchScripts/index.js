@@ -25,9 +25,7 @@ import { WalletRepository } from './repositories/WalletRepository.js';
 
 // Service模块（服务层重构）
 import { ScriptService } from './services/ScriptService.js';
-import { demoScriptServiceIntegration } from './services/ScriptServiceDemo.js';
 import { TaskService, TaskState } from './services/TaskService.js';
-import { getTaskServiceDemo } from './services/TaskServiceDemo.js';
 
 // 基础组件导入
 import { showModal } from '../../components/modal.js';
@@ -188,14 +186,7 @@ async function initInfrastructureServices() {
         infrastructureServices.scriptService = scriptService;
         infrastructureServices.taskService = taskService;
         
-        // 初始化WalletRepository演示和调试功能
-        await initWalletRepositoryDemo(repositoryFactory);
-        
-        // 初始化ScriptService演示和调试功能
-        await initScriptServiceDemo(scriptService);
-        
-        // 初始化TaskService演示和调试功能 (服务层重构 - 第8步)
-        await initTaskServiceDemo(taskService);
+        // 演示功能已移除，重构完成
         
         // 暴露到全局用于调试和统计
         if (typeof window !== 'undefined') {
@@ -264,108 +255,7 @@ async function initInfrastructureServices() {
     }
 }
 
-/**
- * 初始化WalletRepository演示和调试功能
- */
-async function initWalletRepositoryDemo(repositoryFactory) {
-    try {
-        // 动态导入演示模块
-        const { enableWalletRepositoryDebugging, integrateWalletRepositoryIntoGroupManager } = 
-            await import('./demo/WalletRepositoryDemo.js');
-        
-        // 启用调试功能
-        enableWalletRepositoryDebugging();
-        
-        // 集成到WalletGroupManager（如果存在）
-        if (pageState.walletGroupManager) {
-            await integrateWalletRepositoryIntoGroupManager(
-                pageState.walletGroupManager, 
-                repositoryFactory
-            );
-        }
-        
-        console.log('[WalletRepository] 演示和调试功能已初始化');
-        
-    } catch (error) {
-        console.warn('[WalletRepository] 演示功能初始化失败:', error);
-        // 不阻止主流程继续
-    }
-}
 
-/**
- * 初始化ScriptService演示和调试功能
- */
-async function initScriptServiceDemo(scriptService) {
-    try {
-        console.log('[ScriptService] 初始化演示功能...');
-        
-        // 如果启用了特性开关，自动运行演示
-        if (isFeatureEnabled('fa_use_script_service')) {
-            console.log('[ScriptService] 特性已启用，初始化演示功能');
-            
-            // 在页面加载完成后运行演示
-            setTimeout(async () => {
-                await demoScriptServiceIntegration();
-            }, 3000); // 延迟3秒，确保页面加载完成
-        }
-        
-        console.log('[ScriptService] 演示功能初始化完成');
-        
-    } catch (error) {
-        console.warn('[ScriptService] 演示功能初始化失败:', error);
-        // 不阻止主流程继续
-    }
-}
-
-/**
- * 初始化TaskService演示和调试功能 (服务层重构 - 第8步)
- */
-async function initTaskServiceDemo(taskService) {
-    try {
-        console.log('[TaskService] 开始初始化演示功能...');
-        
-        // 获取TaskServiceDemo实例
-        const taskServiceDemo = getTaskServiceDemo();
-        
-        // 如果启用了特性开关，自动运行演示
-        if (isFeatureEnabled('fa_use_task_service')) {
-            console.log('[TaskService] 特性已启用，初始化演示功能');
-            
-            // 在页面加载完成后运行演示
-            setTimeout(async () => {
-                try {
-                    const initResult = await taskServiceDemo.initialize();
-                    if (initResult.success) {
-                        console.log('✅ [TaskService] 演示模块初始化成功');
-                        
-                        // 暴露TaskService到全局用于调试
-                        if (typeof window !== 'undefined') {
-                            window.FA_TaskService = taskServiceDemo.getTaskService();
-                            console.log('🔧 [TaskService] 已暴露到全局变量 window.FA_TaskService');
-                        }
-                    } else {
-                        console.warn('⚠️ [TaskService] 演示模块初始化失败:', initResult.error);
-                    }
-                } catch (error) {
-                    console.warn('[TaskService演示] 运行失败:', error);
-                }
-            }, 2000); // 稍晚于ScriptService初始化
-        } else {
-            console.log('[TaskService] 特性未启用，跳过自动演示');
-        }
-        
-        // 始终暴露到全局用于手动测试
-        if (typeof window !== 'undefined') {
-            window.FA_TaskServiceDemo = taskServiceDemo;
-        }
-        
-        console.log('[TaskService] 演示功能初始化完成');
-        
-    } catch (error) {
-        console.warn('[TaskService] 演示功能初始化失败:', error);
-        // 不阻止主流程继续
-    }
-}
 
 /**
  * 初始化中文乱码修复功能
@@ -867,19 +757,27 @@ function renderBatchScriptCardsView(contentArea) {
             refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
             
             try {
-                // 第6步试点：优先使用ScriptService处理同步
+                // 优先使用ScriptService处理同步
                 let syncHandled = false;
                 if (isFeatureEnabled('fa_use_script_service') && infrastructureServices && infrastructureServices.scriptService) {
                     try {
                         console.log('[脚本插件] 🚀 使用 ScriptService 处理同步...');
-                        const { handleRefreshScriptsWithService } = await import('./services/ScriptServiceDemo.js');
-                        const serviceResult = await handleRefreshScriptsWithService();
+                        const result = await infrastructureServices.scriptService.syncScripts();
                         
-                        if (serviceResult.success) {
+                        if (result.success) {
                             console.log('[脚本插件] ✅ ScriptService 同步成功');
+                            const syncData = result.data;
+                            
+                            // 显示友好的用户反馈
+                            if (syncData.deletedCount > 0) {
+                                console.log(`已清理 ${syncData.deletedCount} 个无效脚本`);
+                            } else {
+                                console.log('脚本列表已是最新状态');
+                            }
+                            
                             syncHandled = true;
                         } else {
-                            console.warn('[脚本插件] ⚠️ ScriptService 同步失败，回退到原始方式:', serviceResult.error);
+                            console.warn('[脚本插件] ⚠️ ScriptService 同步失败，回退到原始方式:', result.error);
                         }
                     } catch (serviceError) {
                         console.warn('[脚本插件] ⚠️ ScriptService 处理失败，回退到原始方式:', serviceError);
@@ -1030,134 +928,44 @@ async function loadAndRenderBatchScriptCardsV2(pageContentArea, options = {}) {
 }
 
 /**
- * 加载并渲染脚本插件卡片 (原始版本 - 保留作为回退)
+ * 加载并渲染脚本插件卡片 (回退版本 - 当Service层不可用时使用)
  * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
  * @param {Object} options - 加载选项
  */
-async function loadAndRenderBatchScriptCardsV1(pageContentArea, options = {}) {
+async function loadAndRenderBatchScriptCardsFallback(pageContentArea, options = {}) {
     const cardsContainer = pageContentArea.querySelector('#batchScriptCardsContainer');
     const statusFilterElement = pageContentArea.querySelector('#batchScriptStatusFilter');
     
     if (!cardsContainer) {
-        console.error('[脚本加载V1] 卡片容器 #batchScriptCardsContainer 未找到');
+        console.error('[脚本加载回退] 卡片容器 #batchScriptCardsContainer 未找到');
         return;
     }
     
     cardsContainer.innerHTML = '';
+    console.log('[脚本加载回退] Service层不可用，使用基础API');
     
-    // 服务层重构：优先尝试使用新的Repository层
     let scriptsList = [];
-    const useScriptRepository = isFeatureEnabled(FeatureFlags.USE_SCRIPT_REPOSITORY);
-    const useNewInfrastructure = isFeatureEnabled(FeatureFlags.USE_SCRIPT_SERVICE);
     
-    // 第一优先级：使用ScriptRepository
-    if (useScriptRepository && repositoryFactory) {
+    // 尝试使用原有的直接API调用
+    if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
         try {
-            console.log('[脚本加载V1] 使用新的 ScriptRepository 加载脚本');
-            const scriptRepo = repositoryFactory.getRepository('ScriptRepository');
-            if (scriptRepo) {
-                const result = await scriptRepo.getAllScripts();
-                
-                if (result.success && Array.isArray(result.data)) {
-                    scriptsList = result.data;
-                    console.log('[脚本加载V1] 通过 ScriptRepository 加载的脚本数据:', scriptsList);
-                } else {
-                    throw new Error(`ScriptRepository 返回错误: ${result.error?.message || '未知错误'}`);
-                }
-            } else {
-                throw new Error('ScriptRepository 实例未找到');
-            }
-        } catch (repositoryError) {
-            console.warn('[脚本加载V1] ScriptRepository 失败，尝试 ApiClient:', repositoryError);
-        }
-    }
-    
-    // 第二优先级：使用ApiClient
-    if (scriptsList.length === 0 && useNewInfrastructure && infrastructureServices) {
-        try {
-            console.log('[脚本加载V1] 使用新的 ApiClient 加载脚本');
-            const result = await infrastructureServices.apiClient.getAllScripts();
-            
+            const result = await window.scriptAPI.getAllScripts();
             if (result.success && Array.isArray(result.data)) {
                 scriptsList = result.data.map(s => ({
                     ...s,
                     status: s.status || 'active',
                     category: s.category || ''
                 }));
-                console.log('[脚本加载V1] 通过 ApiClient 加载的脚本数据:', scriptsList);
+                console.log('[脚本加载回退] 通过原有API加载的脚本数据:', scriptsList);
             } else {
-                throw new Error(`ApiClient 返回错误: ${result.error}`);
+                console.error('[脚本加载回退] 获取脚本列表失败:', result.error);
             }
-        } catch (apiClientError) {
-            console.warn('[脚本加载V1] ApiClient 失败，尝试 ScriptManager:', apiClientError);
-            
-            // 第二层回退：使用 ScriptManager
-            const managers = getCoreManagers();
-            if (managers && managers.scriptManager) {
-                try {
-                    console.log('[脚本加载V1] 使用新的 ScriptManager 加载脚本');
-                    const scripts = await managers.scriptManager.getAvailableScripts();
-                    scriptsList = scripts.map(s => ({
-                        ...s,
-                        status: s.status || 'active',
-                        category: s.category || ''
-                    }));
-                    console.log('[脚本加载V1] 通过 ScriptManager 加载的脚本数据:', scriptsList);
-                } catch (managerError) {
-                    console.warn('[脚本加载V1] ScriptManager 也失败，使用原始方式:', managerError);
-                }
-            }
+        } catch (error) {
+            console.error('[脚本加载回退] 调用 getAllScripts 时出错:', error);
         }
-    }
-    
-    // 第三优先级：使用 ScriptManager
-    if (scriptsList.length === 0) {
-        const managers = getCoreManagers();
-        if (managers && managers.scriptManager) {
-            try {
-                console.log('[脚本加载V1] 使用新的 ScriptManager 加载脚本');
-                const scripts = await managers.scriptManager.getAvailableScripts();
-                scriptsList = scripts.map(s => ({
-                    ...s,
-                    status: s.status || 'active',
-                    category: s.category || ''
-                }));
-                console.log('[脚本加载V1] 通过 ScriptManager 加载的脚本数据:', scriptsList);
-            } catch (managerError) {
-                console.warn('[脚本加载V1] ScriptManager 加载失败，回退到原有方式:', managerError);
-            }
-        }
-    }
-    
-    // 最终回退方案：使用原有的直接API调用
-    if (scriptsList.length === 0) {
-        console.log('[脚本加载V1] 使用原有 API 方式加载脚本');
-        if (window.scriptAPI && typeof window.scriptAPI.getAllScripts === 'function') {
-            try {
-                const result = await window.scriptAPI.getAllScripts();
-                if (result.success && Array.isArray(result.data)) {
-                    scriptsList = result.data.map(s => ({
-                        ...s,
-                        status: s.status || 'active',
-                        category: s.category || ''
-                    }));
-                    
-                    console.log('[脚本加载V1] 通过原有API加载的脚本数据:', scriptsList);
-                    const httpScript = scriptsList.find(script => script.id === 'http_request_test');
-                    if (httpScript) {
-                        console.log('[脚本加载V1] HTTP请求测试脚本数据:', httpScript);
-                        console.log('[脚本加载V1] HTTP脚本requires字段:', httpScript.requires);
-                    }
-                } else {
-                    console.error('[脚本加载V1] 获取脚本列表失败:', result.error);
-                }
-            } catch (error) {
-                console.error('[脚本加载V1] 调用 getAllScripts 时出错:', error);
-            }
-        } else {
-            console.warn('[脚本加载V1] scriptAPI 未定义，使用静态脚本类型列表');
-            scriptsList = batchScriptTypes;
-        }
+    } else {
+        console.warn('[脚本加载回退] scriptAPI 未定义，使用静态脚本类型列表');
+        scriptsList = batchScriptTypes;
     }
 
     // 渲染脚本卡片
@@ -1175,26 +983,25 @@ async function loadAndRenderBatchScriptCardsV1(pageContentArea, options = {}) {
         scripts: scriptsList,
         metadata: {
             totalCount: scriptsList.length,
-            source: 'Repository/API'
+            source: 'Fallback API'
         }
     };
 }
 
 /**
  * 加载并渲染脚本插件卡片 (主入口函数)
+ * 重构完成后默认使用Service层，仅在不可用时回退
  * @param {HTMLElement} pageContentArea - 卡片页面的内容区域
  * @param {Object} options - 加载选项
  */
 async function loadAndRenderBatchScriptCards(pageContentArea, options = {}) {
-    // 检查特性开关决定使用哪个版本
-    const useScriptServiceV2 = isFeatureEnabled(FeatureFlags.USE_SCRIPT_SERVICE) && infrastructureServices?.scriptService;
-    
-    if (useScriptServiceV2) {
-        console.log('[脚本加载] 🚀 使用 ScriptService V2');
+    // 优先使用Service层 (重构完成后的默认选择)
+    if (infrastructureServices?.scriptService) {
+        console.log('[脚本加载] 🚀 使用 ScriptService (重构版本)');
         return loadAndRenderBatchScriptCardsV2(pageContentArea, options);
     } else {
-        console.log('[脚本加载] 📋 使用原始方式 V1');
-        return loadAndRenderBatchScriptCardsV1(pageContentArea, options);
+        console.warn('[脚本加载] ⚠️ ScriptService 不可用，使用回退方案');
+        return loadAndRenderBatchScriptCardsFallback(pageContentArea, options);
     }
 }
 

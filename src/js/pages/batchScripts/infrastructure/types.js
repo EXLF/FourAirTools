@@ -19,9 +19,26 @@ export const FeatureFlags = {
 
 /**
  * 检查功能开关是否启用
+ * 重构完成后，新Service层默认启用
  */
 export function isFeatureEnabled(flag) {
-    return localStorage.getItem(flag) === 'true';
+    const stored = localStorage.getItem(flag);
+    
+    // 如果没有存储值，默认启用重构后的新功能
+    if (stored === null) {
+        const defaultEnabledFlags = [
+            FeatureFlags.USE_API_CACHE,
+            FeatureFlags.ENABLE_API_RETRY,
+            FeatureFlags.USE_SCRIPT_SERVICE,
+            FeatureFlags.USE_SCRIPT_REPOSITORY,
+            FeatureFlags.USE_TASK_SERVICE,
+            FeatureFlags.USE_WALLET_REPOSITORY
+        ];
+        
+        return defaultEnabledFlags.includes(flag);
+    }
+    
+    return stored === 'true';
 }
 
 /**
