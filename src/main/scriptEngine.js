@@ -30,7 +30,35 @@ const SECURITY_CONFIG = {
   // 最大超时时间（30分钟）
   MAX_TIMEOUT: 30 * 60 * 1000,
   // 核心允许的安全模块列表
-  CORE_SAFE_MODULES: ['crypto', 'path', 'url', 'util', 'ethers'],
+  CORE_SAFE_MODULES: [
+    // Node.js核心模块
+    'crypto', 'path', 'url', 'util',
+    
+    // 区块链开发核心库
+    'ethers', 'web3', 'web3-utils', 'bip39', 'ethereumjs-wallet',
+    
+    // 以太坊生态
+    '@ethersproject/contracts', '@ethersproject/providers', 
+    '@ethersproject/wallet', '@ethersproject/units',
+    
+    // Solana生态
+    '@solana/web3.js',
+    
+    // Polkadot生态
+    '@polkadot/api', '@polkadot/util', '@polkadot/util-crypto',
+    
+    // 数学和工具库
+    'bn.js', 'big.js', 'decimal.js', 'moment', 'uuid', 'lodash',
+    
+    // 数据验证
+    'joi', 'jsonschema', 'semver',
+    
+    // 异步控制
+    'retry', 'p-limit', 'p-queue',
+    
+    // 网络请求
+    'axios'
+  ],
   // 绝对禁止的危险模块
   FORBIDDEN_MODULES: ['fs', 'child_process', 'os', 'cluster', 'dgram', 'dns', 'net', 'tls', 'http', 'https'],
   // 日志消息最大长度
@@ -617,8 +645,11 @@ class SecureScriptEngine {
         timeout: safeTimeout,
         sandbox: sandbox,
         require: {
-          external: false, // 禁用外部模块，增强安全性
-          builtin: allowedModulesForThisScript,
+          external: {
+            modules: allowedModulesForThisScript, // 允许指定的外部模块
+            transitive: false // 不允许传递依赖
+          },
+          builtin: ['crypto', 'path', 'url', 'util'], // 只允许安全的内置模块
           root: path.dirname(script.filePath),
           resolve: (moduleName, parent) => {
             // 额外的模块解析安全检查

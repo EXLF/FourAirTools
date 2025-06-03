@@ -207,14 +207,89 @@ function getConfig() {
 }
 ```
 
-### 4.2 安全的模块列表
-**允许的安全模块**：
-- `axios` - HTTP请求（推荐使用context.http）
+### 4.2 预装模块列表
+
+FourAir系统已预装了丰富的Web3协议脚本开发模块，支持多链协议开发：
+
+#### 4.2.1 Node.js核心模块（始终可用）
 - `crypto` - Node.js加密模块
 - `path` - 路径处理
 - `url` - URL解析
 - `util` - Node.js工具函数
-- `ethers` - 以太坊开发库
+
+#### 4.2.2 区块链开发核心库
+- `ethers` (v6.14.3) - 以太坊开发库，功能完整
+- `web3` (v4.15.0) - Web3.js主库
+- `web3-utils` (v4.3.1) - Web3工具函数
+- `bip39` (v3.1.0) - BIP39助记词
+- `ethereumjs-wallet` (v1.0.2) - 以太坊钱包生成
+
+#### 4.2.3 以太坊生态相关
+- `@ethersproject/contracts` (v5.8.0) - 智能合约交互
+- `@ethersproject/providers` (v5.8.0) - 提供者抽象
+- `@ethersproject/wallet` (v5.8.0) - 钱包管理
+- `@ethersproject/units` (v5.8.0) - 单位转换
+
+#### 4.2.4 Solana生态
+- `@solana/web3.js` (v1.98.2) - Solana区块链开发库
+
+#### 4.2.5 Polkadot生态
+- `@polkadot/api` (v16.1.1) - Polkadot API
+- `@polkadot/util` (v13.5.1) - Polkadot工具函数
+- `@polkadot/util-crypto` (v13.5.1) - Polkadot加密工具
+
+#### 4.2.6 数学和工具库
+- `bn.js` (v5.2.1) - 大数计算
+- `big.js` (v6.2.2) - 高精度数学运算
+- `decimal.js` (v10.4.3) - 十进制数学运算
+- `moment` (v2.30.1) - 时间处理
+- `uuid` (v10.0.0) - UUID生成
+- `lodash` (v4.17.21) - JavaScript工具库
+
+#### 4.2.7 数据验证和模式
+- `joi` (v17.13.3) - 数据验证库
+- `jsonschema` (v1.4.1) - JSON模式验证
+- `semver` (v7.6.3) - 语义版本号处理
+
+#### 4.2.8 异步流控制
+- `retry` (v0.13.1) - 重试机制
+- `p-limit` (v3.1.0) - 并发限制
+- `p-queue` (v6.6.2) - 任务队列管理
+- `ethereumjs-wallet` (v1.0.2) - 以太坊钱包工具
+- `bip39` (v3.1.0) - 助记词处理
+
+#### 4.2.4 Solana生态
+- `@solana/web3.js` (v1.95.4) - Solana JavaScript SDK
+- `@solana/spl-token` (v0.4.8) - Solana代币程序
+
+#### 4.2.5 Polkadot生态
+- `@polkadot/api` (v14.3.1) - Polkadot API
+- `@polkadot/util` (v13.2.3) - Polkadot工具函数
+- `@polkadot/util-crypto` (v13.2.3) - Polkadot加密工具
+- `@polkadot/keyring` (v13.2.3) - Polkadot密钥环
+
+#### 4.2.6 数学与数据处理
+- `bn.js` (v5.2.1) - 大整数运算
+- `big.js` (v6.2.2) - 精确小数运算
+- `decimal.js` (v10.4.3) - 高精度十进制运算
+
+#### 4.2.7 工具函数库
+- `lodash` (v4.17.21) - JavaScript工具函数集合
+- `moment` (v2.30.1) - 时间日期处理
+- `uuid` (v10.0.0) - UUID生成器
+- `semver` (v7.6.3) - 语义化版本处理
+
+#### 4.2.8 数据验证与处理
+- `joi` (v17.13.3) - 数据验证框架
+- `jsonschema` (v1.4.1) - JSON Schema验证
+
+#### 4.2.9 异步控制与重试
+- `retry` (v0.13.1) - 重试机制
+- `p-limit` (v3.1.0) - 并发限制
+- `p-queue` (v6.6.2) - 异步队列
+
+#### 4.2.10 网络请求
+- `axios` (v1.9.0) - HTTP客户端（推荐使用context.http）
 
 **禁止的危险模块**：
 - `fs` - 文件系统访问
@@ -223,7 +298,215 @@ function getConfig() {
 - `net` - 网络底层接口
 - `http`/`https` - 原生HTTP（请使用context.http）
 
-### 4.3 模块使用示例
+### 4.3 第三方模块和依赖包处理
+
+#### 预安装的第三方模块
+系统预安装了常用的第三方模块，可直接在`requiredModules`中声明使用：
+
+```javascript
+// 常用的预安装第三方模块
+requiredModules: [
+  "axios",           // HTTP客户端
+  "ethers",          // 以太坊开发库
+  "web3",            // Web3.js
+  "lodash",          // 工具函数库
+  "moment",          // 时间处理
+  "bignumber.js",    // 大数处理
+  "crypto-js"        // 加密工具库
+  ...
+]
+```
+
+#### 模块使用的实际限制
+
+基于FourAir脚本引擎的实际实现，模块使用有以下限制：
+
+**支持的模块类型**：
+
+1. **Node.js核心模块**（总是可用）：
+   ```javascript
+   requiredModules: [
+     "crypto",    // 加密模块
+     "path",      // 路径处理
+     "url",       // URL处理  
+     "util"       // 工具函数
+   ]
+   ```
+
+2. **系统预装的第三方模块**：
+   ```javascript
+   requiredModules: [
+     "ethers",    // 以太坊开发库
+     "axios"      // HTTP客户端（通过context.http提供）
+   ]
+   ```
+
+3. **不支持的操作**：
+   - ❌ 动态安装npm包
+   - ❌ 运行时下载依赖
+   - ❌ 使用系统未预装的第三方库
+   - ❌ 指定模块版本（如 "ethers@5.7.0"）
+
+**如果需要使用未预装的模块**：
+
+1. **请求系统管理员预装**：
+   ```javascript
+   // 如果脚本需要特定模块，需要在系统层面预装
+   // 然后在脚本中声明使用
+   function getConfig() {
+     return {
+       requiredModules: [
+         "lodash",        // 需要系统预装
+         "moment",        // 需要系统预装
+         "bignumber.js"   // 需要系统预装
+       ]
+     };
+   }
+   ```
+
+2. **使用替代方案**：
+   ```javascript
+   // 使用内置模块替代第三方库
+   function getConfig() {
+     return {
+       requiredModules: ["crypto", "util"]
+     };
+   }
+   
+   async function main(context) {
+     // 使用crypto替代其他加密库
+     const crypto = require('crypto');
+     const hash = crypto.createHash('sha256').update(data).digest('hex');
+     
+     // 使用util替代其他工具库
+     const util = require('util');
+     const formatted = util.format('数据: %s', data);
+   }
+   ```
+
+3. **内嵌功能实现**：
+   ```javascript
+   // 将需要的功能直接在脚本中实现
+   async function main(context) {
+     // 自定义工具函数，而不是依赖外部库
+     function formatCurrency(amount) {
+       return new Intl.NumberFormat('zh-CN', {
+         style: 'currency',
+         currency: 'CNY'
+       }).format(amount);
+     }
+   }
+   ```
+
+#### 实际的模块处理流程
+
+根据FourAir脚本引擎的实际实现，模块处理机制如下：
+
+```mermaid
+graph TD
+    A[脚本开始执行] --> B[解析脚本的requiredModules]
+    B --> C[验证安全性]
+    C --> D{检查危险模块}
+    D -->|发现危险模块| E[拒绝执行并报错]
+    D -->|通过安全检查| F[创建允许模块列表]
+    F --> G[核心安全模块 + 声明模块]
+    G --> H[创建VM2沙箱]
+    H --> I[配置安全require函数]
+    I --> J[脚本运行时按需加载]
+    J --> K{模块是否在白名单?}
+    K -->|是| L[使用Node.js require加载]
+    K -->|否| M[抛出安全错误]
+    L --> N[模块可用于脚本]
+    E --> O[返回错误信息]
+    M --> O
+```
+
+**重要说明**：
+1. **无动态安装**：系统不会动态安装npm包，所有模块必须是Node.js环境中已存在的
+2. **预装模块**：只能使用系统预装的第三方模块（如ethers、axios等）
+3. **运行时检查**：模块加载在脚本运行时通过安全的require函数进行
+4. **白名单控制**：只有在`requiredModules`中声明且通过安全检查的模块才能被加载
+
+#### 模块使用最佳实践
+
+```javascript
+function getConfig() {
+  return {
+    // 明确声明所有需要的模块
+    requiredModules: [
+      // Node.js核心模块
+      "crypto",        // 加密功能
+      "path",          // 路径处理
+      "url",           // URL解析
+      "util",          // 工具函数
+      
+      // 预装第三方模块（如果确定系统已预装）
+      "ethers"         // 以太坊相关
+      // 注意：不要声明不确定是否预装的模块
+    ]
+  };
+}
+
+async function main(context) {
+  // 安全的模块加载和使用
+  try {
+    // 加载已声明的核心模块
+    const crypto = require('crypto');
+    const path = require('path');
+    const util = require('util');
+    
+    console.log('✅ 核心模块加载成功');
+    
+    // 尝试加载第三方模块（带错误处理）
+    let ethers = null;
+    try {
+      ethers = require('ethers');
+      console.log('✅ ethers模块可用');
+    } catch (ethersError) {
+      console.log('⚠️ ethers模块不可用，将使用替代方案');
+    }
+    
+    // 使用内置HTTP客户端（推荐）
+    const response = await context.http.get('https://api.example.com');
+    console.log('✅ 使用context.http发送请求');
+    
+  } catch (error) {
+    console.log(`❌ 模块加载失败: ${error.message}`);
+    throw error;
+  }
+}
+
+// 错误处理示例：优雅降级
+async function processWithFallback(context) {
+  let provider = null;
+  
+  try {
+    // 尝试使用ethers
+    const { ethers } = require('ethers');
+    provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth');
+    console.log('✅ 使用ethers创建provider');
+    
+  } catch (error) {
+    // 降级到HTTP请求
+    console.log('⚠️ ethers不可用，使用HTTP API替代');
+    
+    const rpcCall = async (method, params) => {
+      return await context.http.post('https://rpc.ankr.com/eth', {
+        jsonrpc: '2.0',
+        method: method,
+        params: params,
+        id: 1
+      });
+    };
+    
+    provider = { rpcCall };
+  }
+  
+  return provider;
+}
+```
+
+### 4.4 模块使用示例
 ```javascript
 async function main(context) {
   // 使用crypto模块
@@ -584,6 +867,27 @@ async function processWithConcurrency(wallets, maxConcurrency = 3) {
 - 不能使用`setTimeout`，请使用`context.utils.delay()`
 - 不能访问DOM或窗口对象
 - 模块加载受到严格限制
+
+#### 时间处理特别说明
+VM2沙箱环境不支持原生的`setTimeout`、`setInterval`等时间函数，必须使用提供的工具函数：
+
+```javascript
+// ❌ 错误：在VM2沙箱中不可用
+await new Promise(resolve => setTimeout(resolve, 1000));
+setInterval(() => {}, 1000);
+
+// ✅ 正确：使用context.utils.delay()
+await context.utils.delay(1000);
+
+// 如果需要传递utils到其他函数
+async function processWallet(wallet, utils) {
+  // 处理逻辑
+  await utils.delay(500); // 使用传递的utils
+}
+
+// 在main函数中调用
+await processWallet(wallet, context.utils);
+```
 
 ### 11.2 敏感信息处理
 ```javascript

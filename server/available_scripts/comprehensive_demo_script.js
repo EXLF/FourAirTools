@@ -148,6 +148,8 @@ async function main(context) {
   
   try {
     console.log('🚀 综合功能演示脚本开始执行...');
+    console.log('📋 本脚本将演示FourAir v2.0脚本格式规范的所有主要特性');
+    console.log('💡 如果您没有配置参数，脚本将自动使用合理的默认值');
     console.log('=' .repeat(50));
     
     // ==================== 3. Context信息展示 ====================
@@ -215,43 +217,86 @@ async function displayContextInfo(context) {
   console.log('📋 Context信息展示:');
   console.log(`   🔖 脚本ID: ${scriptId}`);
   console.log(`   🆔 执行ID: ${executionId}`);
-  console.log(`   👛 钱包数量: ${wallets.length}`);
-  console.log(`   ⚙️  配置参数数量: ${Object.keys(config).length}`);
+  console.log(`   👛 钱包数量: ${wallets ? wallets.length : 0}`);
+  console.log(`   ⚙️  配置参数数量: ${config ? Object.keys(config).length : 0}`);
   console.log(`   🌐 代理设置: ${proxy ? `${proxy.type}://${proxy.host}:${proxy.port}` : '未设置'}`);
   
-  if (config.verboseLogging) {
+  // 检查是否有配置参数
+  if (!config || Object.keys(config).length === 0) {
+    console.log('   💡 未检测到用户配置，将在验证阶段使用默认值');
+  } else if (config.verboseLogging) {
     console.log('🔍 详细配置信息:');
     for (const [key, value] of Object.entries(config)) {
       console.log(`   📝 ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
     }
-    
-    console.log('🔍 钱包详情:');
-    wallets.forEach((wallet, index) => {
-      console.log(`   💳 钱包${index + 1}: ${wallet.name || '未命名'} (${wallet.address})`);
-    });
+  }
+  
+  // 显示钱包信息
+  if (wallets && wallets.length > 0) {
+    if (config && config.verboseLogging) {
+      console.log('🔍 钱包详情:');
+      wallets.forEach((wallet, index) => {
+        console.log(`   💳 钱包${index + 1}: ${wallet.name || '未命名'} (${wallet.address})`);
+      });
+    } else {
+      console.log(`   👛 钱包列表: ${wallets.map(w => w.name || w.address?.substring(0, 8) + '...').join(', ')}`);
+    }
+  } else {
+    console.log('   ⚠️  未检测到钱包，将使用演示数据');
   }
   
   // 演示专用日志对象
-  if (utils.logger) {
+  if (utils && utils.logger) {
     utils.logger.info('专用日志对象测试 - 信息级别');
     utils.logger.success('专用日志对象测试 - 成功级别');
     utils.logger.warn('专用日志对象测试 - 警告级别');
+  } else {
+    console.log('   📢 注意：未检测到专用日志对象，使用标准console.log');
   }
   
   await utils.delay(1000);
 }
 
 /**
- * 验证配置参数
+ * 验证配置参数并设置默认值
  */
 function validateConfiguration(config) {
   console.log('🔍 参数验证中...');
   
-  // 验证必需参数
+  // 设置默认值（如果用户未配置）
   if (!config.apiEndpoint) {
-    const error = new Error('API端点不能为空');
-    error.name = 'ValidationError';
-    throw error;
+    config.apiEndpoint = "https://jsonplaceholder.typicode.com";
+    console.log('   📝 使用默认API端点: ' + config.apiEndpoint);
+  }
+  
+  if (!config.batchSize || config.batchSize < 1) {
+    config.batchSize = 3;
+    console.log('   📝 使用默认批处理大小: ' + config.batchSize);
+  }
+  
+  if (!config.delayMs || config.delayMs < 500) {
+    config.delayMs = 2000;
+    console.log('   📝 使用默认延时间隔: ' + config.delayMs + 'ms');
+  }
+  
+  if (!config.description) {
+    config.description = "综合功能演示执行";
+  }
+  
+  if (config.enableAdvancedFeatures === undefined) {
+    config.enableAdvancedFeatures = true;
+  }
+  
+  if (config.verboseLogging === undefined) {
+    config.verboseLogging = false;
+  }
+  
+  if (!config.operationMode) {
+    config.operationMode = "demo";
+  }
+  
+  if (!config.networkType) {
+    config.networkType = "testnet";
   }
   
   // 验证数字范围
@@ -267,16 +312,13 @@ function validateConfiguration(config) {
     throw error;
   }
   
-  // 验证URL格式
-  try {
-    new URL(config.apiEndpoint);
-  } catch (urlError) {
-    const error = new Error(`API端点URL格式错误: ${config.apiEndpoint}`);
-    error.name = 'ValidationError';
-    throw error;
+  // 简单验证URL格式（避免在VM2沙箱中使用new URL()）
+  if (!config.apiEndpoint.startsWith('http://') && !config.apiEndpoint.startsWith('https://')) {
+    console.log('   ⚠️ API端点不是标准HTTP(S)格式，但将继续执行');
   }
   
   console.log('✅ 参数验证通过');
+  console.log(`   🎯 最终配置: 端点=${config.apiEndpoint}, 批大小=${config.batchSize}, 延时=${config.delayMs}ms`);
 }
 
 /**
@@ -323,27 +365,39 @@ async function demonstrateStorage(storage, executionId) {
 async function demonstrateModules() {
   console.log('📦 模块使用演示:');
   
-  // 演示crypto模块
-  const crypto = require('crypto');
-  const randomBytes = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.createHash('sha256').update('demo-data').digest('hex');
-  console.log(`   🔐 随机字节: ${randomBytes}`);
-  console.log(`   #️⃣  SHA256哈希: ${hash.substring(0, 16)}...`);
+  try {
+    // 演示crypto模块
+    const crypto = require('crypto');
+    const randomBytes = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.createHash('sha256').update('demo-data').digest('hex');
+    console.log(`   🔐 随机字节: ${randomBytes}`);
+    console.log(`   #️⃣  SHA256哈希: ${hash.substring(0, 16)}...`);
+  } catch (error) {
+    console.log(`   ⚠️ crypto模块演示失败: ${error.message}`);
+  }
   
-  // 演示url模块
-  const url = require('url');
-  const parsedUrl = new url.URL('https://api.example.com/v1/data?param=value');
-  console.log(`   🔗 URL解析: ${parsedUrl.hostname}${parsedUrl.pathname}`);
+  try {
+    // 演示util模块
+    const util = require('util');
+    const formattedString = util.format('演示格式化: %s = %d', 'count', 42);
+    console.log(`   📝 ${formattedString}`);
+  } catch (error) {
+    console.log(`   ⚠️ util模块演示失败: ${error.message}`);
+  }
   
-  // 演示util模块
-  const util = require('util');
-  const formattedString = util.format('演示格式化: %s = %d', 'count', 42);
-  console.log(`   📝 ${formattedString}`);
+  try {
+    // 演示path模块
+    const path = require('path');
+    const joinedPath = path.join('/scripts', 'demo', 'file.js');
+    console.log(`   📁 路径拼接: ${joinedPath}`);
+  } catch (error) {
+    console.log(`   ⚠️ path模块演示失败: ${error.message}`);
+  }
   
-  // 演示path模块
-  const path = require('path');
-  const joinedPath = path.join('/scripts', 'demo', 'file.js');
-  console.log(`   📁 路径拼接: ${joinedPath}`);
+  // 简化的URL解析演示（避免使用new URL()）
+  const testUrl = 'https://api.example.com/v1/data?param=value';
+  const urlParts = testUrl.split('/');
+  console.log(`   🔗 URL解析: ${urlParts[2]} - ${urlParts.slice(3).join('/')}`);
 }
 
 /**
@@ -361,32 +415,44 @@ async function demonstrateNetworkRequests(http, config, proxy) {
   try {
     // GET请求演示
     console.log('   📥 执行GET请求...');
-    const getResponse = await http.get(`${config.apiEndpoint}/posts/1`);
-    console.log(`   ✅ GET请求成功: ${getResponse.status} - ${getResponse.data.title?.substring(0, 30)}...`);
+    try {
+      const getResponse = await http.get(`${config.apiEndpoint}/posts/1`);
+      console.log(`   ✅ GET请求成功: ${getResponse.status} - ${getResponse.data.title?.substring(0, 30) || '无标题'}...`);
+    } catch (getError) {
+      console.log(`   ⚠️ GET请求失败: ${getError.message}`);
+    }
     
     // POST请求演示  
     console.log('   📤 执行POST请求...');
-    const postData = {
-      title: 'FourAir Demo Post',
-      body: 'This is a demo post from FourAir script',
-      userId: 1
-    };
-    
-    const postResponse = await http.post(`${config.apiEndpoint}/posts`, postData);
-    console.log(`   ✅ POST请求成功: ${postResponse.status} - ID: ${postResponse.data.id}`);
+    try {
+      const postData = {
+        title: 'FourAir Demo Post',
+        body: 'This is a demo post from FourAir script',
+        userId: 1
+      };
+      
+      const postResponse = await http.post(`${config.apiEndpoint}/posts`, postData);
+      console.log(`   ✅ POST请求成功: ${postResponse.status} - ID: ${postResponse.data.id || '未知'}`);
+    } catch (postError) {
+      console.log(`   ⚠️ POST请求失败: ${postError.message}`);
+    }
     
     // 带请求头的请求演示
     console.log('   📋 执行带请求头的请求...');
-    const headersResponse = await http.get(`${config.apiEndpoint}/users/1`, {
-      headers: {
-        'User-Agent': 'FourAir-Script/2.0',
-        'Accept': 'application/json'
-      }
-    });
-    console.log(`   ✅ 带请求头请求成功: ${headersResponse.data.name}`);
+    try {
+      const headersResponse = await http.get(`${config.apiEndpoint}/users/1`, {
+        headers: {
+          'User-Agent': 'FourAir-Script/2.0',
+          'Accept': 'application/json'
+        }
+      });
+      console.log(`   ✅ 带请求头请求成功: ${headersResponse.data.name || '未知用户'}`);
+    } catch (headerError) {
+      console.log(`   ⚠️ 带请求头请求失败: ${headerError.message}`);
+    }
     
   } catch (networkError) {
-    console.log(`   ⚠️ 网络请求失败: ${networkError.message}`);
+    console.log(`   ⚠️ 网络请求模块失败: ${networkError.message}`);
     // 继续执行，不中断整个流程
   }
 }
@@ -396,6 +462,11 @@ async function demonstrateNetworkRequests(http, config, proxy) {
  */
 async function demonstrateSecrets(secrets) {
   console.log('🔑 密钥管理演示:');
+  
+  if (!secrets || typeof secrets.get !== 'function') {
+    console.log('   💡 密钥管理接口不可用，跳过演示');
+    return;
+  }
   
   try {
     // 获取演示密钥
@@ -408,6 +479,7 @@ async function demonstrateSecrets(secrets) {
     
   } catch (secretError) {
     console.log(`   ⚠️ 密钥获取失败: ${secretError.message}`);
+    console.log('   💡 这在演示环境中是正常的');
   }
 }
 
@@ -416,6 +488,17 @@ async function demonstrateSecrets(secrets) {
  */
 async function processWalletsInBatches(wallets, config, utils) {
   console.log('👛 钱包批处理演示:');
+  
+  // 如果没有钱包，使用演示钱包
+  if (!wallets || wallets.length === 0) {
+    console.log('   💡 未检测到钱包，使用演示钱包数据');
+    wallets = [
+      { id: "demo_1", address: "0x1234567890123456789012345678901234567890", name: "演示钱包1" },
+      { id: "demo_2", address: "0x2345678901234567890123456789012345678901", name: "演示钱包2" },
+      { id: "demo_3", address: "0x3456789012345678901234567890123456789012", name: "演示钱包3" }
+    ];
+  }
+  
   console.log(`   📊 总钱包数: ${wallets.length}, 批大小: ${config.batchSize}`);
   
   const results = [];
@@ -432,7 +515,7 @@ async function processWalletsInBatches(wallets, config, utils) {
     
     // 并发处理批次中的钱包
     const batchPromises = batch.map((wallet, index) => 
-      processSingleWallet(wallet, i + index + 1, wallets.length, config)
+      processSingleWallet(wallet, i + index + 1, wallets.length, config, utils)
     );
     
     const batchResults = await Promise.allSettled(batchPromises);
@@ -470,13 +553,13 @@ async function processWalletsInBatches(wallets, config, utils) {
 /**
  * 处理单个钱包
  */
-async function processSingleWallet(wallet, index, total, config) {
+async function processSingleWallet(wallet, index, total, config, utils) {
   try {
     console.log(`   📝 处理钱包 ${index}/${total}: ${wallet.name || '未命名'} (${wallet.address})`);
     
-    // 模拟钱包处理逻辑
+    // 模拟钱包处理逻辑（使用utils.delay替代setTimeout）
     const processingTime = Math.random() * 1000 + 500; // 0.5-1.5秒随机处理时间
-    await new Promise(resolve => setTimeout(resolve, processingTime));
+    await utils.delay(processingTime);
     
     // 模拟处理结果
     const mockBalance = (Math.random() * 10).toFixed(4);
