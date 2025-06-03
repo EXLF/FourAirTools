@@ -317,6 +317,32 @@ class SecureScriptEngine {
         return { success: false, error: error.message };
       }
     });
+
+    // 同步脚本
+    ipcMain.handle('sync-scripts', async () => {
+      try {
+        secureLog('info', '接收到同步脚本请求');
+        
+        // 导入脚本更新服务
+        const scriptUpdaterService = require('./services/scriptUpdaterService');
+        
+        // 调用同步服务
+        const result = await scriptUpdaterService.syncScripts();
+        
+        secureLog('info', '脚本同步成功');
+        return {
+          success: true,
+          message: '脚本同步完成',
+          result
+        };
+      } catch (error) {
+        secureLog('error', `脚本同步失败: ${error.message}`);
+        return {
+          success: false,
+          error: error.message || '脚本同步失败'
+        };
+      }
+    });
   }
   
   async getAvailableScripts() {
