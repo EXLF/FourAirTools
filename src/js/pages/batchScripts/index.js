@@ -1447,9 +1447,20 @@ function globalLogEventHandler(data) {
         }
     }
 
+    // 检查是否需要更新执行ID（从临时ID到真实ID）
+    if (data.executionId && activeExecutionId && 
+        activeExecutionId.startsWith('temp_') && 
+        !data.executionId.startsWith('temp_') &&
+        activeTaskInstanceId && data.executionId.includes(activeTaskInstanceId.split('_').pop())) {
+        
+        console.log(`[脚本插件] 自动更新执行ID: ${activeExecutionId} -> ${data.executionId}`);
+        window.__currentExecutionId = data.executionId;
+    }
+
     // 处理前台日志
+    const currentExecutionId = window.__currentExecutionId;
     const isManagerView = pageState.currentView === VIEW_MODES.MANAGER || pageState.currentView === 'manager';
-    if (data.executionId && activeExecutionId && data.executionId === activeExecutionId && 
+    if (data.executionId && currentExecutionId && data.executionId === currentExecutionId && 
         document.getElementById('taskLogContainer') && isManagerView) {
         try {
             const message = typeof fixedMessage === 'string' ? fixedMessage : JSON.stringify(fixedMessage);

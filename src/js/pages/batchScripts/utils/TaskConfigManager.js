@@ -283,6 +283,20 @@ export class TaskConfigManager {
                     paramsHTML += '</select>';
                     break;
                 
+                case 'multiselect':
+                    paramsHTML += `<select id="${inputId}" name="scriptParam.${paramName}" multiple ${paramDef.required ? 'required' : ''}>`;
+                    if (paramDef.options && Array.isArray(paramDef.options)) {
+                        paramDef.options.forEach(option => {
+                            // 检查默认值是否包含当前选项（默认值应该是数组）
+                            const isDefaultSelected = Array.isArray(paramDef.default) && 
+                                paramDef.default.includes(option.value);
+                            const selected = isDefaultSelected ? 'selected' : '';
+                            paramsHTML += `<option value="${option.value}" ${selected}>${option.label}</option>`;
+                        });
+                    }
+                    paramsHTML += '</select>';
+                    break;
+                
                 case 'checkbox':
                     const checked = paramDef.default ? 'checked' : '';
                     paramsHTML += `
@@ -667,6 +681,19 @@ export class TaskConfigManager {
                         break;
                     case 'number':
                         value = inputElement.value ? Number(inputElement.value) : paramDef.default;
+                        break;
+                    case 'multiselect':
+                        // 对于多选下拉框，获取所有选中的值并转换为数组
+                        if (inputElement.multiple) {
+                            const selectedOptions = Array.from(inputElement.selectedOptions);
+                            value = selectedOptions.map(option => option.value);
+                            // 如果没有选中任何项，使用默认值
+                            if (value.length === 0 && paramDef.default) {
+                                value = Array.isArray(paramDef.default) ? paramDef.default : [paramDef.default];
+                            }
+                        } else {
+                            value = inputElement.value || paramDef.default;
+                        }
                         break;
                     case 'select':
                     case 'text':

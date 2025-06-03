@@ -290,7 +290,8 @@ export class ScriptExecutionManager {
                     scriptParams: {
                         batchMode: true,
                         timestamp: Date.now(),
-                        taskId: taskInstanceId
+                        taskId: taskInstanceId,
+                        ...taskConfig.scriptParams
                     },
                     priority: 'normal',
                     metadata: {
@@ -319,7 +320,8 @@ export class ScriptExecutionManager {
                         batchMode: true,
                         timestamp: Date.now(),
                         taskId: taskInstanceId,
-                        taskServiceId: taskServiceResult?.taskId
+                        taskServiceId: taskServiceResult?.taskId,
+                        ...taskConfig.scriptParams
                     }
                 };
                 
@@ -342,8 +344,14 @@ export class ScriptExecutionManager {
                 throw new Error('未获得执行ID');
             }
             
-            // 设置执行ID并准备UI
-            this.setupScriptLogListeners(taskInstanceId, startTaskButton, executionId);
+            // 更新为真实的执行ID（如果之前已经设置了临时ID）
+            if (window.__currentExecutionId && window.__currentExecutionId.startsWith('temp_')) {
+                window.__currentExecutionId = executionId;
+                console.log('[脚本执行] Service层更新为真实执行ID:', executionId);
+            } else {
+                // 设置执行ID并准备UI
+                this.setupScriptLogListeners(taskInstanceId, startTaskButton, executionId);
+            }
             
             console.log('[脚本执行] ✅ Service层执行成功，执行ID:', executionId);
             TaskLogger.logInfo(`✅ 脚本启动成功 (Service层)，执行ID: ${executionId}`);
@@ -403,8 +411,11 @@ export class ScriptExecutionManager {
         const scriptConfig = {
             batchMode: true,
             timestamp: Date.now(),
-            taskId: taskInstanceId
+            taskId: taskInstanceId,
+            ...taskConfig.scriptParams
         };
+        
+        console.log('[脚本执行] 脚本配置参数:', scriptConfig);
         
         // 准备代理配置
         let actualProxyConfigToPass = null;
@@ -415,7 +426,7 @@ export class ScriptExecutionManager {
             };
         }
         
-        // 注册日志监听（确保只注册一次）
+        // 提前注册日志监听（使用临时执行ID）
         this.setupScriptLogListeners(taskInstanceId, startTaskButton);
         
         try {
@@ -428,8 +439,9 @@ export class ScriptExecutionManager {
             );
             
             if (result && result.success && result.data && result.data.executionId) {
-                // 设置执行ID并准备UI
-                this.setupScriptLogListeners(taskInstanceId, startTaskButton, result.data.executionId);
+                // 更新为真实的执行ID
+                window.__currentExecutionId = result.data.executionId;
+                console.log('[脚本执行] 更新为真实执行ID:', result.data.executionId);
                 
                 console.log('[脚本执行] 成功启动，执行ID:', result.data.executionId);
                 TaskLogger.logInfo(`✅ 脚本启动成功 (原始方式)，执行ID: ${result.data.executionId}`);
@@ -988,6 +1000,11 @@ export class ScriptExecutionManager {
         if (executionIdToSet) {
             window.__currentExecutionId = executionIdToSet;
             console.log('[脚本执行] 设置执行ID:', executionIdToSet);
+        } else {
+            // 如果没有提供执行ID，生成一个临时ID用于日志收集
+            const tempExecutionId = `temp_${taskInstanceId.split('_').pop()}_${Date.now()}`;
+            window.__currentExecutionId = tempExecutionId;
+            console.log('[脚本执行] 生成临时执行ID:', tempExecutionId);
         }
 
         if (window.__currentLogCleanup) {
@@ -1012,7 +1029,7 @@ export class ScriptExecutionManager {
             }
         }
         
-        console.log(`[脚本执行] 已设置当前活动任务: taskInstanceId=${taskInstanceId}, executionId=${executionIdToSet || 'none'}`);
+        console.log(`[脚本执行] 已设置当前活动任务: taskInstanceId=${taskInstanceId}, executionId=${executionIdToSet || window.__currentExecutionId}`);
         
         // 验证执行ID设置
         setTimeout(() => {

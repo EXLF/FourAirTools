@@ -2108,13 +2108,14 @@ input:checked + .slider:before {
 .script-params-section h2 {
     margin: 0;
     padding: 16px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: #f8f9fa;
+    color: #2c3e50;
     font-size: 16px;
     font-weight: 600;
     display: flex;
     align-items: center;
     gap: 8px;
+    border-bottom: 1px solid #e9ecef;
 }
 
 .script-params-section h2 i {
