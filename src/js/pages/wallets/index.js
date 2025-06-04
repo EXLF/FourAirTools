@@ -8,7 +8,8 @@ import {
     loadAndRenderWallets,
     getPersistedRowsPerPage,
     setRowsPerPage,
-    getRowsPerPage // Import getRowsPerPage
+    getRowsPerPage, // Import getRowsPerPage
+    resetPageState
 } from './table.js';
 import {
     openWalletModal,
@@ -35,6 +36,9 @@ let contentAreaCache; // 缓存 contentArea
  */
 export async function initWalletsPage(contentArea) {
     contentAreaCache = contentArea; // 缓存供其他模块使用
+    
+    // --- 重置状态 ---
+    resetPageState(); // 清理之前的状态，防止重复创建
 
     // --- 初始化 --- 
     console.log(`正在初始化钱包页面 (模块化版本)...`);

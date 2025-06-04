@@ -24,6 +24,13 @@ let paginationContainer;
 let pageSizeContainer;
 let contentAreaCache; // 缓存 contentArea, 确保 setupCheckAll 能用
 
+/**
+ * 重置页面状态，用于页面切换时清理
+ */
+export function resetPageState() {
+    pageSizeContainer = null;
+}
+
 // *** 新增：平台到 Font Awesome 图标的映射 ***
 const platformIconMap = {
     'twitter': 'fab fa-twitter text-info',
@@ -82,6 +89,22 @@ export function getCurrentFilters() {
  * 创建并插入页面大小选择器
  */
 export function createPageSizeSelector() {
+    // 检查是否已经创建过页面大小选择器
+    if (pageSizeContainer) {
+        console.log('页面大小选择器已存在，跳过创建');
+        return;
+    }
+    
+    // 检查DOM中是否已经存在页面大小选择器
+    if (paginationContainer && paginationContainer.parentNode) {
+        const existingPageSizeSelector = paginationContainer.parentNode.querySelector('.page-size-selector');
+        if (existingPageSizeSelector) {
+            console.log('DOM中已存在页面大小选择器，跳过创建');
+            pageSizeContainer = existingPageSizeSelector; // 缓存现有的元素
+            return;
+        }
+    }
+    
     // 创建容器
     pageSizeContainer = document.createElement('div');
     pageSizeContainer.className = 'page-size-selector';
