@@ -15,7 +15,29 @@ const PORT = 3001; // API 服务器端口
 // --- 中间件 ---
 // CORS配置
 app.use(cors({
-  origin: ['http://localhost:3000', 'file://', 'app://'],
+  origin: function (origin, callback) {
+    // 允许所有来源（生产环境可以更严格）
+    // 或者检查特定的协议：localhost, file://, app://
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'file://',
+      'app://'
+    ];
+    
+    // 允许没有origin的请求（如Postman等工具）
+    if (!origin) return callback(null, true);
+    
+    // 检查是否是允许的origin或者是以file://或app://开头的
+    if (allowedOrigins.includes(origin) || 
+        origin.startsWith('file://') || 
+        origin.startsWith('app://')) {
+      return callback(null, true);
+    }
+    
+    // 临时：在开发阶段允许所有来源
+    return callback(null, true);
+  },
   credentials: true
 }));
 

@@ -1,6 +1,7 @@
 class AuthManager {
     constructor() {
-        this.apiUrl = 'http://localhost:3001/api';
+        const IS_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        this.apiUrl = IS_DEV ? 'http://localhost:3001/api' : 'http://106.75.5.215:3001/api';
         this.token = localStorage.getItem('auth_token');
         this.user = null;
         this.bindEvents();
