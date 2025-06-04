@@ -91,10 +91,18 @@ class ConfirmModal {
                 document.getElementById('confirm-modal-confirm').textContent = '确定';
             }
 
-            if (options.cancelText) {
-                document.getElementById('confirm-modal-cancel').textContent = options.cancelText;
+            const cancelBtn = document.getElementById('confirm-modal-cancel');
+            if (options.hideCancel || options.cancelText === '') {
+                // 隐藏取消按钮
+                cancelBtn.style.display = 'none';
             } else {
-                document.getElementById('confirm-modal-cancel').textContent = '取消';
+                // 显示取消按钮并设置文字
+                cancelBtn.style.display = 'inline-flex';
+                if (options.cancelText) {
+                    cancelBtn.textContent = options.cancelText;
+                } else {
+                    cancelBtn.textContent = '取消';
+                }
             }
 
             // 设置按钮样式

@@ -116,11 +116,21 @@ class UserMenu {
         document.getElementById('logout-btn').addEventListener('click', async () => {
             this.hide();
             
-            // 等待菜单动画完成后再显示确认框
+            // 等待菜单动画完成后再执行退出
             setTimeout(async () => {
-                const confirmed = await this.showLogoutConfirm();
-                if (confirmed && window.authManager) {
-                    window.authManager.logout();
+                // 检查是否需要确认（可以从设置中读取，这里先默认需要确认）
+                const needConfirm = true; // 可以改为从设置中读取
+                
+                if (needConfirm) {
+                    const confirmed = await this.showLogoutConfirm();
+                    if (confirmed && window.authManager) {
+                        window.authManager.logout();
+                    }
+                } else {
+                    // 直接退出，不需要确认
+                    if (window.authManager) {
+                        window.authManager.logout();
+                    }
                 }
             }, 200);
         });
@@ -200,7 +210,8 @@ class UserMenu {
     async showLogoutConfirm() {
         // 使用自定义确认模态框
         try {
-            if (window.showConfirm) {
+            // 确保自定义确认框组件已加载
+            if (typeof window.showConfirm === 'function') {
                 return await window.showConfirm(
                     '确定要退出登录吗？退出后将返回登录页面。',
                     '确认退出',
@@ -211,30 +222,48 @@ class UserMenu {
                     }
                 );
             } else {
-                // 降级到原生确认框作为备用
-                console.warn('自定义确认框不可用，使用原生确认框');
-                return window.confirm('确定要退出登录吗？退出后将返回登录页面。');
+                // 如果自定义确认框不可用，直接返回true（直接退出）
+                console.warn('自定义确认框不可用，直接执行退出操作');
+                return true;
             }
         } catch (error) {
             console.error('显示退出确认框时出错:', error);
-            // 出错时降级到原生确认框
-            return window.confirm('确定要退出登录吗？退出后将返回登录页面。');
+            // 出错时直接返回true（直接退出）
+            return true;
         }
     }
 
     showEditProfile() {
         // TODO: 实现编辑资料功能
-        alert('编辑资料功能即将推出');
+        this.showTempMessage('编辑资料功能即将推出');
     }
 
     showChangePassword() {
         // TODO: 实现修改密码功能
-        alert('修改密码功能即将推出');
+        this.showTempMessage('修改密码功能即将推出');
     }
 
     showUpgradeVip() {
         // TODO: 实现VIP升级功能
-        alert('VIP升级功能即将推出');
+        this.showTempMessage('VIP升级功能即将推出');
+    }
+
+    // 显示临时消息，避免使用alert
+    showTempMessage(message) {
+        // 优先使用toast消息
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, 'info');
+        } else if (typeof window.showConfirm === 'function') {
+            // 使用自定义确认框作为消息框
+            window.showConfirm(message, '提示', {
+                confirmText: '知道了',
+                cancelText: '',
+                hideCancel: true
+            });
+        } else {
+            // 最后的备用方案
+            console.log('[用户菜单] ' + message);
+        }
     }
 }
 
