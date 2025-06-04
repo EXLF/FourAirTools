@@ -22,9 +22,6 @@ class UserMenu {
                             <h3 class="user-name" id="user-menu-name">用户名</h3>
                             <p class="user-email" id="user-menu-email">user@example.com</p>
                         </div>
-                        <button class="user-menu-close" id="user-menu-close">
-                            <i class="fa fa-times"></i>
-                        </button>
                     </div>
                     
                     <div class="user-menu-content">
@@ -93,17 +90,16 @@ class UserMenu {
     }
 
     bindEvents() {
-        // 关闭按钮
-        document.getElementById('user-menu-close').addEventListener('click', () => {
-            this.hide();
-        });
+        // 移除关闭按钮和点击背景关闭功能，提升用户体验
+        // 用户可以通过点击菜单项、双击头像区域或ESC键来关闭菜单
 
-        // 点击背景关闭
-        this.menuElement.addEventListener('click', (e) => {
-            if (e.target === this.menuElement) {
+        // 双击头像区域关闭菜单（隐蔽的关闭方式）
+        const headerElement = this.menuElement.querySelector('.user-menu-header');
+        if (headerElement) {
+            headerElement.addEventListener('dblclick', () => {
                 this.hide();
-            }
-        });
+            });
+        }
 
         // ESC键关闭
         document.addEventListener('keydown', (e) => {
