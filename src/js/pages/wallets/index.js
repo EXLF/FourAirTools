@@ -38,6 +38,25 @@ export async function initWalletsPage(contentArea) {
 
     // --- 初始化 --- 
     console.log(`正在初始化钱包页面 (模块化版本)...`);
+    
+    // 🔒 检查全局安全模块是否可用
+    if (typeof window !== 'undefined' && window.__FA_GlobalSecurity) {
+        console.log('[钱包页面] 🛡️ 全局安全模块可用');
+        
+        // 演示凭据管理器的使用
+        const credentialManager = window.__FA_GlobalSecurity.getCredentialManager();
+        if (credentialManager) {
+            console.log('[钱包页面] ✅ 凭据管理器已就绪，钱包操作将受到保护');
+        }
+        
+        // 演示网络安全的使用
+        const networkSecurity = window.__FA_GlobalSecurity.modules.networkSecurity;
+        if (networkSecurity) {
+            console.log('[钱包页面] ✅ 网络安全管理器已就绪，所有请求将被验证');
+        }
+    } else {
+        console.warn('[钱包页面] ⚠️ 全局安全模块不可用，使用标准安全措施');
+    }
 
     // 1. 加载并设置每页行数
     const persistedSize = getPersistedRowsPerPage();

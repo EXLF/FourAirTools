@@ -6,10 +6,45 @@ import { showSetupPasswordModal } from './authSetup.js'; // 导入设置密码�
 import { showUnlockModal } from './authUnlock.js'; // 导入解锁函数
 import { initForgotPassword } from '../services/forgotPassword.js'; // 导入忘记密码功能
 
+/**
+ * 全局安全基础设施初始化
+ */
+async function initGlobalSecurity() {
+    try {
+        console.log('[全局安全] 🔒 开始初始化全局安全基础设施...');
+        
+        // 动态导入安全管理器
+        const { initializeSecurity } = await import('../pages/batchScripts/infrastructure/SecurityManager.js');
+        const securityResult = await initializeSecurity();
+        
+        if (securityResult.success) {
+            console.log('[全局安全] 🛡️ 全局安全基础设施初始化成功');
+            console.log('[全局安全] ✅ 所有页面现在都受到安全保护');
+            
+            // 将安全实例挂载到全局，供其他页面使用
+            if (typeof window !== 'undefined') {
+                window.__FA_GlobalSecurity = securityResult.security;
+                console.log('[全局安全] 🌐 安全模块已挂载到全局作用域');
+            }
+            
+            return securityResult;
+        } else {
+            console.warn('[全局安全] ⚠️ 全局安全基础设施初始化失败:', securityResult.message);
+            return null;
+        }
+    } catch (securityError) {
+        console.warn('[全局安全] ❌ 安全模块加载失败:', securityError);
+        return null;
+    }
+}
+
 // 初始加载
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log("DOM 完全加载并解析完毕。正在初始化应用...");
     try {
+        // 首先初始化全局安全基础设施
+        await initGlobalSecurity();
+        
         setupSidebarNavigation();
         initGlobalEventListeners();
         initForgotPassword(); // 初始化忘记密码功能

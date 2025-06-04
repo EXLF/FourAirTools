@@ -99,24 +99,47 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, category
     console.log(`获取教程数据: ${fullApiUrl} (fetchAll: ${fetchAll}, 当前分类: ${currentCategory}, IS_DEV: ${IS_DEV})`);
     
     try {
-        // 添加超时控制
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        let response;
+        let data;
         
-        const response = await fetch(fullApiUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            // 尝试解析错误信息
-            let errorMsg = `HTTP error! status: ${response.status}`;
-            try {
-                 const errorData = await response.json();
-                 errorMsg = errorData.error || errorMsg;
-            } catch (e) { /* 忽略解析错误 */ }
-            throw new Error(errorMsg);
+        // 🔒 尝试使用全局安全HTTP客户端（如果可用）
+        if (typeof window !== 'undefined' && window.__FA_GlobalSecurity) {
+            const secureHttpClient = window.__FA_GlobalSecurity.getSecureHttpClient();
+            if (secureHttpClient) {
+                console.log('[教程页面] 🛡️ 使用安全HTTP客户端获取数据');
+                try {
+                    data = await secureHttpClient.get(fullApiUrl);
+                    console.log('[教程页面] ✅ 安全请求完成');
+                } catch (secureError) {
+                    console.warn('[教程页面] 安全HTTP客户端失败，回退到标准fetch:', secureError.message);
+                    // 回退到标准fetch
+                    data = null;
+                }
+            }
         }
         
-        const data = await response.json();
+        // 如果安全客户端不可用或失败，使用标准fetch
+        if (!data) {
+            console.log('[教程页面] 使用标准fetch获取数据');
+            // 添加超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            
+            response = await fetch(fullApiUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                // 尝试解析错误信息
+                let errorMsg = `HTTP error! status: ${response.status}`;
+                try {
+                     const errorData = await response.json();
+                     errorMsg = errorData.error || errorMsg;
+                } catch (e) { /* 忽略解析错误 */ }
+                throw new Error(errorMsg);
+            }
+            
+            data = await response.json();
+        }
         
         if (!Array.isArray(data.tutorials)) {
             console.error("获取的教程数据不是数组格式:", data.tutorials);

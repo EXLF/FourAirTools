@@ -342,10 +342,36 @@ export class SecurityManager {
     }
 }
 
-// 创建全局实例
-export const securityManager = new SecurityManager();
+// 创建全局实例（单例模式）
+let globalSecurityManager = null;
+
+export function getSecurityManager() {
+    if (!globalSecurityManager) {
+        globalSecurityManager = new SecurityManager();
+    }
+    return globalSecurityManager;
+}
+
+export const securityManager = getSecurityManager();
 
 // 导出便捷的初始化函数
 export async function initializeSecurity() {
-    return await securityManager.initialize();
+    // 检查是否已经有全局实例
+    if (typeof window !== 'undefined' && window.__FA_GlobalSecurity) {
+        console.log('[SecurityManager] 检测到全局安全实例，使用现有实例');
+        return {
+            success: true,
+            message: '使用全局安全实例',
+            security: window.__FA_GlobalSecurity
+        };
+    }
+    
+    const manager = getSecurityManager();
+    const result = await manager.initialize();
+    
+    if (result.success) {
+        result.security = manager;
+    }
+    
+    return result;
 } 
