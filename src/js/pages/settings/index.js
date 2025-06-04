@@ -168,7 +168,20 @@ async function handleBackupNow() {
 
 async function handleClearCache() {
     try {
-        if (confirm('确定要清除缓存数据吗？这不会删除您的设置和钱包数据。')) {
+        // 使用自定义确认框
+        const confirmed = window.showConfirm ? 
+            await window.showConfirm(
+                '确定要清除缓存数据吗？这不会删除您的设置和钱包数据。',
+                '确认清除缓存',
+                {
+                    confirmText: '清除缓存',
+                    cancelText: '取消',
+                    danger: true
+                }
+            ) : 
+            confirm('确定要清除缓存数据吗？这不会删除您的设置和钱包数据。');
+            
+        if (confirmed) {
             if (window.appAPI && window.appAPI.clearCache) {
                 await window.appAPI.clearCache();
                 showToast('缓存数据已清除', 'success');

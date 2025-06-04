@@ -7,6 +7,8 @@
     <!-- <link rel="stylesheet" href="styles.css"> -->
     <link rel="stylesheet" href="src/css/main.css">
     <link rel="stylesheet" href="src/css/pages/auth.css">
+            <link rel="stylesheet" href="src/css/components/confirm-modal.css">
+        <link rel="stylesheet" href="src/css/components/user-menu.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- 添加 axios -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -160,34 +162,34 @@
             <nav>
                 <!-- 导航结构重组 -->
                 <ul>
-                    <li class="active"><a href="#dashboard"><i class="fas fa-tachometer-alt"></i> <span>仪表盘</span></a></li>
+                    <li class="active"><a href="#dashboard"><i class="fa fa-tachometer-alt"></i> <span>仪表盘</span></a></li>
                 </ul>
-                 <h6><i class="fas fa-briefcase"></i> 资产 & 账户</h6>
+                 <h6><i class="fa fa-briefcase"></i> 资产 & 账户</h6>
                  <ul>
-                    <li><a href="#wallets"><i class="fas fa-wallet"></i> <span>钱包管理</span></a></li>
-                    <li><a href="#social"><i class="fas fa-users"></i> <span>社交账户</span></a></li>
+                    <li><a href="#wallets"><i class="fa fa-wallet"></i> <span>钱包管理</span></a></li>
+                    <li><a href="#social"><i class="fa fa-users"></i> <span>社交账户</span></a></li>
                  </ul>
-                 <h6><i class="fas fa-cogs"></i> 自动化工具</h6>
+                 <h6><i class="fa fa-cogs"></i> 自动化工具</h6>
                  <ul>
-                    <li><a href="#batch-scripts"><i class="fas fa-code"></i> <span>脚本插件</span></a></li>
-                    <li><a href="#fingerprint-browser"><i class="fas fa-fingerprint"></i> <span>指纹浏览器</span></a></li>
+                    <li><a href="#batch-scripts"><i class="fa fa-code"></i> <span>脚本插件</span></a></li>
+                    <li><a href="#fingerprint-browser"><i class="fa fa-fingerprint"></i> <span>指纹浏览器</span></a></li>
                  </ul>
-                 <h6><i class="fas fa-shield-alt"></i> 安全 & 网络</h6>
+                 <h6><i class="fa fa-shield-alt"></i> 安全 & 网络</h6>
                  <ul>
-                    <li><a href="#tool-network"><i class="fas fa-network-wired"></i> <span>IP代理</span></a></li>
+                    <li><a href="#tool-network"><i class="fa fa-network-wired"></i> <span>IP代理</span></a></li>
                  </ul>
-                 <h6><i class="fas fa-graduation-cap"></i> 学习 & 社区</h6>
+                 <h6><i class="fa fa-graduation-cap"></i> 学习 & 社区</h6>
                  <ul>
-                    <li><a href="#tutorials"><i class="fas fa-book"></i> <span>教程中心</span></a></li>
-                    <li><a href="#community"><i class="fas fa-comments"></i> <span>社区交流</span></a></li>
+                    <li><a href="#tutorials"><i class="fa fa-book"></i> <span>教程中心</span></a></li>
+                    <li><a href="#community"><i class="fa fa-comments"></i> <span>社区交流</span></a></li>
                  </ul>
-                 <h6><i class="fas fa-wrench"></i> 常用工具</h6>
+                 <h6><i class="fa fa-wrench"></i> 常用工具</h6>
                  <ul>
-                     <li><a href="#tools"><i class="fas fa-wrench"></i> <span>工具链接</span></a></li>
+                     <li><a href="#tools"><i class="fa fa-wrench"></i> <span>工具链接</span></a></li>
                  </ul>
-                 <h6><i class="fas fa-sliders-h"></i> 配置</h6>
+                 <h6><i class="fa fa-sliders-h"></i> 配置</h6>
                  <ul>
-                    <li><a href="#settings"><i class="fas fa-cog"></i> <span>软件设置</span></a></li>
+                    <li><a href="#settings"><i class="fa fa-cog"></i> <span>软件设置</span></a></li>
                  </ul>
             </nav>
             <div class="sidebar-footer">
@@ -728,7 +730,10 @@
     </div> <!-- 关闭主应用 -->
 
     <!-- <script src="main.js"></script> -->
+    <script src="src/js/components/confirm-modal.js"></script>
     <script src="src/js/pages/auth/auth.js"></script>
+    <!-- 确保user-menu.js在auth.js之后加载 -->
+    <script src="src/js/components/user-menu.js"></script>
     <script type="module" src="src/js/core/app.js"></script>
     <div id="toast-container"></div> <!-- Toast container -->
     <script type="module" src="src/js/core/navigation.js"></script>
@@ -749,8 +754,10 @@
             // 首先设置导航，这个操作很快
             setupSidebarNavigation();
             
-            // 更新用户信息显示
-            updateUserDisplay();
+            // 延迟更新用户信息显示，确保所有脚本都已加载
+            setTimeout(() => {
+                updateUserDisplay();
+            }, 500);
             
             // 尝试隐藏加载指示器
             const appLoading = document.getElementById('appLoading');
@@ -795,15 +802,82 @@
                     if (!accountMenuItem.querySelector('span')) {
                         accountMenuItem.appendChild(userSpan);
                     }
+
+                    // 添加用户菜单样式
+                    accountMenuItem.classList.add('user-account');
                 }
 
-                // 添加登出功能
-                accountMenuItem?.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (confirm('确定要登出吗？')) {
-                        window.authManager.logout();
-                    }
-                });
+                // 直接绑定用户菜单事件
+                bindUserMenuEvent();
+            }
+        }
+
+        // 直接绑定用户菜单事件
+        function bindUserMenuEvent() {
+            const accountMenuItem = document.querySelector('.account-menu-trigger');
+            if (!accountMenuItem) {
+                console.error('找不到account-menu-trigger元素');
+                return;
+            }
+
+            // 重新应用样式和用户名
+            const user = window.authManager?.getCurrentUser();
+            if (user) {
+                const userSpan = accountMenuItem.querySelector('span') || document.createElement('span');
+                userSpan.textContent = user.nickname || user.username;
+                if (!accountMenuItem.querySelector('span')) {
+                    accountMenuItem.appendChild(userSpan);
+                }
+                accountMenuItem.classList.add('user-account');
+            }
+            
+            // 移除可能存在的旧事件监听器
+            const newElement = accountMenuItem.cloneNode(true);
+            accountMenuItem.parentNode.replaceChild(newElement, accountMenuItem);
+            
+            // 重新应用样式
+            if (user) {
+                const userSpan = newElement.querySelector('span') || document.createElement('span');
+                userSpan.textContent = user.nickname || user.username;
+                if (!newElement.querySelector('span')) {
+                    newElement.appendChild(userSpan);
+                }
+                newElement.classList.add('user-account');
+            }
+            
+            // 绑定点击事件
+            newElement.addEventListener('click', handleUserMenuClick);
+            
+            // 标记已绑定，避免重复绑定
+            newElement.setAttribute('data-menu-bound', 'true');
+            
+            console.log('用户菜单事件绑定完成');
+        }
+
+        // 处理用户菜单点击
+        function handleUserMenuClick(e) {
+            e.preventDefault();
+            console.log('用户菜单被点击');
+            
+            // 尝试多种方式调用用户菜单
+            if (typeof window.showUserMenu === 'function') {
+                console.log('使用window.showUserMenu');
+                window.showUserMenu();
+            } else if (window.userMenu && typeof window.userMenu.show === 'function') {
+                console.log('使用window.userMenu.show');
+                window.userMenu.show();
+            } else if (window.UserMenu) {
+                console.log('创建新的UserMenu实例');
+                try {
+                    const userMenuInstance = new window.UserMenu();
+                    userMenuInstance.show();
+                } catch (error) {
+                    console.error('创建UserMenu实例失败:', error);
+                }
+            } else {
+                console.error('所有用户菜单方法都不可用');
+                // 提供一个临时的解决方案
+                alert('用户菜单功能暂时不可用');
             }
         }
         
@@ -811,6 +885,15 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM内容加载完成，检查认证状态...');
             // 认证管理器会自动处理认证检查和页面显示
+            
+            // 额外的用户菜单绑定检查
+            setTimeout(() => {
+                const accountMenuItem = document.querySelector('.account-menu-trigger');
+                if (accountMenuItem && !accountMenuItem.hasAttribute('data-menu-bound')) {
+                    console.log('DOM加载完成后重新绑定用户菜单');
+                    updateUserDisplay();
+                }
+            }, 1000);
         });
     </script>
 </body>

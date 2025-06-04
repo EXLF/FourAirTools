@@ -1295,7 +1295,19 @@ async function resumeBackgroundTask(taskInstanceId) {
  * @param {string} taskInstanceId - 任务实例ID
  */
 async function stopBackgroundTaskFromPanel(taskInstanceId) {
-    if (confirm('确定要停止这个后台任务吗？')) {
+    const confirmed = window.showConfirm ? 
+        await window.showConfirm(
+            '确定要停止这个后台任务吗？',
+            '确认停止后台任务',
+            {
+                confirmText: '停止任务',
+                cancelText: '取消',
+                danger: true
+            }
+        ) : 
+        confirm('确定要停止这个后台任务吗？');
+        
+    if (confirmed) {
         const success = await stopBackgroundTask(taskInstanceId);
         if (success) {
             // 重新渲染后台任务列表

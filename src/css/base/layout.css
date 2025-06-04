@@ -67,6 +67,58 @@
     font-size: 18px;
 }
 
+/* 用户头像特殊样式 */
+.navbar-actions .user-account {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    border: 2px solid #e3f2fd;
+    position: relative;
+    width: auto;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 18px;
+}
+
+.navbar-actions .user-account i {
+    color: white !important;
+    font-size: 16px;
+}
+
+.navbar-actions .user-account span {
+    color: white !important;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.navbar-actions .user-account:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.navbar-actions .user-account:hover i,
+.navbar-actions .user-account:hover span {
+    color: white !important;
+}
+
+.navbar-actions .user-account::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #4caf50;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
 /* ================= Sidebar ================= */
 .sidebar {
     width: 250px;

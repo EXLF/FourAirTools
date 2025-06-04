@@ -1,0 +1,240 @@
+/* 用户菜单覆盖层 */
+.user-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.user-menu-overlay.show {
+    opacity: 1;
+}
+
+/* 用户菜单面板 */
+.user-menu-panel {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    width: 420px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    transform: translateY(20px) scale(0.95);
+    transition: transform 0.2s ease;
+}
+
+.user-menu-overlay.show .user-menu-panel {
+    transform: translateY(0) scale(1);
+}
+
+/* 用户菜单头部 */
+.user-menu-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-avatar {
+    font-size: 48px;
+    opacity: 0.9;
+}
+
+.user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-email {
+    font-size: 14px;
+    margin: 0;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-menu-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+    opacity: 0.8;
+}
+
+.user-menu-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+}
+
+/* 用户菜单内容 */
+.user-menu-content {
+    padding: 24px;
+}
+
+/* 用户统计信息 */
+.user-stats {
+    margin-bottom: 24px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: white;
+}
+
+.vip-icon {
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    color: #8b5a00;
+}
+
+.points-icon {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.referral-icon {
+    background: linear-gradient(135deg, #a8edea, #fed6e3);
+    color: #6b46c1;
+}
+
+.stat-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.stat-value.vip-active {
+    color: #d97706;
+}
+
+/* 用户菜单操作 */
+.user-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.menu-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    text-align: left;
+}
+
+.menu-action-btn:hover {
+    background: #f3f4f6;
+    transform: translateX(2px);
+}
+
+.menu-action-btn i {
+    width: 16px;
+    text-align: center;
+    color: #6b7280;
+}
+
+.menu-action-btn span {
+    flex: 1;
+}
+
+.logout-btn {
+    color: #dc2626;
+}
+
+.logout-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.logout-btn i {
+    color: #dc2626;
+}
+
+.menu-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 8px 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .user-menu-panel {
+        width: 95vw;
+        margin: 20px;
+    }
+    
+    .user-menu-header {
+        padding: 20px;
+    }
+    
+    .user-menu-content {
+        padding: 20px;
+    }
+    
+    .user-name {
+        font-size: 18px;
+    }
+} 

@@ -108,8 +108,19 @@ async function fetchTutorialsFromServer(page = 1, limit = itemsPerPage, category
             if (secureHttpClient) {
                 console.log('[教程页面] 🛡️ 使用安全HTTP客户端获取数据');
                 try {
-                    data = await secureHttpClient.get(fullApiUrl);
+                    const secureResponse = await secureHttpClient.get(fullApiUrl);
                     console.log('[教程页面] ✅ 安全请求完成');
+                    // SecureHttpClient返回的是包含data属性的响应对象
+                    if (secureResponse && secureResponse.data) {
+                        // 如果响应数据是字符串，需要解析为JSON
+                        if (typeof secureResponse.data === 'string') {
+                            data = JSON.parse(secureResponse.data);
+                        } else {
+                            data = secureResponse.data;
+                        }
+                    } else {
+                        data = null;
+                    }
                 } catch (secureError) {
                     console.warn('[教程页面] 安全HTTP客户端失败，回退到标准fetch:', secureError.message);
                     // 回退到标准fetch

@@ -32,10 +32,68 @@ async function initDatabase() {
     // await db.sequelize.sync({ force: true }); // 开发时：删除并重建表
     await db.sequelize.sync(); // 生产或日常：创建表（如果不存在）并应用模型中的索引
     console.log('数据库表初始化/同步成功 (Sequelize)');
+    
+    // 添加种子数据
+    await addSeedData();
+    
     return true;
   } catch (err) {
     console.error('数据库表初始化/同步失败 (Sequelize):', err);
     return false;
+  }
+}
+
+// 添加种子数据
+async function addSeedData() {
+  try {
+    // 检查是否已有教程数据
+    const tutorialCount = await db.Tutorial.count();
+    if (tutorialCount === 0) {
+      console.log('添加教程种子数据...');
+      
+      const seedTutorials = [
+        {
+          title: 'FourAir新手入门指南',
+          category: '新手入门',
+          description: '了解FourAir工具箱的基本功能和使用方法，帮助您快速上手。',
+          url: 'https://example.com/tutorial/beginner-guide',
+          imageUrl: 'https://via.placeholder.com/300x200/6c5ce7/white?text=新手指南'
+        },
+        {
+          title: '钱包管理最佳实践',
+          category: '安全知识',
+          description: '学习如何安全地管理多个钱包，保护您的数字资产。',
+          url: 'https://example.com/tutorial/wallet-management',
+          imageUrl: 'https://via.placeholder.com/300x200/28a745/white?text=钱包管理'
+        },
+        {
+          title: '批量操作脚本教程',
+          category: '脚本教程',
+          description: '掌握批量操作脚本的编写和使用技巧，提高工作效率。',
+          url: 'https://example.com/tutorial/batch-scripts',
+          imageUrl: 'https://via.placeholder.com/300x200/ffc107/white?text=脚本教程'
+        },
+        {
+          title: '空投项目识别与参与',
+          category: '空投教程',
+          description: '学习如何识别优质空投项目并安全参与，获得最大收益。',
+          url: 'https://example.com/tutorial/airdrop-guide',
+          imageUrl: 'https://via.placeholder.com/300x200/dc3545/white?text=空投指南'
+        },
+        {
+          title: '代理IP配置教程',
+          category: '工具技巧',
+          description: '详细介绍如何配置和使用代理IP，保护隐私和提高安全性。',
+          url: 'https://example.com/tutorial/proxy-setup',
+          imageUrl: 'https://via.placeholder.com/300x200/17a2b8/white?text=代理配置'
+        }
+      ];
+      
+      await db.Tutorial.bulkCreate(seedTutorials);
+      console.log(`成功添加 ${seedTutorials.length} 条教程种子数据`);
+    }
+  } catch (error) {
+    console.error('添加种子数据失败:', error);
   }
 }
 

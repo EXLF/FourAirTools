@@ -48,7 +48,19 @@ export class ScriptStopManager {
         }
 
         // 确认停止
-        if (!confirm('确定要停止当前正在执行的任务吗？')) {
+        const confirmed = window.showConfirm ? 
+            await window.showConfirm(
+                '确定要停止当前正在执行的任务吗？',
+                '确认停止任务',
+                {
+                    confirmText: '停止任务',
+                    cancelText: '取消',
+                    danger: true
+                }
+            ) : 
+            confirm('确定要停止当前正在执行的任务吗？');
+            
+        if (!confirmed) {
             return;
         }
 
@@ -240,8 +252,18 @@ export class ScriptStopManager {
     async _handleStopFailure(stopResult, stopTaskButton, managerPage) {
         if (stopResult.allowForceStop) {
             // 允许强制停止
-            const forceStop = confirm('后端停止脚本失败，是否强制清理前端状态？\n' +
-                '注意：这可能导致后端脚本继续运行，但前端将停止显示。');
+            const forceStop = window.showConfirm ? 
+                await window.showConfirm(
+                    '后端停止脚本失败，是否强制清理前端状态？\n注意：这可能导致后端脚本继续运行，但前端将停止显示。',
+                    '强制停止确认',
+                    {
+                        confirmText: '强制清理',
+                        cancelText: '取消',
+                        danger: true
+                    }
+                ) :
+                confirm('后端停止脚本失败，是否强制清理前端状态？\n' +
+                    '注意：这可能导致后端脚本继续运行，但前端将停止显示。');
             
             if (forceStop) {
                 await this._executeForceStop(managerPage);
@@ -251,8 +273,18 @@ export class ScriptStopManager {
             }
         } else if (stopResult.allowForceCleanup) {
             // 允许强制清理UI状态
-            const forceCleanup = confirm('未找到有效的执行ID，是否清理UI状态？\n' +
-                '这将重置界面，但不会影响可能正在运行的后端脚本。');
+            const forceCleanup = window.showConfirm ? 
+                await window.showConfirm(
+                    '未找到有效的执行ID，是否清理UI状态？\n这将重置界面，但不会影响可能正在运行的后端脚本。',
+                    '清理UI状态',
+                    {
+                        confirmText: '清理UI',
+                        cancelText: '取消',
+                        danger: false
+                    }
+                ) :
+                confirm('未找到有效的执行ID，是否清理UI状态？\n' +
+                    '这将重置界面，但不会影响可能正在运行的后端脚本。');
             
             if (forceCleanup) {
                 await this._executeForceCleanup(managerPage);
