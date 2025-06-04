@@ -114,6 +114,20 @@ async function initInfrastructureServices() {
     try {
         console.log('[基础设施] 开始初始化核心服务...');
         
+        // 首先初始化安全管理器
+        try {
+            const { initializeSecurity } = await import('./infrastructure/SecurityManager.js');
+            const securityResult = await initializeSecurity();
+            
+            if (securityResult.success) {
+                console.log('[基础设施] 🛡️ 安全基础设施初始化成功');
+            } else {
+                console.warn('[基础设施] ⚠️ 安全基础设施初始化失败:', securityResult.message);
+            }
+        } catch (securityError) {
+            console.warn('[基础设施] 安全模块加载失败:', securityError);
+        }
+        
         // 创建基础设施实例但不立即使用
         const apiClient = new ApiClient();
         const errorHandler = new ErrorHandler();
