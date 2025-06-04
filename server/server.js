@@ -5,11 +5,20 @@ const db = require('./models'); // 引入 Sequelize 实例和模型
 const { Op } = require('sequelize'); // 引入 Sequelize 操作符
 const multer = require('multer'); // <--- 引入 multer
 const crypto = require('crypto'); // <--- 引入 crypto (如果之前没有)
+const bcrypt = require('bcrypt'); // 密码加密
+const cors = require('cors'); // CORS支持
+const { generateToken, authenticateToken, optionalAuth, requireVipLevel } = require('./middleware/auth');
 
 const app = express();
 const PORT = 3001; // API 服务器端口
 
 // --- 中间件 ---
+// CORS配置
+app.use(cors({
+  origin: ['http://localhost:3000', 'file://', 'app://'],
+  credentials: true
+}));
+
 // 托管 public 目录下的静态文件 (如 admin.html)
 app.use(express.static(path.join(__dirname, 'public'))); 
 // 解析 JSON 格式的请求体
@@ -36,6 +45,345 @@ initDatabase().then(success => {
     console.error("关键：数据库未能成功初始化，服务可能无法正常工作。");
     // 考虑是否在数据库初始化失败时退出程序
     // process.exit(1);
+  }
+});
+
+// --- 用户认证 API 端点 ---
+
+// POST /api/auth/register: 用户注册
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password, referralCode } = req.body;
+
+    // 验证必需字段
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        error: '用户名、邮箱和密码为必填项' 
+      });
+    }
+
+    // 检查用户名和邮箱是否已存在
+    const existingUser = await db.User.findOne({
+      where: {
+        [Op.or]: [
+          { username },
+          { email }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: existingUser.username === username ? '用户名已被使用' : '邮箱已被注册' 
+      });
+    }
+
+    // 加密密码
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // 处理推荐码
+    let referrer = null;
+    if (referralCode) {
+      referrer = await db.User.findOne({ where: { referralCode } });
+      if (!referrer) {
+        return res.status(400).json({ 
+          error: '推荐码无效' 
+        });
+      }
+    }
+
+    // 生成唯一推荐码
+    const generateReferralCode = () => {
+      return username.substring(0, 3).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+    };
+    let newReferralCode = generateReferralCode();
+    
+    // 确保推荐码唯一
+    while (await db.User.findOne({ where: { referralCode: newReferralCode } })) {
+      newReferralCode = generateReferralCode();
+    }
+
+    // 创建用户
+    const newUser = await db.User.create({
+      username,
+      email,
+      password: hashedPassword,
+      referredBy: referrer ? referrer.id : null,
+      referralCode: newReferralCode,
+      points: referrer ? 100 : 50, // 被推荐用户获得额外积分
+      totalPointsEarned: referrer ? 100 : 50
+    });
+
+    // 给推荐人添加积分
+    if (referrer) {
+      await referrer.increment('points', { by: 200 });
+      await referrer.increment('totalPointsEarned', { by: 200 });
+    }
+
+    // 生成JWT token
+    const token = generateToken(newUser.id);
+
+    // 返回用户信息（不包含密码）
+    const userResponse = {
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      nickname: newUser.nickname,
+      avatar: newUser.avatar,
+      vipLevel: newUser.vipLevel,
+      vipExpireAt: newUser.vipExpireAt,
+      points: newUser.points,
+      totalPointsEarned: newUser.totalPointsEarned,
+      isEmailVerified: newUser.isEmailVerified,
+      referralCode: newUser.referralCode,
+      hasLocalPassword: newUser.hasLocalPassword,
+      createdAt: newUser.createdAt
+    };
+
+    res.status(201).json({
+      message: '注册成功',
+      user: userResponse,
+      token
+    });
+
+    console.log(`新用户注册成功: ${username}`);
+  } catch (error) {
+    console.error('用户注册失败:', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ 
+        error: error.errors.map(e => e.message).join(', ') 
+      });
+    }
+    res.status(500).json({ 
+      error: '注册失败，请稍后重试' 
+    });
+  }
+});
+
+// POST /api/auth/login: 用户登录
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password, deviceId } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ 
+        error: '用户名和密码为必填项' 
+      });
+    }
+
+    // 查找用户（支持用户名或邮箱登录）
+    const user = await db.User.findOne({
+      where: {
+        [Op.or]: [
+          { username },
+          { email: username }
+        ]
+      }
+    });
+
+    if (!user) {
+      return res.status(401).json({ 
+        error: '用户名或密码错误' 
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({ 
+        error: '账户已被禁用，请联系客服' 
+      });
+    }
+
+    // 验证密码
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        error: '用户名或密码错误' 
+      });
+    }
+
+    // 更新登录信息
+    await user.update({
+      lastLoginAt: new Date(),
+      loginCount: user.loginCount + 1,
+      deviceId: deviceId || user.deviceId
+    });
+
+    // 生成JWT token
+    const token = generateToken(user.id);
+
+    // 返回用户信息（不包含密码）
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      nickname: user.nickname,
+      avatar: user.avatar,
+      vipLevel: user.vipLevel,
+      vipExpireAt: user.vipExpireAt,
+      points: user.points,
+      totalPointsEarned: user.totalPointsEarned,
+      isEmailVerified: user.isEmailVerified,
+      referralCode: user.referralCode,
+      hasLocalPassword: user.hasLocalPassword,
+      lastLoginAt: user.lastLoginAt,
+      loginCount: user.loginCount
+    };
+
+    res.json({
+      message: '登录成功',
+      user: userResponse,
+      token
+    });
+
+    console.log(`用户登录成功: ${user.username}`);
+  } catch (error) {
+    console.error('用户登录失败:', error);
+    res.status(500).json({ 
+      error: '登录失败，请稍后重试' 
+    });
+  }
+});
+
+// GET /api/auth/me: 获取当前用户信息
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const userResponse = {
+      id: req.user.id,
+      username: req.user.username,
+      email: req.user.email,
+      nickname: req.user.nickname,
+      avatar: req.user.avatar,
+      vipLevel: req.user.vipLevel,
+      vipExpireAt: req.user.vipExpireAt,
+      points: req.user.points,
+      totalPointsEarned: req.user.totalPointsEarned,
+      isEmailVerified: req.user.isEmailVerified,
+      referralCode: req.user.referralCode,
+      hasLocalPassword: req.user.hasLocalPassword,
+      lastLoginAt: req.user.lastLoginAt,
+      loginCount: req.user.loginCount,
+      createdAt: req.user.createdAt,
+      updatedAt: req.user.updatedAt
+    };
+
+    res.json({
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    res.status(500).json({ 
+      error: '获取用户信息失败' 
+    });
+  }
+});
+
+// PUT /api/auth/profile: 更新用户资料
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const { nickname, avatar } = req.body;
+    const user = req.user;
+
+    // 更新允许修改的字段
+    const updateData = {};
+    if (nickname !== undefined) updateData.nickname = nickname;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ 
+        error: '没有提供要更新的字段' 
+      });
+    }
+
+    await user.update(updateData);
+
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      nickname: user.nickname,
+      avatar: user.avatar,
+      vipLevel: user.vipLevel,
+      vipExpireAt: user.vipExpireAt,
+      points: user.points,
+      totalPointsEarned: user.totalPointsEarned,
+      isEmailVerified: user.isEmailVerified,
+      referralCode: user.referralCode,
+      hasLocalPassword: user.hasLocalPassword,
+      updatedAt: user.updatedAt
+    };
+
+    res.json({
+      message: '资料更新成功',
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('更新用户资料失败:', error);
+    res.status(500).json({ 
+      error: '更新资料失败，请稍后重试' 
+    });
+  }
+});
+
+// POST /api/auth/change-password: 修改密码
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = req.user;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        error: '当前密码和新密码为必填项' 
+      });
+    }
+
+    // 重新获取包含密码的用户信息
+    const userWithPassword = await db.User.findByPk(user.id);
+    
+    // 验证当前密码
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, userWithPassword.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({ 
+        error: '当前密码错误' 
+      });
+    }
+
+    // 加密新密码
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // 更新密码
+    await userWithPassword.update({
+      password: hashedNewPassword
+    });
+
+    res.json({
+      message: '密码修改成功'
+    });
+
+    console.log(`用户修改密码成功: ${user.username}`);
+  } catch (error) {
+    console.error('修改密码失败:', error);
+    res.status(500).json({ 
+      error: '修改密码失败，请稍后重试' 
+    });
+  }
+});
+
+// POST /api/auth/logout: 用户登出（可用于记录或清理）
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    // 这里可以添加登出日志或清理逻辑
+    res.json({
+      message: '登出成功'
+    });
+
+    console.log(`用户登出: ${req.user.username}`);
+  } catch (error) {
+    console.error('用户登出失败:', error);
+    res.status(500).json({ 
+      error: '登出失败' 
+    });
   }
 });
 
