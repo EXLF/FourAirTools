@@ -98,12 +98,12 @@ class UserMenu {
             this.hide();
         });
 
-        // 点击背景关闭
-        this.menuElement.addEventListener('click', (e) => {
-            if (e.target === this.menuElement) {
-                this.hide();
-            }
-        });
+        // 移除点击背景关闭功能，避免误触
+        // this.menuElement.addEventListener('click', (e) => {
+        //     if (e.target === this.menuElement) {
+        //         this.hide();
+        //     }
+        // });
 
         // ESC键关闭
         document.addEventListener('keydown', (e) => {
