@@ -81,7 +81,23 @@
     text-overflow: ellipsis;
 }
 
-/* 移除关闭按钮相关样式，提升用户体验 */
+.user-menu-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.user-menu-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+}
 
 /* 用户菜单内容 */
 .user-menu-content {
