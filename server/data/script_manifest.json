@@ -1,0 +1,123 @@
+{
+  "scripts": [
+    {
+      "id": "pharos",
+      "name": "Pharos",
+      "version": "v1.0.0",
+      "description": "111",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "pharos.js",
+      "checksum": "9190e12f84bd6ac0934a96ac3b39178e61dc09aaecbcf412ac7d6d873137e801",
+      "lastModified": "2025-06-05T07:57:29.321Z"
+    }
+  ],
+  "lastUpdated": "2024-12-19T04:00:00.000Z",
+  "deletedScripts": [
+    {
+      "id": "pharos_testnet_bot",
+      "name": "Pharos自动化脚本",
+      "description": "自动化执行Pharos测试网的水龙头领取、每日签到、PHRS转账和代币交换操作",
+      "version": "2.0.0",
+      "author": "一笑",
+      "category": "测试网交互",
+      "icon": "fas fa-robot",
+      "imageUrl": "https://public.rootdata.com/images/b53/1731433067612.jpg",
+      "filename": "pharos.js",
+      "platforms": [
+        "Pharos Testnet"
+      ],
+      "requires": {
+        "wallets": true,
+        "proxy": false
+      },
+      "requiredModules": [
+        "ethers",
+        "crypto"
+      ],
+      "timeout": 1200000,
+      "uploadedAt": "2024-12-19T04:00:00.000Z",
+      "updatedAt": "2024-12-19T04:00:00.000Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T04:37:38.929Z"
+    },
+    {
+      "id": "sahara_ai",
+      "name": "Sahara-Ai",
+      "version": "v1.0.0",
+      "description": "Sahara-Ai自动化脚本",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "sahara-ai.js",
+      "checksum": "2cff2b0ace30e0837387d9fb694a198dc854544300f4857ca3358ac9c68ed562",
+      "lastModified": "2025-06-05T07:04:15.129Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:05:54.351Z"
+    },
+    {
+      "id": "sahara_ai",
+      "name": "Sahara-Ai",
+      "version": "v1.0.0",
+      "description": "自动化脚本",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "sahara-ai.js",
+      "checksum": "7a0c75f2bb8210ff0d68aa9482956a8d47c77da54d0d11471f7273ad210698c4",
+      "lastModified": "2025-06-05T07:06:20.298Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:11:46.699Z"
+    },
+    {
+      "id": "sahara_ai",
+      "name": "Sahara-Ai",
+      "version": "v1.0.0",
+      "description": "自动化脚本",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "sahara-ai.js",
+      "checksum": "b9e7779fd917523c1bf947f61ebdc739bfbbefa4555ace3cb27a6240a98a9f96",
+      "lastModified": "2025-06-05T07:12:03.011Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:24:38.225Z"
+    },
+    {
+      "id": "sahara_ai",
+      "name": "Sahara-Ai",
+      "version": "v1.0.0",
+      "description": "自动化脚本",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "sahara-ai.js",
+      "checksum": "f0115d19e4ec88426d83facf24194a23e3877243e89ddf4226433304805178f8",
+      "lastModified": "2025-06-05T07:24:44.877Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:55:47.596Z"
+    },
+    {
+      "id": "pharos",
+      "name": "Pharos",
+      "version": "2.0.0",
+      "description": "123",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "pharos.js",
+      "checksum": "3dd14c6e12503c09ab24b039e6f54947b01401c6600f98daf4c1e4040554437d",
+      "lastModified": "2025-06-05T04:38:37.578Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:55:49.071Z"
+    },
+    {
+      "id": "pharos",
+      "name": "Pharos",
+      "version": "v1.0.0",
+      "description": "自动化脚本",
+      "author": "一笑",
+      "category": "脚本",
+      "filename": "pharos.js",
+      "checksum": "078600e02ba6539e9c1a5c3e72f70f52bf8d0d015a81f57329eb4700f6692fc5",
+      "lastModified": "2025-06-05T07:55:54.782Z",
+      "isDeleted": true,
+      "deletedAt": "2025-06-05T07:57:25.743Z"
+    }
+  ]
+}

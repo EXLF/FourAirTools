@@ -13,7 +13,7 @@
 /**
  * 脚本元数据注释
  * 功能：描述脚本的主要功能
- * 作者：作者名称
+ * 作者：作者名称（全部用一笑）
  * 版本：1.0.0
  * 更新：YYYY-MM-DD
  */
@@ -26,9 +26,10 @@ function getConfig() {
     name: "脚本显示名称",
     description: "脚本功能详细描述",
     version: "1.0.0",
-    author: "作者名",
+    author: "作者名（全部用一笑）",
     category: "工具类别",
     icon: "fas fa-robot",
+    imageUrl: "图片url(可选)"
     
     // 依赖声明
     requires: {
