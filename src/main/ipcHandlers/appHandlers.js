@@ -1057,13 +1057,7 @@ function setupApplicationIpcHandlers(mainWindow) {
         }
     });
 
-    // --- 修改：处理加载教程数据请求 ---
-    ipcMain.handle('app:loadTutorials', async () => {
-        console.log('[IPC] Received: app:loadTutorials. This handler is deprecated for tutorial data fetching. Tutorials should be fetched via API by the renderer.');
-        // 不再尝试从本地文件加载，因为渲染器会通过 API 获取
-        // 返回空数组以兼容旧的调用，但理想情况下渲染器不应再依赖此IPC获取教程主体内容
-        return [];
-    });
+    // --- 已移除：废弃的教程加载处理器（改为直接使用服务器API） ---
 
     // 执行简单脚本的处理器
     ipcMain.handle('execute-simple-script', async (event) => {

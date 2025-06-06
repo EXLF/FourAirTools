@@ -118,18 +118,7 @@ async function getSocialAccountCount() {
  * @returns {Promise<number>} 教程总数
  */
 async function getTutorialCount() {
-    // 先尝试从本地获取
-    try {
-        const tutorials = await window.tutorialAPI.loadTutorials();
-        if (tutorials && Array.isArray(tutorials)) {
-            console.log('(本地)教程总数量:', tutorials.length);
-            return tutorials.length;
-        }
-    } catch (localError) {
-        console.log('本地教程数据获取失败，尝试远程API');
-    }
-    
-    // 本地失败后尝试远程API，添加超时控制
+    // 直接使用远程API，添加超时控制
     try {
         // const IS_DEV = process.env.NODE_ENV === 'development'; // 旧方式
         const IS_DEV = window.electronEnvironment && window.electronEnvironment.isDev;
@@ -155,6 +144,7 @@ async function getTutorialCount() {
         const tutorials = data.tutorials || [];
         
         if (Array.isArray(tutorials)) {
+            console.log('教程总数量:', tutorials.length);
             return tutorials.length;
         }
         return 0;

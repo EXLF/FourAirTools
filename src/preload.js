@@ -51,10 +51,7 @@ contextBridge.exposeInMainWorld('dbAPI', {
     encryptData: (plainText) => ipcRenderer.invoke('app:encryptData', plainText),
 }); 
 
-// --- 修改：教程加载 API 调用主进程 --- 
-contextBridge.exposeInMainWorld('tutorialAPI', {
-  loadTutorials: () => ipcRenderer.invoke('app:loadTutorials')
-});
+// --- 已移除：教程加载 API（改为直接使用服务器API） ---
 
 // 白名单通道：明确列出允许渲染进程使用的 IPC 通道
 const validSendChannels = [
@@ -141,7 +138,6 @@ const validInvokeChannels = [
     'crypto:validateMnemonic',
     'app:lock',
     'wallet:getBalance',
-    'app:loadTutorials',
     // --- Proxies (新增) ---
     'db:addProxy', 
     'db:getProxies', 

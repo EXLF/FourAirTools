@@ -12,6 +12,25 @@ let itemsPerPage = 5; // 修改为每页5条
 // 添加当前搜索词变量
 let currentSearchTerm = '';
 
+// 新增：防重复初始化标志
+let isInitialized = false;
+
+// 新增：重置初始化状态函数
+export function resetTutorialsPage() {
+    console.log("重置教程页面初始化状态");
+    isInitialized = false;
+    
+    // 重置全局变量
+    currentWebview = null;
+    currentCategory = 'all';
+    currentPage = 1;
+    totalPages = 1;
+    currentSearchTerm = '';
+    
+    // 清空缓存
+    tutorialsCache.clear('all');
+}
+
 // 缓存系统
 const tutorialsCache = {
     data: {}, // 按照"分类-页码-搜索词"形式存储
@@ -315,6 +334,12 @@ function addTutorialStyles() {
  */
 export async function initTutorialsPage(contentArea) {
     console.log("Initializing Tutorials Page...");
+    
+    // 防重复初始化检查
+    if (isInitialized) {
+        console.log("教程页面已经初始化过了，跳过重复初始化");
+        return;
+    }
 
     // 添加CSS样式
     addTutorialStyles();
@@ -344,16 +369,23 @@ export async function initTutorialsPage(contentArea) {
 
     // --- 事件监听 --- 
 
-    // 1. 分类点击事件
+    // 1. 分类点击事件 - 先清除旧的监听器
     categoryLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
+        // 移除可能存在的旧监听器
+        link.removeEventListener('click', link._tutorialClickHandler);
+        // 创建新的处理函数并保存引用
+        link._tutorialClickHandler = (e) => {
             e.preventDefault();
             handleCategoryClick(e, categoryLinks, tutorialListContainer, webviewContainer, contentArea);
-        });
+        };
+        link.addEventListener('click', link._tutorialClickHandler);
     });
 
-    // 2. 教程项点击事件 (使用事件委托)
-    tutorialListContainer.addEventListener('click', (e) => {
+    // 2. 教程项点击事件 (使用事件委托) - 先移除旧监听器
+    if (tutorialListContainer._tutorialItemClickHandler) {
+        tutorialListContainer.removeEventListener('click', tutorialListContainer._tutorialItemClickHandler);
+    }
+    tutorialListContainer._tutorialItemClickHandler = (e) => {
         const itemButton = e.target.closest('.tutorial-item a.btn, .tutorial-item h4'); // 点击标题或按钮
         if (itemButton) {
             e.preventDefault();
@@ -367,15 +399,23 @@ export async function initTutorialsPage(contentArea) {
                 // 可以显示一个提示信息给用户
             }
         }
-    });
+    };
+    tutorialListContainer.addEventListener('click', tutorialListContainer._tutorialItemClickHandler);
 
-    // 3. 关闭 WebView 按钮
-    closeWebviewBtn.addEventListener('click', () => {
+    // 3. 关闭 WebView 按钮 - 先移除旧监听器
+    if (closeWebviewBtn._closeHandler) {
+        closeWebviewBtn.removeEventListener('click', closeWebviewBtn._closeHandler);
+    }
+    closeWebviewBtn._closeHandler = () => {
         closeWebview(webviewContainer, tutorialListContainer, contentArea);
-    });
+    };
+    closeWebviewBtn.addEventListener('click', closeWebviewBtn._closeHandler);
 
     // 4. 刷新 WebView 按钮 (事件监听在 showTutorialInWebview 中动态添加)
 
+    // 设置初始化标志
+    isInitialized = true;
+    
     console.log("Tutorials Page Initialized.");
 }
 
@@ -690,108 +730,101 @@ function handleCategoryClick(event, categoryLinks, listContainer, webviewContain
 }
 
 /**
- * 显示指定 URL 的教程于 WebView 中。
- * 在webview中展示教程内容，只有当用户点击webview内的链接时才在外部浏览器打开
+ * 在WebView中显示教程内容
  */
 function showTutorialInWebview(url, title, webviewContainer, listContainer, refreshBtn) {
-    console.log(`Opening tutorial in webview: ${title} (${url})`);
-    const webviewContentArea = webviewContainer.querySelector('#webview-content');
-    const webviewTitleElement = webviewContainer.querySelector('#webview-title');
-
-    if (!webviewContentArea || !webviewTitleElement) {
-        console.error("Webview container internal elements not found!");
-        return;
-    }
-
-    // --- 先完全清理之前的webview --- 
-    // 1. 清除可能存在的旧 WebView
-    if (currentWebview) {
-        try {
-            currentWebview.stop();
-        } catch (e) {
-            console.warn("Error calling old webview.stop():", e.message);
-        }
-        currentWebview.remove();
-        currentWebview = null;
-    }
-    
-    // 2. 确保内容区域完全清空
-    webviewContentArea.innerHTML = '';
-    
-    // 3. 确保系统了解先前的webview已关闭
     setTimeout(() => {
-        // 给系统一点时间清理旧webview资源
+        console.log(`Opening tutorial in webview: ${title} (${url})`);
         
-        // 创建新的 WebView 元素
-        console.log("Creating new webview element");
+        // 清空现有webview
+        const webviewContentArea = webviewContainer.querySelector('#webview-content');
+        if (webviewContentArea) {
+            webviewContentArea.innerHTML = '';
+        }
+        
+        // 重置状态
+        currentWebview = null;
+        refreshBtn.disabled = true;
+        
+        // 1. 创建新的 webview 元素
+        console.log('Creating new webview element');
         const webview = document.createElement('webview');
-        webview.setAttribute('nodeintegration', 'false'); // 安全设置
-        webview.setAttribute('webpreferences', 'contextIsolation=true'); // 安全设置
-        webview.setAttribute('allowpopups', 'false'); // 禁止弹出窗口，改为在外部浏览器打开
-        webview.setAttribute('partition', 'persist:tutorials'); // 使用隔离的持久会话
-        webview.setAttribute('preload', 'preload/webview-preload.js'); // 预加载脚本
+        webview.src = url;
+        webview.style.width = '100%';
+        webview.style.height = '100%';
+        webview.style.border = 'none';
         
-        // 最后才设置URL，防止在设置其他属性前就开始加载
-        webview.setAttribute('src', url);
-        webview.setAttribute('useragent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+        // 添加加载超时控制
+        let loadTimeoutId = null;
+        let isLoaded = false;
+        let loadAttempts = 0;
+        const maxLoadAttempts = 2;
+        const loadTimeout = 30000; // 30秒超时
         
-        // 添加事件监听器
-        // 创建防重复打开链接的辅助函数
-        let processingLink = false;
-        let lastProcessedLink = '';
-        let lastProcessTime = 0;
+        // 获取标题元素
+        const webviewTitleElement = webviewContainer.querySelector('#webview-title');
+        
+        // 2. 设置webview属性 - 针对教程场景优化
+        webview.nodeintegration = false; // 禁用Node集成以提高安全性
+        webview.webSecurity = false; // 对于教程内容，暂时放宽网络安全限制
+        webview.contextIsolation = true; // 启用上下文隔离
+        webview.allowpopups = false; // 禁止弹出窗口
+        
+        // 设置用户代理字符串，提高兼容性
+        webview.useragent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 FourAir-Tutorial/1.0';
+        
+        // 设置分区，隔离教程会话
+        webview.partition = 'persist:tutorials';
+        
+        // 设置预加载脚本，用于拦截外部链接
+        webview.preload = 'preload/webview-preload.js';
         
         const openLinkInBrowser = (url) => {
-            // 防止1秒内重复处理同一链接
-            const now = Date.now();
-            if (processingLink || (url === lastProcessedLink && now - lastProcessTime < 1000)) {
-                console.log(`[Webview] 跳过重复链接处理: ${url}`);
-                return;
+            console.log(`Opening external link in browser: ${url}`);
+            if (window.electronAPI && window.electronAPI.openExternal) {
+                window.electronAPI.openExternal(url);
+            } else {
+                console.warn('electronAPI.openExternal 不可用');
             }
-            
-            processingLink = true;
-            lastProcessedLink = url;
-            lastProcessTime = now;
-            
-            console.log(`[Webview] 在浏览器中打开链接: ${url}`);
-            window.electron.ipcRenderer.sendOpenExternalLink(url);
-            
-            // 500ms后重置状态
-            setTimeout(() => {
-                processingLink = false;
-            }, 500);
         };
         
-        // 处理 new-window 事件 (target="_blank"的链接)
-        webview.addEventListener('new-window', (e) => {
-            e.preventDefault(); // 始终阻止在新窗口打开
-            // 简化安全检查
-            if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
-                console.log(`[Webview] Intercepted new-window event for URL: ${e.url}`);
-                openLinkInBrowser(e.url);
-            } else {
-                console.warn(`[Webview] Blocked non-http(s) URL in new-window event: ${e.url}`);
-            }
-        });
-
-        // 处理 will-navigate 事件 (普通链接点击)
-        webview.addEventListener('will-navigate', (e) => {
+        // 3. 事件监听器设置
+        
+        // 处理页面内链接导航
+        const handleNavigation = (e) => {
             // 首次加载教程内容时不拦截
             const currentUrl = currentWebview ? currentWebview.getURL() : url;
             
-            // 如果不是当前页面刷新和初始加载，才拦截导航请求
-            if (e.url !== url && e.url !== currentUrl) {
-                e.preventDefault(); // 阻止内部导航
-                if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
-                    console.log(`[Webview] Intercepted will-navigate event for URL: ${e.url}`);
-                    openLinkInBrowser(e.url);
-                } else {
-                    console.warn(`[Webview] Blocked non-http(s) URL in will-navigate event: ${e.url}`);
-                }
+            // 检查是否是同一个教程页面的内部导航（允许Notion的重定向）
+            const isInitialLoad = e.url === url || e.url === currentUrl;
+            const isNotionRedirect = (
+                (e.url.includes('notion.so') || e.url.includes('notion.site')) &&
+                (url.includes('notion.so') || url.includes('notion.site'))
+            );
+            
+            // 如果是初始加载或Notion内部重定向，允许导航
+            if (isInitialLoad || isNotionRedirect) {
+                console.log(`[Webview] 允许导航: ${e.url}`);
+                return; // 允许导航继续
             }
+            
+            // 其他情况下拦截导航并在外部浏览器打开
+            e.preventDefault();
+            console.log(`[Webview] 拦截外部链接: ${e.url}`);
+            openLinkInBrowser(e.url);
+        };
+        
+        // will-navigate 事件处理
+        webview.addEventListener('will-navigate', handleNavigation);
+        
+        // 处理新窗口请求
+        webview.addEventListener('new-window', (e) => {
+            e.preventDefault();
+            console.log(`[Webview] 拦截新窗口请求: ${e.url}`);
+            openLinkInBrowser(e.url);
         });
         
-        // 添加IPC消息处理
+        // 处理来自webview的IPC消息
         webview.addEventListener('ipc-message', (e) => {
             console.log('Received IPC message from webview:', e.channel, e.args);
             
@@ -816,18 +849,16 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
             const cssToInject = `
                 body {
                     width: 100% !important;
-                    min-width: initial !important; /* 覆盖之前的注入 */
+                    min-width: initial !important;
                     box-sizing: border-box !important;
                 }
-                /* 尝试针对 Notion 的常用容器类名 */
                 .notion-frame, .notion-page-content {
-                    max-width: none !important; /* 移除最大宽度限制 */
+                    max-width: none !important;
                     width: 100% !important;
-                    padding-left: 10px !important; /* 减少可能的内边距 */
+                    padding-left: 10px !important;
                     padding-right: 10px !important;
                     box-sizing: border-box !important;
                 }
-                /* 可能还有其他内部元素需要调整 */
             `;
             webview.insertCSS(cssToInject).then(() => {
                 console.log('Injected custom CSS into webview.');
@@ -845,42 +876,90 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
             });
         });
         
-        // 加载事件
+        // 加载开始事件
         webview.addEventListener('did-start-loading', () => {
             console.log('Webview started loading:', url);
             webviewTitleElement.textContent = `加载中: ${title}`;
-            refreshBtn.disabled = true; // 加载时禁用刷新
+            refreshBtn.disabled = true;
+            
+            // 设置加载超时
+            if (loadTimeoutId) {
+                clearTimeout(loadTimeoutId);
+            }
+            loadTimeoutId = setTimeout(() => {
+                if (!isLoaded && loadAttempts < maxLoadAttempts) {
+                    console.warn(`Webview加载超时，尝试重新加载 (${loadAttempts + 1}/${maxLoadAttempts})`);
+                    loadAttempts++;
+                    webview.reload();
+                } else if (!isLoaded) {
+                    console.error('Webview加载超时，已达到最大重试次数');
+                    webviewTitleElement.textContent = `加载超时: ${title}`;
+                    refreshBtn.disabled = false;
+                }
+            }, loadTimeout);
         });
 
+        // 加载完成事件
         webview.addEventListener('did-stop-loading', () => {
             console.log('Webview finished loading:', url);
-            webviewTitleElement.textContent = title; // 加载完成显示标题
-            refreshBtn.disabled = false; // 加载完成启用刷新
+            isLoaded = true;
+            if (loadTimeoutId) {
+                clearTimeout(loadTimeoutId);
+                loadTimeoutId = null;
+            }
+            webviewTitleElement.textContent = title;
+            refreshBtn.disabled = false;
         });
         
         // 加载失败处理
         webview.addEventListener('did-fail-load', (event) => {
             console.error('Webview load failed:', event);
-            webviewTitleElement.textContent = `加载失败: ${title}`;
+            isLoaded = false;
+            if (loadTimeoutId) {
+                clearTimeout(loadTimeoutId);
+                loadTimeoutId = null;
+            }
             
-            // 记录更详细的错误信息
             const { errorCode, errorDescription, validatedURL } = event;
             console.error(`Load failed for ${validatedURL}. Error ${errorCode}: ${errorDescription}`);
             
+            // 对于某些可恢复的错误，尝试重新加载
+            const recoverableErrors = [-3, -7, -21, -105, -106]; // 常见的网络连接错误
+            if (recoverableErrors.includes(errorCode) && loadAttempts < maxLoadAttempts) {
+                console.log(`尝试从错误中恢复，重新加载 (${loadAttempts + 1}/${maxLoadAttempts})`);
+                loadAttempts++;
+                setTimeout(() => {
+                    webview.reload();
+                }, 2000); // 2秒后重试
+                return;
+            }
+            
+            // 显示错误信息
+            webviewTitleElement.textContent = `加载失败: ${title}`;
             webviewContentArea.innerHTML = `
-                <p style="color: red; padding: 20px; text-align: center;">
-                    无法加载教程页面 (错误 ${errorCode}): ${errorDescription}<br>
-                    URL: ${validatedURL}<br>
-                    请检查网络连接或链接是否有效。
-                </p>
+                <div style="padding: 20px; text-align: center; color: #666;">
+                    <h3 style="color: #d73527;">无法加载教程页面</h3>
+                    <p>错误代码: ${errorCode}</p>
+                    <p>错误描述: ${errorDescription}</p>
+                    <p>URL: ${validatedURL}</p>
+                    <p>请检查网络连接或稍后重试。</p>
+                    <div style="margin-top: 20px;">
+                        <button onclick="window.electronAPI && window.electronAPI.openExternal('${url}')" 
+                                style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            在浏览器中打开教程
+                        </button>
+                    </div>
+                </div>
             `;
-            refreshBtn.disabled = false; // 失败也启用刷新
+            refreshBtn.disabled = false;
         });
         
         // 设置刷新按钮功能
         refreshBtn.onclick = () => {
             if (currentWebview && typeof currentWebview.reload === 'function') {
                 console.log('Reloading webview...');
+                isLoaded = false;
+                loadAttempts = 0;
                 currentWebview.reload();
             } else {
                 console.error('Cannot reload: currentWebview reference is invalid or missing reload method.');
@@ -895,13 +974,13 @@ function showTutorialInWebview(url, title, webviewContainer, listContainer, refr
         // 切换视图
         listContainer.style.display = 'none';
 
-        // 新增：隐藏分页控件
+        // 隐藏分页控件
         const paginationContainer = listContainer.parentNode.querySelector('.pagination-container');
         if (paginationContainer) {
             paginationContainer.style.display = 'none';
         }
 
-        webviewContainer.style.display = 'flex'; // 使用 flex 布局
+        webviewContainer.style.display = 'flex';
         
         // 更新标题
         webviewTitleElement.textContent = `加载中: ${title}`;
@@ -923,19 +1002,33 @@ function closeWebview(webviewContainer, listContainer, contentArea) {
         if (webviewContentArea) {
             const webviews = webviewContentArea.querySelectorAll('webview');
             webviews.forEach(wv => {
-                try { wv.stop(); } catch (e) { 
+                try { 
+                    if (typeof wv.stop === 'function') {
+                        wv.stop(); 
+                    }
+                } catch (e) { 
                     console.warn(`停止webview失败: ${e.message}`); 
                 }
                 try {
-                    const wc = wv.getWebContents ? wv.getWebContents() : null;
-                    if (wc && typeof wc.removeAllListeners === 'function') {
-                        wc.removeAllListeners();
-                    }
+                    // 移除事件监听器
+                    const events = ['will-navigate', 'new-window', 'console-message', 'dom-ready', 
+                                   'did-start-loading', 'did-stop-loading', 'did-fail-load', 'ipc-message'];
+                    events.forEach(eventName => {
+                        if (typeof wv.removeAllListeners === 'function') {
+                            wv.removeAllListeners(eventName);
+                        }
+                    });
                 } catch (e) { 
                     console.warn(`移除webview事件监听器失败: ${e.message}`);
                 }
-                if (typeof wv.remove === 'function') {
-                    wv.remove();
+                
+                // 安全地移除DOM元素
+                try {
+                    if (wv.parentNode) {
+                        wv.parentNode.removeChild(wv);
+                    }
+                } catch (e) {
+                    console.warn(`移除webview DOM元素失败: ${e.message}`);
                 }
             });
             webviewContentArea.innerHTML = '';
@@ -943,7 +1036,9 @@ function closeWebview(webviewContainer, listContainer, contentArea) {
         
         if (currentWebview) {
             try {
-                 if (typeof currentWebview.stop === 'function') currentWebview.stop();
+                if (typeof currentWebview.stop === 'function') {
+                    currentWebview.stop();
+                }
             } catch (e) {
                 console.warn(`停止当前webview失败: ${e.message}`);
             }
@@ -953,7 +1048,13 @@ function closeWebview(webviewContainer, listContainer, contentArea) {
         // 2. 显示列表容器
         listContainer.style.display = 'block';
 
-        // 3. 重新加载当前页的列表和分页
+        // 3. 显示分页控件
+        const paginationContainer = listContainer.parentNode.querySelector('.pagination-container');
+        if (paginationContainer) {
+            paginationContainer.style.display = 'flex';
+        }
+
+        // 4. 重新加载当前页的列表和分页
         if (contentArea) {
              console.log(`关闭WebView后，重新加载页面: 页码=${currentPage}, 分类=${currentCategory}`);
              loadPage(contentArea, listContainer, currentPage);
@@ -961,12 +1062,15 @@ function closeWebview(webviewContainer, listContainer, contentArea) {
             console.error("closeWebview: contentArea 未提供或无效，无法刷新分页");
         }
         
-        if (global.gc) {
-            try {
+        // 5. 尝试垃圾回收（在Node.js环境中）
+        try {
+            if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.gc) {
+                window.electronAPI.gc();
+            } else if (typeof global !== 'undefined' && global.gc) {
                 global.gc();
-            } catch (e) {
-                console.warn('触发垃圾回收失败');
             }
+        } catch (e) {
+            // 忽略垃圾回收错误，这不是关键功能
         }
         
         console.log("Webview已关闭并清理完毕，列表和分页已刷新。");

@@ -22,6 +22,16 @@ const pageUnloadHandlers = {
         } catch (error) {
             console.warn('[导航] 脚本插件页面卸载处理失败:', error);
         }
+    },
+    'tutorials': async () => {
+        try {
+            const module = await import('../pages/tutorials/index.js');
+            if (module.resetTutorialsPage) {
+                module.resetTutorialsPage();
+            }
+        } catch (error) {
+            console.warn('[导航] 教程页面卸载处理失败:', error);
+        }
     }
 };
 
