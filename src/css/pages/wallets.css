@@ -1,5 +1,137 @@
 /* 钱包管理页面样式 */
 
+/* 页面头部样式 */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* 按钮组样式 - 精美分组设计 */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* 按钮分组容器 */
+.btn-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 主要操作组 */
+.btn-group.primary {
+    background: rgba(108, 92, 231, 0.08);
+    border-color: rgba(108, 92, 231, 0.2);
+}
+
+/* 导入导出组 */
+.btn-group.data {
+    background: rgba(108, 117, 125, 0.08);
+    border-color: rgba(108, 117, 125, 0.2);
+}
+
+/* 管理操作组 */
+.btn-group.management {
+    background: rgba(220, 53, 69, 0.06);
+    border-color: rgba(220, 53, 69, 0.15);
+}
+
+.header-actions .btn {
+    margin: 0;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: none;
+    border: 1px solid transparent;
+}
+
+.header-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.header-actions .btn i {
+    margin-right: 5px;
+    font-size: 12px;
+}
+
+/* 响应式按钮布局 */
+@media (max-width: 1200px) {
+    .header-actions {
+        gap: 10px;
+    }
+    
+    .btn-group {
+        gap: 4px;
+        padding: 3px;
+    }
+    
+    .header-actions .btn {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .header-actions {
+        width: 100%;
+        gap: 8px;
+        flex-direction: column;
+    }
+    
+    .btn-group {
+        width: 100%;
+        justify-content: space-around;
+        padding: 6px;
+    }
+    
+    .header-actions .btn {
+        flex: 1;
+        text-align: center;
+        font-size: 12px;
+        padding: 8px 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn-group {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .header-actions .btn {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+}
+
 .wallets-page {
     padding: 20px;
 }
@@ -224,4 +356,485 @@
 .stat-label {
     color: var(--text-secondary);
     font-size: 14px;
+}
+
+/* 批量导入钱包模态框样式 */
+.bulk-import-modal {
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.import-tabs {
+    display: flex;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: #f5f5f5;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.tab-btn:hover {
+    background: #e0e0e0;
+}
+
+.tab-btn.active {
+    background: #2196f3;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    margin-bottom: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* 文件上传区域 */
+.upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.upload-area:hover {
+    border-color: #2196f3;
+    background: #f0f8ff;
+}
+
+.upload-area.dragover {
+    border-color: #2196f3;
+    background: #e3f2fd;
+    transform: scale(1.02);
+}
+
+.upload-area i {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 10px;
+}
+
+.upload-area p {
+    margin: 5px 0;
+    color: #666;
+}
+
+.file-info {
+    font-size: 12px;
+    color: #999;
+}
+
+/* CSV模板样式 */
+.csv-template {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.template-examples {
+    display: grid;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.template-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #2196f3;
+}
+
+.template-item h5 {
+    margin: 0 0 10px 0;
+    color: #2196f3;
+    font-size: 14px;
+}
+
+.template-item code {
+    display: block;
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+    white-space: pre-wrap;
+}
+
+/* 导入设置 - 极致紧凑版本 */
+.bulk-import-modal .import-settings {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 10px 0;
+    border: 1px solid #e9ecef;
+}
+
+.bulk-import-modal .import-settings h4 {
+    margin: 0 0 6px 0;
+    color: #333;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.bulk-import-modal .import-settings .form-group {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bulk-import-modal .import-settings .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.bulk-import-modal .import-settings .form-group label {
+    font-size: 13px;
+    margin: 0;
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.bulk-import-modal .import-settings .form-group select {
+    flex: 1;
+    max-width: 150px;
+}
+
+.bulk-import-modal .import-settings .form-group input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+/* 设置区域整体水平布局 */
+.bulk-import-modal .import-settings .settings-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.bulk-import-modal .import-settings .group-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 180px;
+}
+
+.bulk-import-modal .import-settings .checkbox-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bulk-import-modal .import-settings .checkbox-options label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #555;
+    margin: 0;
+}
+
+/* 批量导入模态框 - 表单组极致压缩 */
+.bulk-import-modal .form-group {
+    margin-bottom: 8px;
+}
+
+.bulk-import-modal .form-group label {
+    font-size: 13px;
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: #555;
+}
+
+/* 批量导入模态框 - 单选按钮组压缩 */
+.bulk-import-modal .radio-group {
+    display: flex;
+    gap: 15px;
+    margin: 6px 0;
+    align-items: center;
+}
+
+.bulk-import-modal .radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: normal;
+    font-size: 13px;
+    margin: 0;
+    color: #555;
+}
+
+.bulk-import-modal .radio-group input[type="radio"] {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+}
+
+/* 批量导入模态框 - 标签页内容紧凑化 */
+.bulk-import-modal .tab-content {
+    padding: 15px 0;
+}
+
+.bulk-import-modal .tab-content .form-group {
+    margin-bottom: 12px;
+}
+
+.bulk-import-modal .tab-content .form-group:first-child {
+    margin-top: 0;
+}
+
+.bulk-import-modal .tab-content .form-group:last-child {
+    margin-bottom: 0;
+}
+
+/* 通用单选按钮组样式（其他页面使用） */
+.radio-group {
+    display: flex;
+    gap: 20px;
+    margin: 10px 0;
+}
+
+.radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.radio-group input[type="radio"] {
+    margin: 0;
+}
+
+/* 预览区域 */
+.import-preview {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.preview-stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #e0e0e0;
+    color: #333;
+}
+
+.stat-item.valid {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.stat-item.invalid {
+    background: #ffcdd2;
+    color: #c62828;
+}
+
+.stat-item.duplicate {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.preview-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+}
+
+.preview-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-item:last-child {
+    border-bottom: none;
+}
+
+.preview-item.valid {
+    background: #f1f8e9;
+    border-left: 3px solid #4caf50;
+}
+
+.preview-item.invalid {
+    background: #fef5e7;
+    border-left: 3px solid #ff9800;
+}
+
+.preview-item.error {
+    background: #ffebee;
+    border-left: 3px solid #f44336;
+}
+
+.preview-data {
+    flex: 1;
+    font-family: monospace;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.preview-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.preview-status.valid {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.preview-status.invalid {
+    background: #ffcc80;
+    color: #e65100;
+}
+
+.preview-status.error {
+    background: #ffcdd2;
+    color: #c62828;
+}
+
+/* 进度条样式 */
+.import-progress {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.progress-text {
+    text-align: center;
+    font-weight: 500;
+    margin: 10px 0;
+}
+
+.progress-details {
+    max-height: 150px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+/* 文本区域样式 */
+#bulk-import-textarea {
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 200px;
+}
+
+/* 文件预览样式 */
+.file-preview {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.preview-content {
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .bulk-import-modal {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .preview-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .template-examples {
+        grid-template-columns: 1fr;
+    }
+    
+    .radio-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .bulk-import-modal .import-settings .settings-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .bulk-import-modal .import-settings .group-selector {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .bulk-import-modal .import-settings .group-selector select {
+        max-width: none;
+        flex: 1;
+    }
 } 

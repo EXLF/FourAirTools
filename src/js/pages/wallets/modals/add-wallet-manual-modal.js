@@ -123,7 +123,7 @@ export async function openAddWalletManualModal() {
         // Load groups
         try {
             const groups = await window.dbAPI.getGroups();
-            groupSelect.innerHTML = '<option value="">无分组</option>';
+            groupSelect.innerHTML = '<option value="">默认分组</option>';
             let defaultGroupId = null;
             groups.forEach(group => {
                 const option = document.createElement('option');

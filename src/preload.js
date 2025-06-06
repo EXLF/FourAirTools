@@ -133,6 +133,12 @@ const validInvokeChannels = [
     'app:importWallets',
     'app:encryptData', 
     'app:decryptData',
+    // *** 新增：加密和验证相关通道 ***
+    'crypto:deriveAddressFromPrivateKey',
+    'crypto:deriveAddressFromMnemonic',
+    'crypto:validateAddress',
+    'crypto:validatePrivateKey',
+    'crypto:validateMnemonic',
     'app:lock',
     'wallet:getBalance',
     'app:loadTutorials',
@@ -211,6 +217,15 @@ contextBridge.exposeInMainWorld('electron', {
 // (或者你可以选择继续通过 electron.ipcRenderer.invoke 调用)
 contextBridge.exposeInMainWorld('walletAPI', {
     getBalance: (address) => ipcRenderer.invoke('wallet:getBalance', address)
+});
+
+// *** 新增：暴露加密和验证相关API ***
+contextBridge.exposeInMainWorld('cryptoAPI', {
+    deriveAddressFromPrivateKey: (privateKey) => ipcRenderer.invoke('crypto:deriveAddressFromPrivateKey', privateKey),
+    deriveAddressFromMnemonic: (mnemonic, derivationPath) => ipcRenderer.invoke('crypto:deriveAddressFromMnemonic', mnemonic, derivationPath),
+    validateAddress: (address) => ipcRenderer.invoke('crypto:validateAddress', address),
+    validatePrivateKey: (privateKey) => ipcRenderer.invoke('crypto:validatePrivateKey', privateKey),
+    validateMnemonic: (mnemonic) => ipcRenderer.invoke('crypto:validateMnemonic', mnemonic)
 });
 
 // *** 新增：暴露 URL 解析功能 ***

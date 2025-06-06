@@ -1076,6 +1076,130 @@ function setupApplicationIpcHandlers(mainWindow) {
         }
     });
 
+    // --- 新增：从私钥派生地址 ---
+    ipcMain.handle('crypto:deriveAddressFromPrivateKey', async (event, privateKey) => {
+        console.log('[IPC] Received: crypto:deriveAddressFromPrivateKey');
+        try {
+            if (!privateKey || typeof privateKey !== 'string') {
+                throw new Error('无效的私钥格式');
+            }
+
+            // 确保私钥以0x开头
+            const normalizedPrivateKey = privateKey.startsWith('0x') ? privateKey : '0x' + privateKey;
+            
+            // 验证私钥格式
+            if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedPrivateKey)) {
+                throw new Error('私钥格式无效，应为64位十六进制字符串');
+            }
+
+            // 使用ethers.js创建钱包实例并获取地址
+            const wallet = new ethers.Wallet(normalizedPrivateKey);
+            const address = wallet.address.toLowerCase(); // 统一转换为小写
+            
+            console.log(`[IPC] Derived address: ${address} from private key`);
+            return address;
+        } catch (error) {
+            console.error('[IPC] Error deriving address from private key:', error);
+            throw new Error(`从私钥派生地址失败: ${error.message}`);
+        }
+    });
+
+    // --- 新增：从助记词派生地址 ---
+    ipcMain.handle('crypto:deriveAddressFromMnemonic', async (event, mnemonic, derivationPath = "m/44'/60'/0'/0/0") => {
+        console.log('[IPC] Received: crypto:deriveAddressFromMnemonic');
+        try {
+            if (!mnemonic || typeof mnemonic !== 'string') {
+                throw new Error('无效的助记词格式');
+            }
+
+            // 验证助记词格式
+            const words = mnemonic.trim().split(/\s+/);
+            if (words.length !== 12 && words.length !== 24) {
+                throw new Error('助记词应包含12或24个单词');
+            }
+
+            // 使用ethers.js从助记词创建钱包
+            const wallet = ethers.Wallet.fromPhrase(mnemonic, null, derivationPath);
+            const address = wallet.address.toLowerCase(); // 统一转换为小写
+            
+            console.log(`[IPC] Derived address: ${address} from mnemonic with path: ${derivationPath}`);
+            return address;
+        } catch (error) {
+            console.error('[IPC] Error deriving address from mnemonic:', error);
+            throw new Error(`从助记词派生地址失败: ${error.message}`);
+        }
+    });
+
+    // --- 新增：验证以太坊地址格式 ---
+    ipcMain.handle('crypto:validateAddress', async (event, address) => {
+        console.log('[IPC] Received: crypto:validateAddress');
+        try {
+            if (!address || typeof address !== 'string') {
+                return { isValid: false, error: '地址不能为空' };
+            }
+
+            const isValid = ethers.isAddress(address);
+            return { isValid, error: isValid ? null : '无效的以太坊地址格式' };
+        } catch (error) {
+            console.error('[IPC] Error validating address:', error);
+            return { isValid: false, error: `验证地址失败: ${error.message}` };
+        }
+    });
+
+    // --- 新增：验证私钥格式 ---
+    ipcMain.handle('crypto:validatePrivateKey', async (event, privateKey) => {
+        console.log('[IPC] Received: crypto:validatePrivateKey');
+        try {
+            if (!privateKey || typeof privateKey !== 'string') {
+                return { isValid: false, error: '私钥不能为空' };
+            }
+
+            const normalizedPrivateKey = privateKey.startsWith('0x') ? privateKey : '0x' + privateKey;
+            const isValid = /^0x[a-fA-F0-9]{64}$/.test(normalizedPrivateKey);
+            
+            if (isValid) {
+                // 进一步验证私钥是否能创建有效的钱包
+                try {
+                    new ethers.Wallet(normalizedPrivateKey);
+                    return { isValid: true, error: null };
+                } catch (walletError) {
+                    return { isValid: false, error: '私钥无效，无法创建钱包' };
+                }
+            } else {
+                return { isValid: false, error: '私钥格式无效，应为64位十六进制字符串' };
+            }
+        } catch (error) {
+            console.error('[IPC] Error validating private key:', error);
+            return { isValid: false, error: `验证私钥失败: ${error.message}` };
+        }
+    });
+
+    // --- 新增：验证助记词格式 ---
+    ipcMain.handle('crypto:validateMnemonic', async (event, mnemonic) => {
+        console.log('[IPC] Received: crypto:validateMnemonic');
+        try {
+            if (!mnemonic || typeof mnemonic !== 'string') {
+                return { isValid: false, error: '助记词不能为空' };
+            }
+
+            const words = mnemonic.trim().split(/\s+/);
+            if (words.length !== 12 && words.length !== 24) {
+                return { isValid: false, error: '助记词应包含12或24个单词' };
+            }
+
+            // 尝试从助记词创建钱包来验证
+            try {
+                ethers.Wallet.fromPhrase(mnemonic);
+                return { isValid: true, error: null };
+            } catch (mnemonicError) {
+                return { isValid: false, error: '助记词无效或不在词典中' };
+            }
+        } catch (error) {
+            console.error('[IPC] Error validating mnemonic:', error);
+            return { isValid: false, error: `验证助记词失败: ${error.message}` };
+        }
+    });
+
     // --- 添加其他应用级 Handlers (例如: 打开外部链接, 文件操作等) ---
     // ipcMain.on('open-external-link', (event, url) => { ... });
 

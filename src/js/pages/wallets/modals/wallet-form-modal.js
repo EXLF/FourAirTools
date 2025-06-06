@@ -44,7 +44,7 @@ export async function openWalletModal(walletId = null) {
             notesTextarea.value = walletData.notes || '';
             try {
                 const groups = await window.dbAPI.getGroups();
-                groupSelect.innerHTML = '<option value="">无分组</option>';
+                groupSelect.innerHTML = '<option value="">默认分组</option>';
                 groups.forEach(group => {
                     const option = document.createElement('option');
                     option.value = group.id;
@@ -64,7 +64,7 @@ export async function openWalletModal(walletId = null) {
             form.elements['wallet-id'].value = ''; 
             try {
                 const groups = await window.dbAPI.getGroups();
-                groupSelect.innerHTML = '<option value="">无分组</option>';
+                groupSelect.innerHTML = '<option value="">默认分组</option>';
                 groups.forEach(group => {
                     const option = document.createElement('option');
                     option.value = group.id;

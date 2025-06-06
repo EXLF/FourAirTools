@@ -123,7 +123,7 @@ export async function openManageGroupsModal() {
                                 const confirmBtnModal = confirmModalElement.querySelector('.modal-confirm-btn');
                                 if (!messageElement || !confirmBtnModal) { console.error("确认框元素缺失"); hideModal(); return; }
 
-                                messageElement.innerHTML = `确定删除分组 "<b>${group.name}</b>"？<br>关联的钱包或社交账户将变为"无分组"。`;
+                                messageElement.innerHTML = `确定删除分组 "<b>${group.name}</b>"？<br>关联的钱包或社交账户将变为"默认分组"。`;
 
                                 const handleConfirmGroupDelete = async () => {
                                     confirmBtnModal.removeEventListener('click', handleConfirmGroupDelete);

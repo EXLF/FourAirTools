@@ -5,5 +5,6 @@ export {
     openManageGroupsModal,
     openGenerateWalletsModal,
     showViewDetailsModal,
-    showLinkSocialsModal
+    showLinkSocialsModal,
+    openBulkImportModal
 } from './modals/index.js'; 

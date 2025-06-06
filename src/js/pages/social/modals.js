@@ -146,7 +146,7 @@ export async function openSocialAccountModal(accountId = null) {
         let defaultGroupId = null;
         try {
             const groups = await window.dbAPI.getGroups();
-            groupSelect.innerHTML = '<option value="">无分组</option>';
+            groupSelect.innerHTML = '<option value="">默认分组</option>';
             groups.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group.id;

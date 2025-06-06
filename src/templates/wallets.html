@@ -1,12 +1,24 @@
 <div class="page-header">
     <h2>钱包管理</h2>
     <div class="header-actions">
-        <button id="add-wallet-manual-btn" class="btn btn-primary"><i class="fa fa-user-plus"></i> 新增钱包</button>
-        <button class="btn btn-primary" id="bulk-generate-wallets-btn"><i class="fa fa-plus"></i> 批量生成钱包</button>
-        <button class="btn btn-danger" id="bulk-delete-btn"><i class="fa fa-trash"></i> 批量删除</button>
-        <button class="btn btn-secondary" id="import-wallets-btn"><i class="fa fa-download"></i> 导入钱包</button>
-        <button class="btn btn-secondary" id="export-wallets-btn"><i class="fa fa-upload"></i> 导出选中</button>
-        <button class="btn btn-outline" id="manage-groups-btn"><i class="fa fa-tags"></i> 管理分组</button>
+        <!-- 主要操作组 -->
+        <div class="btn-group primary">
+            <button id="add-wallet-manual-btn" class="btn btn-primary"><i class="fa fa-plus"></i> 新增</button>
+            <button class="btn btn-primary" id="bulk-generate-wallets-btn"><i class="fa fa-magic"></i> 批量生成</button>
+        </div>
+        
+        <!-- 导入导出组 -->
+        <div class="btn-group data">
+            <button class="btn btn-secondary" id="import-wallets-btn"><i class="fa fa-download"></i> 导入JSON</button>
+            <button class="btn btn-info" id="bulk-import-wallets-btn"><i class="fa fa-file-import"></i> 批量导入</button>
+            <button class="btn btn-secondary" id="export-wallets-btn"><i class="fa fa-upload"></i> 导出</button>
+        </div>
+        
+        <!-- 管理操作组 -->
+        <div class="btn-group management">
+            <button class="btn btn-outline" id="manage-groups-btn"><i class="fa fa-tags"></i> 分组</button>
+            <button class="btn btn-danger" id="bulk-delete-btn"><i class="fa fa-trash"></i> 删除</button>
+        </div>
     </div>
 </div>
 <div class="filters-bar">
@@ -102,7 +114,7 @@
                         <label for="wallet-group">分组:</label>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <select id="wallet-group" name="groupId" class="form-control" style="flex-grow: 1;">
-                                <option value="">无分组</option>
+                                <option value="">默认分组</option>
                             </select>
                             <input type="text" class="form-control new-group-name-input" placeholder="或输入新分组名后按回车添加" style="flex-grow: 1;">
                          </div>
@@ -149,6 +161,131 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary modal-cancel-btn">取消</button>
                 <button type="button" class="btn btn-primary modal-save-btn">保存关联</button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- 新增：批量导入钱包模态框模板 -->
+<template id="tpl-bulk-import-wallets">
+    <div class="modal-overlay">
+        <div class="modal-box bulk-import-modal">
+            <button class="modal-close-btn" title="关闭">&times;</button>
+            <h3 class="modal-title">批量导入钱包</h3>
+            <div class="modal-content">
+                <div class="import-tabs">
+                    <button class="tab-btn active" data-tab="text">文本导入</button>
+                    <button class="tab-btn" data-tab="file">文件导入</button>
+                    <button class="tab-btn" data-tab="csv">CSV格式</button>
+                </div>
+
+                <!-- 文本导入标签页 -->
+                <div class="tab-content active" id="text-tab">
+                    <div class="form-group">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <label style="margin: 0; font-size: 13px; font-weight: 500; color: #555;">导入方式：</label>
+                            <div class="radio-group" style="margin: 0;">
+                                <label><input type="radio" name="textImportType" value="privateKey" checked> 私钥列表</label>
+                                <label><input type="radio" name="textImportType" value="mnemonic"> 助记词列表</label>
+                                <label><input type="radio" name="textImportType" value="mixed"> 混合格式</label>
+                            </div>
+                        </div>
+                        <label for="bulk-import-textarea">钱包数据 (一行一个)：</label>
+                        <textarea id="bulk-import-textarea" class="form-control" rows="10" 
+                                  placeholder="请输入钱包数据，每行一个：&#10;&#10;私钥模式：&#10;0x1234567890abcdef...&#10;0xabcdef1234567890...&#10;&#10;助记词模式：&#10;abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about&#10;zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong&#10;&#10;混合模式（格式：类型:数据）：&#10;pk:0x1234567890abcdef...&#10;mnemonic:abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"></textarea>
+                    </div>
+                </div>
+
+                <!-- 文件导入标签页 -->
+                <div class="tab-content" id="file-tab">
+                    <div class="upload-area" id="file-upload-area">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击选择文件或拖拽文件到此处</p>
+                        <p class="file-info">支持 .txt, .json, .csv 格式</p>
+                        <input type="file" id="bulk-import-file" accept=".txt,.json,.csv" style="display: none;">
+                    </div>
+                    <div class="file-preview" id="file-preview" style="display: none;">
+                        <h4>文件预览：</h4>
+                        <div class="preview-content"></div>
+                    </div>
+                </div>
+
+                <!-- CSV格式标签页 -->
+                <div class="tab-content" id="csv-tab">
+                    <div class="csv-template">
+                        <h4>CSV格式说明：</h4>
+                        <p>请使用以下格式之一：</p>
+                        <div class="template-examples">
+                            <div class="template-item">
+                                <h5>格式1：仅私钥</h5>
+                                <code>privateKey,name,notes,group<br>0x123...,钱包1,测试钱包,测试组<br>0x456...,钱包2,主钱包,主账户组</code>
+                            </div>
+                            <div class="template-item">
+                                <h5>格式2：仅助记词</h5>
+                                <code>mnemonic,name,notes,group<br>"abandon abandon...",钱包1,测试钱包,测试组<br>"zoo zoo zoo...",钱包2,主钱包,主账户组</code>
+                            </div>
+                            <div class="template-item">
+                                <h5>格式3：混合格式</h5>
+                                <code>type,data,name,notes,group<br>privateKey,0x123...,钱包1,测试钱包,测试组<br>mnemonic,"abandon abandon...",钱包2,主钱包,主账户组</code>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline" id="download-csv-template">下载CSV模板</button>
+                </div>
+
+                <!-- 通用设置 -->
+                <div class="import-settings">
+                    <h4>导入设置</h4>
+                    <div class="settings-container">
+                        <div class="group-selector">
+                            <label for="default-group-select">默认分组：</label>
+                            <select id="default-group-select" class="form-control">
+                                <option value="">默认分组</option>
+                            </select>
+                        </div>
+                        <div class="checkbox-options">
+                            <label>
+                                <input type="checkbox" id="skip-duplicates" checked>
+                                跳过重复地址
+                            </label>
+                            <label>
+                                <input type="checkbox" id="validate-before-import" checked>
+                                导入前验证数据
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 预览区域 -->
+                <div class="import-preview" id="import-preview" style="display: none;">
+                    <h4>导入预览：</h4>
+                    <div class="preview-stats">
+                        <span class="stat-item">总计：<span id="total-count">0</span></span>
+                        <span class="stat-item valid">有效：<span id="valid-count">0</span></span>
+                        <span class="stat-item invalid">无效：<span id="invalid-count">0</span></span>
+                        <span class="stat-item duplicate">重复：<span id="duplicate-count">0</span></span>
+                    </div>
+                    <div class="preview-list" id="preview-list"></div>
+                </div>
+
+                <!-- 进度区域 -->
+                <div class="import-progress" id="import-progress" style="display: none;">
+                    <h4>导入进度：</h4>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-current">0</span> / <span id="progress-total">0</span>
+                        (<span id="progress-percentage">0</span>%)
+                    </div>
+                    <div class="progress-details" id="progress-details"></div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary modal-cancel-btn">取消</button>
+                <button class="btn btn-primary" id="parse-import-btn">解析数据</button>
+                <button class="btn btn-success" id="start-import-btn" style="display: none;">开始导入</button>
             </div>
         </div>
     </div>

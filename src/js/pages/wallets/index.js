@@ -16,7 +16,8 @@ import {
     openManageGroupsModal,
     openGenerateWalletsModal,
     showViewDetailsModal,
-    openAddWalletManualModal // 导入新增钱包模态框函数
+    openAddWalletManualModal, // 导入新增钱包模态框函数
+    openBulkImportModal // 导入批量导入模态框函数
 } from './modals.js';
 import {
     initActionElements,
@@ -75,6 +76,7 @@ export async function initWalletsPage(contentArea) {
         paginationContainer: contentArea.querySelector('.pagination'),
         generateBtn: contentArea.querySelector('#bulk-generate-wallets-btn'),
         importBtn: contentArea.querySelector('#import-wallets-btn'),
+        bulkImportBtn: contentArea.querySelector('#bulk-import-wallets-btn'), // 新增批量导入按钮
         exportBtn: contentArea.querySelector('#export-wallets-btn'),
         manageGroupsBtn: contentArea.querySelector('#manage-groups-btn'),
         bulkDeleteBtn: contentArea.querySelector('#bulk-delete-btn'),
@@ -112,6 +114,7 @@ export async function initWalletsPage(contentArea) {
     // --- 设置头部按钮监听器 --- 
     if (elements.generateBtn) elements.generateBtn.addEventListener('click', openGenerateWalletsModal);
     if (elements.importBtn) elements.importBtn.addEventListener('click', handleImportWallets);
+    if (elements.bulkImportBtn) elements.bulkImportBtn.addEventListener('click', openBulkImportModal); // 添加批量导入监听器
     if (elements.exportBtn) elements.exportBtn.addEventListener('click', handleExportWallets);
     if (elements.manageGroupsBtn) elements.manageGroupsBtn.addEventListener('click', openManageGroupsModal);
     if (elements.bulkDeleteBtn) elements.bulkDeleteBtn.addEventListener('click', handleBulkDelete);

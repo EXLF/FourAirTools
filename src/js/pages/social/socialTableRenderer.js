@@ -115,7 +115,7 @@ export function createSocialAccountRowElement(account, columns, sensitiveFieldsF
                 });
                 break;
             case 'groupName': // 使用预先连接的 groupName (如果可用)
-                 td.textContent = account.groupName || '无分组';
+                 td.textContent = account.groupName || '默认分组';
                  break;
             default: // 处理数据字段
                 const displayValue = getDisplayValue(rawValue, col.truncatable);
