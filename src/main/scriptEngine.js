@@ -604,6 +604,26 @@ class SecureScriptEngine {
         }
       }
 
+      // ==================== 获取全局设置 ====================
+      let globalSettings = {};
+      try {
+        // 在主进程中，直接读取设置文件
+        const { app } = require('electron');
+        const fs = require('fs');
+        const path = require('path');
+        const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+        
+        if (fs.existsSync(settingsPath)) {
+          const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+          globalSettings = JSON.parse(settingsData);
+          this.sendLogToRenderer('info', `脚本 ${scriptId} 已获取全局设置`, executionId);
+        } else {
+          this.sendLogToRenderer('info', `全局设置文件不存在，将使用默认值`, executionId);
+        }
+      } catch (settingsError) {
+        this.sendLogToRenderer('warning', `获取全局设置失败: ${settingsError.message}，将使用默认值`, executionId);
+      }
+
       // ==================== 安全模块配置 ====================
       const scriptMetadata = script.metadata || {};
       const declaredModules = scriptMetadata.requiredModules || [];
@@ -678,7 +698,180 @@ class SecureScriptEngine {
             logger: boundScriptLogger,
           },
           http: require('axios'), 
-          onStop: null, 
+          onStop: null,
+          // 全局验证码配置和工具 - 脚本可以通过 context.globalCaptcha 访问
+          globalCaptcha: {
+            defaultService: globalSettings.defaultCaptchaService || '2captcha',
+            twoCaptchaApiKey: globalSettings.twoCaptchaApiKey || '',
+            yescaptchaApiKey: globalSettings.yescaptchaApiKey || '',
+            enableFallback: globalSettings.enableCaptchaFallback !== false,
+            
+            // 辅助方法：获取当前激活的API Key
+            getApiKey: function(service) {
+              const targetService = service || this.defaultService;
+              if (targetService === 'yescaptcha') {
+                return this.yescaptchaApiKey;
+              } else {
+                return this.twoCaptchaApiKey;
+              }
+            },
+            
+            // 辅助方法：检查是否配置了验证码服务
+            isConfigured: function(service) {
+              const targetService = service || this.defaultService;
+              const apiKey = this.getApiKey(targetService);
+              return apiKey && apiKey.trim() !== '';
+            },
+            
+            // 通用验证码解决方法
+            solveTurnstile: async function(siteUrl, siteKey, userAgent, proxy, utils) {
+              // 优先使用全局配置的默认服务
+              const service = this.defaultService;
+              const apiKey = this.getApiKey(service);
+              
+              if (!apiKey) {
+                boundScriptLogger.warn('全局验证码服务未配置API Key，跳过验证码解决');
+                return null;
+              }
+              
+              boundScriptLogger.info(`使用全局验证码服务: ${service}`);
+              
+              if (service === 'yescaptcha') {
+                return await this._solveWithYesCaptcha(apiKey, siteUrl, siteKey, utils);
+              } else {
+                return await this._solveWith2Captcha(apiKey, siteUrl, siteKey, userAgent, proxy, utils);
+              }
+            },
+            
+            // YesCaptcha解决方法
+            _solveWithYesCaptcha: async function(apiKey, siteUrl, siteKey, utils) {
+              try {
+                boundScriptLogger.info('开始使用YesCaptcha解决Turnstile验证码...');
+                
+                const axios = require('axios');
+                
+                // 创建验证码任务
+                const createResponse = await axios.post('https://api.yescaptcha.com/createTask', {
+                  clientKey: apiKey,
+                  task: {
+                    type: 'TurnstileTaskProxyless',
+                    websiteURL: siteUrl,
+                    websiteKey: siteKey
+                  }
+                });
+                
+                if (!createResponse.data.taskId) {
+                  boundScriptLogger.error(`YesCaptcha创建任务失败: ${createResponse.data.errorDescription || '未知错误'}`);
+                  return null;
+                }
+                
+                const taskId = createResponse.data.taskId;
+                boundScriptLogger.info(`YesCaptcha任务ID: ${taskId}`);
+                
+                // 轮询获取结果
+                const maxAttempts = 60; // 最多等待5分钟
+                let attempts = 0;
+                
+                while (attempts < maxAttempts) {
+                  await utils.delay(5000); // 等待5秒
+                  attempts++;
+                  
+                  const resultResponse = await axios.post('https://api.yescaptcha.com/getTaskResult', {
+                    clientKey: apiKey,
+                    taskId: taskId
+                  });
+                  
+                  if (resultResponse.data.status === 'ready') {
+                    const token = resultResponse.data.solution.token;
+                    boundScriptLogger.success('YesCaptcha验证码解决成功');
+                    return token;
+                  } else if (resultResponse.data.status === 'processing') {
+                    boundScriptLogger.info(`YesCaptcha验证码解决中... (${attempts}/${maxAttempts})`);
+                  } else {
+                    throw new Error(`YesCaptcha验证码任务状态异常: ${resultResponse.data.status}`);
+                  }
+                }
+                
+                throw new Error('YesCaptcha验证码获取超时');
+                
+              } catch (error) {
+                boundScriptLogger.error(`YesCaptcha验证码解决异常: ${error.message}`);
+                return null;
+              }
+            },
+            
+            // 2Captcha解决方法
+            _solveWith2Captcha: async function(apiKey, siteUrl, siteKey, userAgent, proxy, utils) {
+              try {
+                boundScriptLogger.info('开始使用2Captcha解决Turnstile验证码...');
+                
+                const axios = require('axios');
+                
+                // 创建验证码任务
+                const createTaskPayload = {
+                  clientKey: apiKey,
+                  task: {
+                    type: "TurnstileTask",
+                    websiteURL: siteUrl,
+                    websiteKey: siteKey,
+                    userAgent: userAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                  }
+                };
+                
+                // 如果有代理，添加代理配置
+                if (proxy && proxy.host && proxy.port) {
+                  createTaskPayload.task.proxyType = proxy.protocol === 'socks5' ? 'socks5' : 'http';
+                  createTaskPayload.task.proxyAddress = proxy.host;
+                  createTaskPayload.task.proxyPort = proxy.port;
+                  if (proxy.auth && proxy.auth.username) {
+                    createTaskPayload.task.proxyLogin = proxy.auth.username;
+                    createTaskPayload.task.proxyPassword = proxy.auth.password;
+                  }
+                }
+                
+                const createResponse = await axios.post('https://api.2captcha.com/createTask', createTaskPayload);
+                
+                if (createResponse.data.errorId !== 0) {
+                  throw new Error(`2Captcha创建验证码任务失败: ${createResponse.data.errorDescription || '未知错误'}`);
+                }
+                
+                const taskId = createResponse.data.taskId;
+                boundScriptLogger.info(`2Captcha验证码任务ID: ${taskId}`);
+                
+                // 轮询获取结果
+                const resultPayload = {
+                  clientKey: apiKey,
+                  taskId: taskId
+                };
+                
+                const timeout = 360; // 6分钟超时
+                let totalTime = 0;
+                
+                while (totalTime < timeout) {
+                  await utils.delay(5000); // 等待5秒
+                  totalTime += 5;
+                  
+                  const resultResponse = await axios.post('https://api.2captcha.com/getTaskResult', resultPayload);
+                  
+                  if (resultResponse.data.status === 'ready') {
+                    const token = resultResponse.data.solution.token;
+                    boundScriptLogger.success('2Captcha验证码解决成功');
+                    return token;
+                  } else if (resultResponse.data.status === 'processing') {
+                    boundScriptLogger.info(`2Captcha验证码解决中... (${totalTime}/${timeout}秒)`);
+                  } else {
+                    throw new Error(`2Captcha验证码解决失败: ${resultResponse.data.errorDescription || '未知状态'}`);
+                  }
+                }
+                
+                throw new Error('2Captcha验证码解决超时');
+                
+              } catch (error) {
+                boundScriptLogger.error(`2Captcha验证码解决异常: ${error.message}`);
+                return null;
+              }
+            }
+          }, 
         },
         __script_result__: null,
       };

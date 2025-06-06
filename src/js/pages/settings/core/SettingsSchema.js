@@ -96,6 +96,47 @@ export class SettingsSchema {
                 }
             },
 
+            [SETTING_GROUPS.CAPTCHA_SERVICES]: {
+                defaultCaptchaService: {
+                    id: 'defaultCaptchaService',
+                    group: SETTING_GROUPS.CAPTCHA_SERVICES,
+                    type: INPUT_TYPES.SELECT,
+                    label: '默认验证码服务',
+                    description: '脚本默认使用的验证码解决服务',
+                    defaultValue: '2captcha',
+                    options: [
+                        { value: '2captcha', label: '2Captcha' },
+                        { value: 'yescaptcha', label: 'YesCaptcha' }
+                    ]
+                },
+                twoCaptchaApiKey: {
+                    id: 'twoCaptchaApiKey',
+                    group: SETTING_GROUPS.CAPTCHA_SERVICES,
+                    type: INPUT_TYPES.TEXT,
+                    label: '2Captcha API Key',
+                    description: '2Captcha验证码服务的API密钥',
+                    defaultValue: '',
+                    placeholder: '请输入2Captcha API Key'
+                },
+                yescaptchaApiKey: {
+                    id: 'yescaptchaApiKey',
+                    group: SETTING_GROUPS.CAPTCHA_SERVICES,
+                    type: INPUT_TYPES.TEXT,
+                    label: 'YesCaptcha API Key',
+                    description: 'YesCaptcha验证码服务的API密钥',
+                    defaultValue: '',
+                    placeholder: '请输入YesCaptcha API Key'
+                },
+                enableCaptchaFallback: {
+                    id: 'enableCaptchaFallback',
+                    group: SETTING_GROUPS.CAPTCHA_SERVICES,
+                    type: INPUT_TYPES.CHECKBOX,
+                    label: '启用验证码服务降级',
+                    description: '当主验证码服务失败时，自动切换到备用服务',
+                    defaultValue: true
+                }
+            },
+
             [SETTING_GROUPS.DATA_BACKUP]: {
                 autoBackup: {
                     id: 'autoBackup',
@@ -179,18 +220,24 @@ export class SettingsSchema {
                 icon: 'fa fa-network-wired',
                 order: 3
             },
+            [SETTING_GROUPS.CAPTCHA_SERVICES]: {
+                id: SETTING_GROUPS.CAPTCHA_SERVICES,
+                label: '验证码服务',
+                icon: 'fa fa-shield-check',
+                order: 4
+            },
             [SETTING_GROUPS.DATA_BACKUP]: {
                 id: SETTING_GROUPS.DATA_BACKUP,
                 label: '数据与备份',
                 icon: 'fa fa-database',
-                order: 4
+                order: 5
             },
 
             [SETTING_GROUPS.ABOUT]: {
                 id: SETTING_GROUPS.ABOUT,
                 label: '关于',
                 icon: 'fa fa-info-circle',
-                order: 5
+                order: 6
             }
         };
     }

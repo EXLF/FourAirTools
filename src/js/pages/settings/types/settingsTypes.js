@@ -8,6 +8,7 @@ export const SETTING_GROUPS = {
     GENERAL: 'general',
     SECURITY: 'security',
     NETWORK: 'network',
+    CAPTCHA_SERVICES: 'captchaServices',
     DATA_BACKUP: 'dataBackup',
     ABOUT: 'about'
 };
