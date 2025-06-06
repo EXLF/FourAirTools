@@ -99,14 +99,17 @@ export class ScriptService {
      * @returns {Promise<Object>} 同步结果
      */
     async syncScripts(options = {}) {
-        const { dryRun = false, force = false } = options;
+        const { dryRun = false, force = false, forceRefresh = false, clearCache = false } = options;
         
         try {
-            console.log('[ScriptService] 开始同步脚本', { dryRun, force });
+            console.log('[ScriptService] 开始同步脚本', { dryRun, force, forceRefresh, clearCache });
             
             // 首先尝试Repository的同步方法
             try {
-                const result = await this.scriptRepository.syncScripts();
+                const result = await this.scriptRepository.syncScripts({
+                    forceRefresh,
+                    clearCache
+                });
                 
                 if (result.success) {
                     const syncData = result.data;
@@ -118,8 +121,15 @@ export class ScriptService {
                         addedCount: syncData.addedCount || 0,
                         updatedCount: syncData.updatedCount || 0,
                         totalCount: syncData.totalCount || 0,
-                        summary: this.generateSyncSummary(syncData)
+                        summary: this.generateSyncSummary(syncData),
+                        forceRefresh,
+                        clearCache
                     };
+                    
+                    // 包含缓存清理信息
+                    if (syncData.cacheCleanup) {
+                        syncReport.cacheCleanup = syncData.cacheCleanup;
+                    }
                     
                     console.log('[ScriptService] 脚本同步完成:', syncReport);
                     
@@ -143,7 +153,9 @@ export class ScriptService {
                     addedCount: 0,
                     updatedCount: 0,
                     totalCount: 0,
-                    summary: '使用缓存清除完成同步'
+                    summary: '使用缓存清除完成同步',
+                    forceRefresh,
+                    clearCache
                 };
                 
                 console.log('[ScriptService] 使用备用同步方案完成');

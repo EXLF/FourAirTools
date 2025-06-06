@@ -145,9 +145,9 @@ export class ApiClient {
         return this.callAPI('script', 'stopScript', executionId);
     }
 
-    async syncScripts() {
+    async syncScripts(options = {}) {
         // 同步操作不缓存
-        return this.callAPI('script', 'syncScripts');
+        return this.callAPI('script', 'syncScripts', options);
     }
 
     /**

@@ -127,17 +127,126 @@ async function downloadScript(filename, destinationPath) {
   });
 }
 
-async function checkForUpdates() {
-  console.log('[ScriptUpdater] Checking for script updates...');
+/**
+ * 清理本地脚本缓存
+ * 删除所有本地脚本文件和manifest，强制从服务器重新下载
+ * @param {boolean} keepManifest - 是否保留manifest文件（默认false，完全清理）
+ * @returns {Promise<Object>} 清理结果
+ */
+async function clearLocalCache(keepManifest = false) {
+  console.log('[ScriptUpdater] 开始清理本地脚本缓存...');
+  
+  try {
+    const cleanupResults = {
+      deletedFiles: [],
+      deletedManifest: false,
+      errors: [],
+      totalCleaned: 0
+    };
+
+    // 确保目录存在
+    await ensureUserScriptsDirExists();
+
+    // 清理脚本文件
+    try {
+      if (fsSync.existsSync(USER_SCRIPTS_DIR)) {
+        const files = await fs.readdir(USER_SCRIPTS_DIR);
+        
+        for (const file of files) {
+          if (file.endsWith('.js')) {
+            const filePath = path.join(USER_SCRIPTS_DIR, file);
+            try {
+              await fs.unlink(filePath);
+              cleanupResults.deletedFiles.push(file);
+              cleanupResults.totalCleaned++;
+              console.log(`[ScriptUpdater] 已删除脚本文件: ${file}`);
+            } catch (deleteError) {
+              console.error(`[ScriptUpdater] 删除脚本文件失败: ${file}`, deleteError);
+              cleanupResults.errors.push({
+                file,
+                error: deleteError.message,
+                type: 'file_deletion'
+              });
+            }
+          }
+        }
+      }
+    } catch (readDirError) {
+      console.error('[ScriptUpdater] 读取脚本目录失败:', readDirError);
+      cleanupResults.errors.push({
+        error: readDirError.message,
+        type: 'directory_read'
+      });
+    }
+
+    // 清理manifest文件（如果需要）
+    if (!keepManifest) {
+      try {
+        if (fsSync.existsSync(LOCAL_MANIFEST_PATH)) {
+          await fs.unlink(LOCAL_MANIFEST_PATH);
+          cleanupResults.deletedManifest = true;
+          cleanupResults.totalCleaned++;
+          console.log('[ScriptUpdater] 已删除本地manifest文件');
+        }
+      } catch (manifestError) {
+        console.error('[ScriptUpdater] 删除manifest文件失败:', manifestError);
+        cleanupResults.errors.push({
+          error: manifestError.message,
+          type: 'manifest_deletion'
+        });
+      }
+    }
+
+    console.log(`[ScriptUpdater] 缓存清理完成，共清理 ${cleanupResults.totalCleaned} 个文件`);
+    
+    return {
+      success: true,
+      message: `成功清理 ${cleanupResults.totalCleaned} 个缓存文件`,
+      data: cleanupResults
+    };
+
+  } catch (error) {
+    console.error('[ScriptUpdater] 清理本地缓存失败:', error);
+    return {
+      success: false,
+      error: error.message,
+      data: { deletedFiles: [], errors: [{ error: error.message, type: 'critical' }] }
+    };
+  }
+}
+
+async function checkForUpdates(options = {}) {
+  const { forceRefresh = false, clearCache = false } = options;
+  
+  console.log('[ScriptUpdater] Checking for script updates...', { forceRefresh, clearCache });
+  
   try {
     await ensureUserScriptsDirExists(); // 确保目录存在
+
+    // 如果需要清理缓存，先执行清理
+    let cacheCleanupResult = null;
+    if (clearCache) {
+      console.log('[ScriptUpdater] 执行缓存清理...');
+      cacheCleanupResult = await clearLocalCache(false); // 完全清理，包括manifest
+      
+      if (!cacheCleanupResult.success) {
+        console.warn('[ScriptUpdater] 缓存清理失败，但继续执行更新:', cacheCleanupResult.error);
+      } else {
+        console.log(`[ScriptUpdater] 缓存清理成功: ${cacheCleanupResult.message}`);
+      }
+    }
 
     const remoteManifestData = await fetchRemoteManifest();
     const localManifest = await loadLocalManifest();
 
     if (!remoteManifestData || !remoteManifestData.scripts || !Array.isArray(remoteManifestData.scripts)) {
       console.warn('[ScriptUpdater] Invalid or empty remote manifest received, or scripts array is missing.');
-      return { updatesFound: false, updatedScripts: [], errors: [{ message: 'Invalid remote manifest format' }] };
+      return { 
+        updatesFound: false, 
+        updatedScripts: [], 
+        errors: [{ message: 'Invalid remote manifest format' }],
+        cacheCleanup: cacheCleanupResult
+      };
     }
 
     const remoteScripts = remoteManifestData.scripts;
@@ -198,10 +307,14 @@ async function checkForUpdates() {
       if (!localScriptInfo) {
         console.log(`[ScriptUpdater] New script found: ${remoteScript.name} (${remoteScript.filename})`);
         needsDownload = true;
-      } else if (localScriptInfo.version !== remoteScript.version || localScriptInfo.checksum !== remoteScript.checksum) {
-        console.log(`[ScriptUpdater] Update found for script: ${remoteScript.name} (Local: v${localScriptInfo.version}, Remote: v${remoteScript.version})`);
-        if (localScriptInfo.checksum !== remoteScript.checksum) {
+      } else if (forceRefresh || localScriptInfo.version !== remoteScript.version || localScriptInfo.checksum !== remoteScript.checksum) {
+        if (forceRefresh) {
+          console.log(`[ScriptUpdater] Force refresh enabled, redownloading: ${remoteScript.name}`);
+        } else {
+          console.log(`[ScriptUpdater] Update found for script: ${remoteScript.name} (Local: v${localScriptInfo.version}, Remote: v${remoteScript.version})`);
+          if (localScriptInfo.checksum !== remoteScript.checksum) {
              console.log(`[ScriptUpdater] Checksum mismatch for ${remoteScript.name}. Local: ${localScriptInfo.checksum}, Remote: ${remoteScript.checksum}`);
+          }
         }
         needsDownload = true;
       } else {
@@ -234,7 +347,8 @@ async function checkForUpdates() {
                   lastDownloaded: new Date().toISOString(),
                 };
                 manifestChanged = true;
-                updatedScriptsInfo.push({ name: remoteScript.name, version: remoteScript.version, status: 'updated' });
+                const status = forceRefresh ? 'force_updated' : (localScriptInfo ? 'updated' : 'new');
+                updatedScriptsInfo.push({ name: remoteScript.name, version: remoteScript.version, status });
                 console.log(`[ScriptUpdater] Successfully updated/downloaded script: ${remoteScript.name}`);
               } else {
                 console.error(`[ScriptUpdater] Checksum mismatch for downloaded script ${remoteScript.filename}. Expected ${remoteScript.checksum}, got ${downloadedFileChecksum}. Deleting downloaded file.`);
@@ -261,18 +375,27 @@ async function checkForUpdates() {
     const summary = {
         updatesFound: updatedScriptsInfo.length > 0,
         processedScripts: updatedScriptsInfo,
-        errors: updatedScriptsInfo.filter(s => s.status && s.status.includes('error'))
+        errors: updatedScriptsInfo.filter(s => s.status && s.status.includes('error')),
+        cacheCleanup: cacheCleanupResult,
+        forceRefresh,
+        clearCache
     };
     console.log('[ScriptUpdater] Update check finished.', summary);
     return summary;
 
   } catch (error) {
     console.error('[ScriptUpdater] Critical error during update check:', error);
-    return { updatesFound: false, updatedScripts: [], errors: [{ message: error.message || 'Unknown critical error' }] };
+    return { 
+      updatesFound: false, 
+      updatedScripts: [], 
+      errors: [{ message: error.message || 'Unknown critical error' }],
+      cacheCleanup: null
+    };
   }
 }
 
 module.exports = {
   checkForUpdates,
+  clearLocalCache,
   syncScripts: checkForUpdates // 导出另一个名称以便更语义化的调用
 }; 

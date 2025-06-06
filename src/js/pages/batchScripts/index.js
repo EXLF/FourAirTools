@@ -737,7 +737,7 @@ function renderBatchScriptCardsView(contentArea) {
             <button id="background-tasks-btn" class="btn btn-secondary" style="display: none;">
                 <i class="fas fa-tasks"></i> 后台任务 (<span id="background-task-count">0</span>)
             </button>
-            <button id="refresh-batch-scripts-btn" class="btn btn-secondary">
+            <button id="refresh-batch-scripts-btn" class="btn btn-secondary" title="点击刷新脚本列表，按住Ctrl+点击强制重新下载所有脚本">
                 <i class="fas fa-sync-alt"></i> 刷新列表
             </button>
         </div>
@@ -764,19 +764,29 @@ function renderBatchScriptCardsView(contentArea) {
     // 绑定刷新按钮事件
     const refreshBtn = contentArea.querySelector('#refresh-batch-scripts-btn');
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', async () => {
+        refreshBtn.addEventListener('click', async (event) => {
+            // 检查是否按住Ctrl键进行强制刷新
+            const forceRefresh = event.ctrlKey || event.metaKey;
+            const clearCache = true; // 默认清理缓存
+            
             // 更改按钮状态以指示正在同步
             refreshBtn.disabled = true;
             const originalText = refreshBtn.innerHTML;
-            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
+            const actionText = forceRefresh ? '强制刷新中...' : '刷新中...';
+            refreshBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${actionText}`;
             
             try {
+                console.log(`[脚本插件] 🔄 开始${forceRefresh ? '强制' : ''}刷新脚本列表 (清理缓存: ${clearCache})`);
+                
                 // 优先使用ScriptService处理同步
                 let syncHandled = false;
                 if (isFeatureEnabled('fa_use_script_service') && infrastructureServices && infrastructureServices.scriptService) {
                     try {
                         console.log('[脚本插件] 🚀 使用 ScriptService 处理同步...');
-                        const result = await infrastructureServices.scriptService.syncScripts();
+                        const result = await infrastructureServices.scriptService.syncScripts({
+                            forceRefresh,
+                            clearCache
+                        });
                         
                         if (result.success) {
                             console.log('[脚本插件] ✅ ScriptService 同步成功');
@@ -801,16 +811,46 @@ function renderBatchScriptCardsView(contentArea) {
                 // 回退方案：使用原始API
                 if (!syncHandled && window.scriptAPI && typeof window.scriptAPI.syncScripts === 'function') {
                     console.log('[脚本插件] 🔄 使用原始 API 处理同步...');
-                    const syncResult = await window.scriptAPI.syncScripts();
+                    const syncResult = await window.scriptAPI.syncScripts({
+                        forceRefresh,
+                        clearCache
+                    });
                     console.log('[脚本插件] 脚本同步结果:', syncResult);
                     
-                    // 如果同步了删除的脚本，显示提示
-                    if (syncResult.success && syncResult.result && syncResult.result.processedScripts) {
-                        const deletedScripts = syncResult.result.processedScripts.filter(s => s.status === 'deleted');
-                        if (deletedScripts.length > 0) {
-                            console.log('[脚本插件] 已删除的脚本:', deletedScripts);
-                            // 可以在这里添加用户通知
+                    if (syncResult.success) {
+                        // 显示同步结果
+                        if (syncResult.message) {
+                            console.log(`[脚本插件] ${syncResult.message}`);
                         }
+                        
+                        // 如果同步了删除的脚本，显示提示
+                        if (syncResult.result && syncResult.result.processedScripts) {
+                            const deletedScripts = syncResult.result.processedScripts.filter(s => s.status === 'deleted');
+                            const updatedScripts = syncResult.result.processedScripts.filter(s => s.status === 'updated' || s.status === 'force_updated');
+                            const newScripts = syncResult.result.processedScripts.filter(s => s.status === 'new');
+                            
+                            if (deletedScripts.length > 0) {
+                                console.log(`[脚本插件] 已删除 ${deletedScripts.length} 个无效脚本`);
+                            }
+                            if (updatedScripts.length > 0) {
+                                console.log(`[脚本插件] 已更新 ${updatedScripts.length} 个脚本`);
+                            }
+                            if (newScripts.length > 0) {
+                                console.log(`[脚本插件] 已添加 ${newScripts.length} 个新脚本`);
+                            }
+                        }
+                        
+                        // 显示缓存清理结果
+                        if (syncResult.result && syncResult.result.cacheCleanup) {
+                            const cleanup = syncResult.result.cacheCleanup;
+                            if (cleanup.success) {
+                                console.log(`[脚本插件] 缓存清理成功: ${cleanup.message}`);
+                            } else {
+                                console.warn(`[脚本插件] 缓存清理失败: ${cleanup.error}`);
+                            }
+                        }
+                    } else {
+                        console.error('[脚本插件] 同步失败:', syncResult.error);
                     }
                 }
             } catch (syncError) {

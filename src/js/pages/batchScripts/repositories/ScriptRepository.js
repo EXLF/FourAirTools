@@ -195,12 +195,13 @@ export class ScriptRepository extends BaseRepository {
      */
     async syncScripts(options = {}) {
         try {
-            console.log('[ScriptRepository] 开始同步脚本列表');
+            const { forceRefresh = false, clearCache = false } = options;
+            console.log('[ScriptRepository] 开始同步脚本列表', { forceRefresh, clearCache });
             
             const result = await this.executeDirect(
                 'script',
                 'syncScripts',
-                []
+                [{ forceRefresh, clearCache }]
             );
 
             if (result.success) {
@@ -211,8 +212,27 @@ export class ScriptRepository extends BaseRepository {
                 // 如果有删除的脚本，记录日志
                 if (result.data && result.data.processedScripts) {
                     const deletedScripts = result.data.processedScripts.filter(s => s.status === 'deleted');
+                    const updatedScripts = result.data.processedScripts.filter(s => s.status === 'updated' || s.status === 'force_updated');
+                    const newScripts = result.data.processedScripts.filter(s => s.status === 'new');
+                    
                     if (deletedScripts.length > 0) {
                         console.log(`[ScriptRepository] 清理了 ${deletedScripts.length} 个无效脚本`);
+                    }
+                    if (updatedScripts.length > 0) {
+                        console.log(`[ScriptRepository] 更新了 ${updatedScripts.length} 个脚本`);
+                    }
+                    if (newScripts.length > 0) {
+                        console.log(`[ScriptRepository] 新增了 ${newScripts.length} 个脚本`);
+                    }
+                }
+                
+                // 记录缓存清理信息
+                if (result.data && result.data.cacheCleanup) {
+                    const cleanup = result.data.cacheCleanup;
+                    if (cleanup.success) {
+                        console.log(`[ScriptRepository] 缓存清理成功: ${cleanup.message}`);
+                    } else {
+                        console.warn(`[ScriptRepository] 缓存清理失败: ${cleanup.error}`);
                     }
                 }
             }

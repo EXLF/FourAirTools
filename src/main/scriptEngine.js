@@ -319,20 +319,49 @@ class SecureScriptEngine {
     });
 
     // 同步脚本
-    ipcMain.handle('sync-scripts', async () => {
+    ipcMain.handle('sync-scripts', async (event, options = {}) => {
       try {
-        secureLog('info', '接收到同步脚本请求');
+        const { forceRefresh = false, clearCache = false } = options;
+        secureLog('info', `接收到同步脚本请求 - forceRefresh: ${forceRefresh}, clearCache: ${clearCache}`);
         
         // 导入脚本更新服务
         const scriptUpdaterService = require('./services/scriptUpdaterService');
         
-        // 调用同步服务
-        const result = await scriptUpdaterService.syncScripts();
+        // 调用同步服务，传递选项
+        const result = await scriptUpdaterService.syncScripts({
+          forceRefresh,
+          clearCache
+        });
         
-        secureLog('info', '脚本同步成功');
+        // 构建详细的响应消息
+        let message = '脚本同步完成';
+        if (clearCache && result.cacheCleanup) {
+          if (result.cacheCleanup.success) {
+            message += ` (已清理 ${result.cacheCleanup.data.totalCleaned} 个缓存文件)`;
+          } else {
+            message += ' (缓存清理失败)';
+          }
+        }
+        
+        if (result.processedScripts && result.processedScripts.length > 0) {
+          const deletedCount = result.processedScripts.filter(s => s.status === 'deleted').length;
+          const updatedCount = result.processedScripts.filter(s => s.status === 'updated' || s.status === 'force_updated').length;
+          const newCount = result.processedScripts.filter(s => s.status === 'new').length;
+          
+          const details = [];
+          if (deletedCount > 0) details.push(`删除 ${deletedCount} 个`);
+          if (updatedCount > 0) details.push(`更新 ${updatedCount} 个`);
+          if (newCount > 0) details.push(`新增 ${newCount} 个`);
+          
+          if (details.length > 0) {
+            message += ` (${details.join(', ')} 脚本)`;
+          }
+        }
+        
+        secureLog('info', message);
         return {
           success: true,
-          message: '脚本同步完成',
+          message,
           result
         };
       } catch (error) {
