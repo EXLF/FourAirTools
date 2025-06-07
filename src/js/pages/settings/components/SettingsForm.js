@@ -229,7 +229,7 @@ export class SettingsForm {
                 <div class="about-content">
                     <div class="app-info">
                         <h3>FourAir社区撸毛工具箱</h3>
-                        <p class="version">Version: v1.3.2</p>
+                        <p class="version">Version: v1.3.3</p>
                         <p>构建日期: 2025年6月2日</p>
                         <p class="copyright">© 2025 FourAir Team</p>
                     </div>

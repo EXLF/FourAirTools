@@ -247,7 +247,7 @@ class FeedbackManager {
             description: formData.get('description'),
             contact: username, // 使用登录用户名作为联系方式
             browser: navigator.userAgent, // 自动获取浏览器信息
-            version: '1.3.2', // 固定版本号
+            version: '1.3.3', // 固定版本号
             userAgent: navigator.userAgent,
             timestamp: new Date().toISOString(),
             url: window.location.href
@@ -378,7 +378,13 @@ class FeedbackManager {
      */
     async submitFeedback(data) {
         try {
-            const response = await fetch('http://localhost:3001/api/feedback', {
+            // 根据环境确定API地址
+            const IS_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            const apiUrl = IS_DEV ? 'http://localhost:3001/api/feedback' : 'http://106.75.5.215:3001/api/feedback';
+            
+            console.log('[Feedback] 提交到API端点:', apiUrl, 'IS_DEV:', IS_DEV);
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 {
   "name": "fouair-toolbox",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "FourAir社区撸毛工具箱桌面版",
   "main": "src/main/index.js",
   "scripts": {
