@@ -23,25 +23,13 @@ module.exports = (sequelize, DataTypes) => {
     },
     imageUrl: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
+      field: 'image_url'
     }
   }, {
+    tableName: 'tutorials',
     timestamps: true,
-    underscored: true,
-    indexes: [
-      {
-        name: 'title_index',
-        fields: ['title']
-      },
-      {
-        name: 'category_index',
-        fields: ['category']
-      },
-      {
-        name: 'updated_at_index',
-        fields: ['updated_at']
-      }
-    ]
+    underscored: true
   });
 
   return Tutorial;

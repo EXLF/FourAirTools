@@ -1,13 +1,17 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs'); // <--- 确保引入 fs 模块
-const db = require('./models'); // 引入 Sequelize 实例和模型
+const db = require('./models'); // 引入模型和Sequelize实例
+const sequelize = db.sequelize; // 获取Sequelize实例
 const { Op } = require('sequelize'); // 引入 Sequelize 操作符
 const multer = require('multer'); // <--- 引入 multer
 const crypto = require('crypto'); // <--- 引入 crypto (如果之前没有)
 const bcrypt = require('bcrypt'); // 密码加密
 const cors = require('cors'); // CORS支持
 const { generateToken, authenticateToken, optionalAuth, requireVipLevel } = require('./middleware/auth');
+
+// 引入路由
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 const PORT = 3001; // API 服务器端口
@@ -51,8 +55,8 @@ app.use(express.urlencoded({ extended: true }));
 // 数据库初始化函数 (使用 Sequelize)
 async function initDatabase() {
   try {
-    // await db.sequelize.sync({ force: true }); // 开发时：删除并重建表
-    await db.sequelize.sync(); // 生产或日常：创建表（如果不存在）并应用模型中的索引
+    // 同步所有模型到数据库
+    await sequelize.sync(); // 生产或日常：创建表（如果不存在）
     console.log('数据库表初始化/同步成功 (Sequelize)');
     
     // 添加种子数据
@@ -68,52 +72,8 @@ async function initDatabase() {
 // 添加种子数据
 async function addSeedData() {
   try {
-    // 检查是否已有教程数据
-    const tutorialCount = await db.Tutorial.count();
-    if (tutorialCount === 0) {
-      console.log('添加教程种子数据...');
-      
-      const seedTutorials = [
-        {
-          title: 'FourAir新手入门指南',
-          category: '新手入门',
-          description: '了解FourAir工具箱的基本功能和使用方法，帮助您快速上手。',
-          url: 'https://example.com/tutorial/beginner-guide',
-          imageUrl: 'https://via.placeholder.com/300x200/6c5ce7/white?text=新手指南'
-        },
-        {
-          title: '钱包管理最佳实践',
-          category: '安全知识',
-          description: '学习如何安全地管理多个钱包，保护您的数字资产。',
-          url: 'https://example.com/tutorial/wallet-management',
-          imageUrl: 'https://via.placeholder.com/300x200/28a745/white?text=钱包管理'
-        },
-        {
-          title: '批量操作脚本教程',
-          category: '脚本教程',
-          description: '掌握批量操作脚本的编写和使用技巧，提高工作效率。',
-          url: 'https://example.com/tutorial/batch-scripts',
-          imageUrl: 'https://via.placeholder.com/300x200/ffc107/white?text=脚本教程'
-        },
-        {
-          title: '空投项目识别与参与',
-          category: '空投教程',
-          description: '学习如何识别优质空投项目并安全参与，获得最大收益。',
-          url: 'https://example.com/tutorial/airdrop-guide',
-          imageUrl: 'https://via.placeholder.com/300x200/dc3545/white?text=空投指南'
-        },
-        {
-          title: '代理IP配置教程',
-          category: '工具技巧',
-          description: '详细介绍如何配置和使用代理IP，保护隐私和提高安全性。',
-          url: 'https://example.com/tutorial/proxy-setup',
-          imageUrl: 'https://via.placeholder.com/300x200/17a2b8/white?text=代理配置'
-        }
-      ];
-      
-      await db.Tutorial.bulkCreate(seedTutorials);
-      console.log(`成功添加 ${seedTutorials.length} 条教程种子数据`);
-    }
+    console.log('反馈模块数据库已就绪');
+    // 这里可以添加反馈相关的种子数据，但通常反馈数据由用户生成
   } catch (error) {
     console.error('添加种子数据失败:', error);
   }
@@ -871,12 +831,15 @@ app.delete('/api/scripts/:id', async (req, res) => {
     }
 });
 
+// --- 反馈相关路由 ---
+app.use('/api/feedback', feedbackRoutes);
+
 // 启动服务器
 const serverInstance = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`教程API服务器运行在 http://0.0.0.0:${PORT}`);
-  // 你可以根据需要保留或调整其他日志输出
+  console.log(`FourAir API服务器运行在 http://0.0.0.0:${PORT}`);
   console.log(`教程管理界面: http://localhost:${PORT}/manage_tutorials.html`);
   console.log(`脚本管理界面: http://localhost:${PORT}/manage_scripts.html`);
+  console.log(`反馈管理界面: http://localhost:${PORT}/manage_feedback.html`);
 });
 
 // 优雅退出时关闭数据库连接
@@ -884,9 +847,9 @@ process.on('SIGINT', async () => {
   console.log('收到 SIGINT. 关闭服务器和数据库连接...');
   serverInstance.close(async () => {
     console.log('HTTP 服务器已关闭.');
-    if (db && db.sequelize) {
+    if (sequelize) {
       try {
-        await db.sequelize.close();
+        await sequelize.close();
         console.log('Sequelize 数据库连接已关闭.');
       } catch (error) {
         console.error('关闭 Sequelize 连接时出错:', error);

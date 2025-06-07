@@ -182,6 +182,11 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/shop/index.js';
             initFunctionName = 'initShopPage';
             break;
+        // 反馈页面
+        case 'feedback':
+            modulePath = '../pages/feedback/index.js';
+            initFunctionName = 'initFeedbackPage';
+            break;
         // 未定义的页面
         default:
             console.error(`Unknown page ID: ${pageId}`);

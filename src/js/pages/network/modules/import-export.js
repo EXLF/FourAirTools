@@ -124,7 +124,7 @@ function showImportConfirmDialog(proxies, loadProxies) {
 }
 
 // 解析代理列表文本内容
-export function parseProxyList(content) {
+export function parseProxyList(content, defaultType = 'HTTP') {
     const proxies = [];
     const lines = content.split(/\r?\n/);
 
@@ -154,7 +154,7 @@ export function parseProxyList(content) {
                 proxy.password = parts[4] || null;
             }
         } else {
-            proxy.type = 'HTTP';
+            proxy.type = defaultType;
             proxy.host = parts[0];
             proxy.port = parseInt(parts[1], 10);
             if (parts.length >= 4) {

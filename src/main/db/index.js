@@ -59,23 +59,13 @@ function initializeDatabase() {
                         createProxiesTable();
                         // *** 7. 创建商店相关表 ***
                         createShopTables();
-                        // *** 8. 插入商店测试数据 ***
+                        // *** 8. 清理商店测试数据 ***
                         setTimeout(() => {
                             try {
-                                const shopTestData = require('./init_shop_test_data.js');
-                                shopTestData.insertTestProducts();
-                                
-                                // *** 9. 更新商品图片字段 ***
-                                setTimeout(() => {
-                                    try {
-                                        const updateImages = require('./update_product_images.js');
-                                        updateImages.updateProductImages();
-                                    } catch (err) {
-                                        console.log('更新商品图片时出错:', err.message);
-                                    }
-                                }, 1000); // 延迟1秒确保数据已插入
+                                const clearShopData = require('./clear_shop_data.js');
+                                clearShopData.clearShopData();
                             } catch (err) {
-                                console.log('插入商店测试数据时出错:', err.message);
+                                console.log('清理商店数据时出错:', err.message);
                             }
                         }, 2000); // 延迟2秒确保表已创建
                         // *** 调用密码迁移 ***

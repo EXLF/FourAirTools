@@ -57,7 +57,11 @@ export function openProxyModal(proxyData = null) {
 
         // 批量导入按钮点击事件
         if (batchImportBtn && batchImportTextarea) {
-            batchImportBtn.onclick = () => handleBatchImport(batchImportTextarea.value);
+            batchImportBtn.onclick = () => {
+                // 获取用户选择的代理类型
+                const selectedType = form.elements['type'] ? form.elements['type'].value : 'HTTP';
+                handleBatchImport(batchImportTextarea.value, selectedType);
+            };
         }
 
         // 保存按钮事件
@@ -66,13 +70,13 @@ export function openProxyModal(proxyData = null) {
 }
 
 // 处理批量导入
-async function handleBatchImport(content) {
+async function handleBatchImport(content, selectedType) {
     if (!content || content.trim() === '') {
         showToast('请输入要导入的代理配置', 'warning');
         return;
     }
 
-    const proxies = parseProxyList(content);
+    const proxies = parseProxyList(content, selectedType);
     if (proxies.length === 0) {
         showToast('未能解析出有效的代理配置，请检查格式', 'error');
         return;
@@ -126,7 +130,7 @@ async function handleBatchImport(content) {
                 for (const proxy of proxies) {
                     try {
                         await window.dbAPI.addProxy({
-                            type: proxy.type || 'HTTP',
+                            type: proxy.type || selectedType,
                             host: proxy.host,
                             port: proxy.port,
                             username: proxy.username || null,

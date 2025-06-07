@@ -97,9 +97,27 @@ class ShopManager {
                     </div>
                     
                     <div id="products-empty" class="empty-state" style="display: none;">
-                        <i class="fas fa-box-open"></i>
-                        <h3>暂无商品</h3>
-                        <p>该分类下暂时没有商品，请稍后查看或切换其他分类</p>
+                        <i class="fas fa-store"></i>
+                        <h3>商店功能开发中</h3>
+                        <p>撸毛商店功能正在开发中，敬请期待！<br/>未来将提供IP代理、社交账号、工具软件等商品服务</p>
+                        <div class="coming-soon-features">
+                            <div class="feature-item">
+                                <i class="fas fa-globe"></i>
+                                <span>高质量IP代理</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fab fa-twitter"></i>
+                                <span>社交账号资源</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-tools"></i>
+                                <span>撸毛工具软件</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-graduation-cap"></i>
+                                <span>专业教程指导</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -1,0 +1,142 @@
+<div class="page-header">
+    <h1><i class="fas fa-comment-dots"></i> 用户反馈</h1>
+    <p>帮助我们改进FourAir，您的反馈非常宝贵</p>
+</div>
+
+<div class="feedback-container">
+    <div class="feedback-form-section">
+        <div class="form-header">
+            <h2>提交反馈</h2>
+            <p>请详细描述您遇到的问题或建议，我们会尽快处理</p>
+        </div>
+
+        <form id="feedback-form" class="feedback-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="feedback-type">反馈类型 <span class="required">*</span></label>
+                    <select id="feedback-type" name="type" class="form-control" required>
+                        <option value="">请选择反馈类型</option>
+                        <option value="bug">Bug报告</option>
+                        <option value="feature">功能建议</option>
+                        <option value="improvement">体验优化</option>
+                        <option value="other">其他反馈</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-priority">优先级</label>
+                    <select id="feedback-priority" name="priority" class="form-control">
+                        <option value="low">一般</option>
+                        <option value="medium">重要</option>
+                        <option value="high">紧急</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="feedback-title">问题标题 <span class="required">*</span></label>
+                <input type="text" id="feedback-title" name="title" class="form-control" 
+                       placeholder="简要描述您的问题或建议" required maxlength="200">
+                <div class="form-hint">建议控制在200字符以内</div>
+            </div>
+
+            <div class="form-group">
+                <label for="feedback-description">详细描述 <span class="required">*</span></label>
+                <textarea id="feedback-description" name="description" class="form-control" 
+                          placeholder="请详细描述您的问题、建议或意见，包括复现步骤、期望结果等" 
+                          required rows="8"></textarea>
+                <div class="form-hint">请详细描述您的问题或建议，越详细越有助于我们定位问题</div>
+            </div>
+
+
+
+            <div class="form-actions">
+                <button type="button" id="feedback-reset" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> 重置表单
+                </button>
+                <button type="submit" id="feedback-submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i> 提交反馈
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="feedback-info-section">
+        <div class="info-card">
+            <div class="info-header">
+                <i class="fas fa-info-circle"></i>
+                <h3>反馈指南</h3>
+            </div>
+            <div class="info-content">
+                <div class="tip-item">
+                    <i class="fas fa-bug"></i>
+                    <div>
+                        <strong>Bug报告</strong>
+                        <p>描述遇到的问题、复现步骤和期望结果</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <i class="fas fa-lightbulb"></i>
+                    <div>
+                        <strong>功能建议</strong>
+                        <p>描述希望新增的功能和使用场景</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <i class="fas fa-star"></i>
+                    <div>
+                        <strong>体验优化</strong>
+                        <p>对现有功能的改进建议和优化方案</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <i class="fas fa-comments"></i>
+                    <div>
+                        <strong>其他反馈</strong>
+                        <p>任何其他意见、建议或问题</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-header">
+                <i class="fas fa-clock"></i>
+                <h3>处理时效</h3>
+            </div>
+            <div class="info-content">
+                <div class="time-item">
+                    <span class="priority-badge high">紧急</span>
+                    <span>24小时内响应</span>
+                </div>
+                <div class="time-item">
+                    <span class="priority-badge medium">重要</span>
+                    <span>3-5个工作日</span>
+                </div>
+                <div class="time-item">
+                    <span class="priority-badge low">一般</span>
+                    <span>1-2周内处理</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 反馈成功提示 -->
+<div id="feedback-success" class="feedback-success" style="display: none;">
+    <div class="success-content">
+        <i class="fas fa-check-circle"></i>
+        <h3>反馈提交成功！</h3>
+        <p>感谢您的反馈，我们会尽快处理并回复您。</p>
+        <button type="button" id="feedback-continue" class="btn btn-primary">
+            继续提交反馈
+        </button>
+    </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div id="feedback-loading" class="feedback-loading" style="display: none;">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p>正在提交反馈...</p>
+    </div>
+</div> 
