@@ -158,7 +158,15 @@ const validInvokeChannels = [
     'app:downloadUpdate',
     'app:restart',
     'app:openDevTools',
-    'app:generateDebugReport'
+    'app:generateDebugReport',
+    // *** 商店相关通道 ***
+    'shop:getCategories',
+    'shop:getProducts',
+    'shop:getProduct',
+    'shop:createOrder',
+    'shop:getUserOrders',
+    'shop:getOrderDetails',
+    'shop:updatePaymentStatus'
 ];
 
 contextBridge.exposeInMainWorld('electron', {

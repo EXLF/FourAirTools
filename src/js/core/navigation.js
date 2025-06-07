@@ -177,6 +177,11 @@ async function initializePageContent(pageId) {
             modulePath = '../pages/tools/index.js';
             initFunctionName = 'initToolsPage';
             break;
+        // 撸毛商店页面
+        case 'shop':
+            modulePath = '../pages/shop/index.js';
+            initFunctionName = 'initShopPage';
+            break;
         // 未定义的页面
         default:
             console.error(`Unknown page ID: ${pageId}`);

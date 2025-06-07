@@ -57,6 +57,27 @@ function initializeDatabase() {
                         createWalletSocialLinksTable();
                         // *** 6. 创建代理表 ***
                         createProxiesTable();
+                        // *** 7. 创建商店相关表 ***
+                        createShopTables();
+                        // *** 8. 插入商店测试数据 ***
+                        setTimeout(() => {
+                            try {
+                                const shopTestData = require('./init_shop_test_data.js');
+                                shopTestData.insertTestProducts();
+                                
+                                // *** 9. 更新商品图片字段 ***
+                                setTimeout(() => {
+                                    try {
+                                        const updateImages = require('./update_product_images.js');
+                                        updateImages.updateProductImages();
+                                    } catch (err) {
+                                        console.log('更新商品图片时出错:', err.message);
+                                    }
+                                }, 1000); // 延迟1秒确保数据已插入
+                            } catch (err) {
+                                console.log('插入商店测试数据时出错:', err.message);
+                            }
+                        }, 2000); // 延迟2秒确保表已创建
                         // *** 调用密码迁移 ***
                         migrateProxyPasswords(); 
                     });
@@ -515,6 +536,138 @@ async function migrateProxyPasswords() {
     } catch (error) {
         console.error('[DB Migration] 执行代理密码迁移时发生错误:', error);
     }
+}
+
+/**
+ * 创建商店相关表
+ */
+function createShopTables() {
+    // 1. 创建商品分类表
+    const createCategoriesTableSQL = `
+        CREATE TABLE IF NOT EXISTS shop_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT,
+            icon VARCHAR(50),
+            sort_order INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+    
+    // 2. 创建商品表
+    const createProductsTableSQL = `
+        CREATE TABLE IF NOT EXISTS shop_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_id INTEGER NOT NULL,
+            name VARCHAR(200) NOT NULL,
+            description TEXT,
+            price DECIMAL(10,2) NOT NULL,
+            stock_quantity INTEGER DEFAULT 0,
+            is_digital BOOLEAN DEFAULT 1,
+            product_type VARCHAR(50),
+            product_data TEXT,
+            image_url VARCHAR(500),
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES shop_categories (id)
+        );
+    `;
+    
+    // 3. 创建订单表
+    const createOrdersTableSQL = `
+        CREATE TABLE IF NOT EXISTS shop_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id VARCHAR(100) NOT NULL,
+            order_no VARCHAR(50) UNIQUE NOT NULL,
+            total_amount DECIMAL(10,2) NOT NULL,
+            status VARCHAR(20) DEFAULT 'pending',
+            payment_method VARCHAR(50),
+            payment_status VARCHAR(20) DEFAULT 'unpaid',
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+    
+    // 4. 创建订单明细表
+    const createOrderItemsTableSQL = `
+        CREATE TABLE IF NOT EXISTS shop_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            product_name VARCHAR(200) NOT NULL,
+            product_price DECIMAL(10,2) NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            subtotal DECIMAL(10,2) NOT NULL,
+            delivery_data TEXT,
+            delivery_status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES shop_orders (id),
+            FOREIGN KEY (product_id) REFERENCES shop_products (id)
+        );
+    `;
+    
+    // 执行表创建
+    db.serialize(() => {
+        db.run(createCategoriesTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating shop_categories table:', err.message);
+            } else {
+                console.log('商品分类表已创建或已存在');
+                
+                // 插入默认分类数据
+                const insertCategorySQL = 'INSERT OR IGNORE INTO shop_categories (name, description, icon, sort_order) VALUES (?, ?, ?, ?)';
+                const categoryStmt = db.prepare(insertCategorySQL);
+                
+                const categories = [
+                    ['IP代理', '高质量IP代理服务', 'fas fa-globe', 1],
+                    ['Twitter账号', '各种类型Twitter账号', 'fab fa-twitter', 2],
+                    ['Discord账号', 'Discord社交账号', 'fab fa-discord', 3],
+                    ['Telegram账号', 'Telegram通讯账号', 'fab fa-telegram', 4],
+                    ['工具软件', '撸毛必备工具软件', 'fas fa-tools', 5],
+                    ['付费教程', '高质量撸毛教程', 'fas fa-graduation-cap', 6]
+                ];
+                
+                categories.forEach(category => {
+                    categoryStmt.run(...category, (errInsert) => {
+                        if (errInsert && !errInsert.message.includes('UNIQUE constraint failed')) {
+                            console.error(`Error inserting category ${category[0]}:`, errInsert.message);
+                        }
+                    });
+                });
+                
+                categoryStmt.finalize();
+                console.log('商品分类默认数据已插入');
+            }
+        });
+        
+        db.run(createProductsTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating shop_products table:', err.message);
+            } else {
+                console.log('商品表已创建或已存在');
+            }
+        });
+        
+        db.run(createOrdersTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating shop_orders table:', err.message);
+            } else {
+                console.log('订单表已创建或已存在');
+            }
+        });
+        
+        db.run(createOrderItemsTableSQL, (err) => {
+            if (err) {
+                console.error('Error creating shop_order_items table:', err.message);
+            } else {
+                console.log('订单明细表已创建或已存在');
+            }
+        });
+    });
 }
 
 /**

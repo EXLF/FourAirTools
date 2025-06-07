@@ -148,6 +148,7 @@ global.chineseFixMap = chineseFixMap;
 const { setupDatabaseIpcHandlers } = require('./ipcHandlers/dbHandlers.js');
 const { setupApplicationIpcHandlers } = require('./ipcHandlers/appHandlers.js');
 const { setupProxyIpcHandlers } = require('./ipcHandlers/proxyHandlers.js');
+const { registerShopHandlers } = require('./ipcHandlers/shopHandlers.js');
 const scriptEngine = require('./scriptEngine.js');
 const scriptUpdaterService = require('./services/scriptUpdaterService.js');
 
@@ -277,6 +278,7 @@ function createWindow(startMinimized = false) {
   setupDatabaseIpcHandlers();
   setupApplicationIpcHandlers(mainWindow);
   setupProxyIpcHandlers(mainWindow);
+  registerShopHandlers();
   // 设置脚本引擎的主窗口引用
   scriptEngine.setMainWindow(mainWindow);
   console.log('[Main] 脚本引擎已初始化');
